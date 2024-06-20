@@ -24,8 +24,6 @@ def GetGeneralData(country):
             json_data = response.json()
             data_from_api = pd.DataFrame(json_data["data"])
             break
-        else:
-            continue
     return data_from_api
 
 def GetAdditionalData(links):
