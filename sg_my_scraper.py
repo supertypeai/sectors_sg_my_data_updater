@@ -327,7 +327,6 @@ if __name__ == "__main__":
 
     if args.monthly:
         data_general = GetGeneralData(country)
-        print(data_general)
         links = data_general["Url"].tolist()
         extension, failed_links = GetAdditionalData(links)
         data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
@@ -353,7 +352,7 @@ if __name__ == "__main__":
         data_general = GetGeneralData(country)
         data_general = rename_and_convert(data_general, "daily")
         data_general = clean_daily_foreign_data(data_general)
-        db = "sgx_companies" if args.malaysia else "klse_companies"
+        db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['close', 'market_cap', 'volume', 'pe',
@@ -363,8 +362,9 @@ if __name__ == "__main__":
         data_db.drop(drop_cols, axis = 1, inplace = True)
         data_final = pd.merge(data_general, data_db, on = "symbol", how = "inner")
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
-    print("data final \n", data_final)
-    records = data_final.to_json()
+    # print("data final \n", data_final)
+    records = data_final.replace({np.nan: None}).to_dict("records")
+    # print("records : \n", records)
     try:
         supabase.table(db).upsert(records, returning='minimal').execute()
         print("Upsert operation successful.")
