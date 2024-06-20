@@ -48,7 +48,7 @@ def GetAdditionalData(links):
         "links" : [],
         "page" : []
     }
-    for link in links[:5]:
+    for link in links:
         try:
             data_dict = {
                 "Url" : link
@@ -364,3 +364,9 @@ if __name__ == "__main__":
         data_final = pd.merge(data_general, data_db, on = "symbol", how = "inner")
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
     print("data final \n", data_final)
+    records = data_final.to_json()
+    try:
+        supabase.table(db).upsert(records, returning='minimal').execute()
+        print("Upsert operation successful.")
+    except Exception as e:
+        print(f"Error during upsert operation: {e}")
