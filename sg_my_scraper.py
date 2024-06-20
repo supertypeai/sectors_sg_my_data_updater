@@ -15,7 +15,6 @@ import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 import urllib.request
 proxy = os.environ.get("PROXY")
-print("proxy :", proxy)
 
 proxy_support = urllib.request.ProxyHandler({'http': proxy,'https': proxy})
 opener = urllib.request.build_opener(proxy_support)
@@ -33,15 +32,15 @@ def GetGeneralData(country):
 
     data_from_api = json.loads(html)
     data_from_api = pd.DataFrame(data_from_api["data"])
-    # print(data_from_api)
+    
     # for i in range(10):
-        # response = requests.get(url, headers=headers)
+    #     response = requests.get(url, headers=headers)
 
-        # if response.status_code == 200:
-        #     json_data = response.json()
-        #     data_from_api = pd.DataFrame(json_data["data"])
-        #     break
-    return data_from_api
+    #     if response.status_code == 200:
+    #         json_data = response.json()
+    #         data_from_api = pd.DataFrame(json_data["data"])
+    #         break
+    # return data_from_api
 
 def GetAdditionalData(links):
     data_list = []
@@ -49,7 +48,7 @@ def GetAdditionalData(links):
         "links" : [],
         "page" : []
     }
-    for link in links:
+    for link in links[:5]:
         try:
             data_dict = {
                 "Url" : link
@@ -203,6 +202,7 @@ def rename_and_convert(data, period):
         cleaned_data['revenue'] = cleaned_data['revenue'].apply(convert_to_number)
         cleaned_data['market_cap'] = cleaned_data['market_cap'].apply(convert_to_number)
         return cleaned_data
+    
     elif period == "daily":
         rename_cols = {
             'Symbol' : 'symbol',
@@ -301,26 +301,6 @@ def clean_periodic_foreign_data(foreign_periodic_data, foreign_sectors):
 
     return foreign_periodic_data
 
-# logging.basicConfig(filename="logs.log", level=logging.INFO)
-# data = GetGeneralData("sg")
-# links = data["Url"].tolist()
-# extension, failed_links = GetAdditionalData(links)
-# data_full = pd.merge(data, extension, on = "Url", how = "inner")
-# # Retry the failed links
-# n_try = 0
-# failed_links["links"] = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]]
-# while len(failed_links["links"]) != 0 or n_try < 10:
-#     print(f"iterasi ke-{n_try+1}")
-#     if len(failed_links["links"]) == 0:
-#         break
-#     new_extension, failed_links = GetAdditionalData(failed_links["links"])
-#     n_try += 1
-# remaining = data[data["Url"].isin(failed_links["links"])]
-# remaining = remaining.assign(Url = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]])
-# updated_extension = pd.merge(remaining, new_extension, on = "Url", how = "inner")
-# data_final = pd.concat([data_full[~data_full["Url"].isin(failed_links["links"])], updated_extension])
-# data_final = rename_and_convert(data_final)
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Update sg or my data. If no argument is specified, the sg data will be updated.")
     parser.add_argument("-sg", "--singapore", action="store_true", default=False, help="Update singapore data")
@@ -348,32 +328,28 @@ if __name__ == "__main__":
     if args.monthly:
         data_general = GetGeneralData(country)
         links = data_general["Url"].tolist()
-        data_general = GetGeneralData(country)
-        links = data_general["Url"].tolist()
         extension, failed_links = GetAdditionalData(links)
-        data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
         data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
         # Retry the failed links
         n_try = 0
-        failed_links["links"] = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]]
-        while len(failed_links["links"]) != 0 or n_try < 10:
-            print(f"iterasi ke-{n_try+1}")
-            if len(failed_links["links"]) == 0:
-                break
-            new_extension, failed_links = GetAdditionalData(failed_links["links"])
-            n_try += 1
-        remaining = data_general[data_general["Url"].isin(failed_links["links"])]
-        remaining = data_general[data_general["Url"].isin(failed_links["links"])]
-        remaining = remaining.assign(Url = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]])
-        updated_extension = pd.merge(remaining, new_extension, on = "Url", how = "inner")
-        data_final = pd.concat([data_full[~data_full["Url"].isin(failed_links["links"])], updated_extension])
+        if len(failed_links["links"]) != 0:
+            failed_links["links"] = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]]
+            while len(failed_links["links"]) != 0 or n_try < 10:
+                if len(failed_links["links"]) == 0:
+                    break
+                new_extension, failed_links = GetAdditionalData(failed_links["links"])
+                n_try += 1
+            remaining = data_general[data_general["Url"].isin(failed_links["links"])]
+            remaining = remaining.assign(Url = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]])
+            updated_extension = pd.merge(remaining, new_extension, on = "Url", how = "inner")
+            data_final = pd.concat([data_full[~data_full["Url"].isin(failed_links["links"])], updated_extension])
+        else:
+            data_final = data_full.copy()
         data_final = rename_and_convert(data_final, "monthly")
         data_final = clean_daily_foreign_data(data_final)
         data_final = clean_periodic_foreign_data(data_final, foreign_sectors)
     elif args.daily:
-        data_general = GetGeneralData(country)
-        data_general = rename_and_convert(data_general, "daily")
-        data_general = clean_daily_foreign_data(data_general)
+        print("masuk ke daily juga dia ternyata jingan")
         data_general = GetGeneralData(country)
         data_general = rename_and_convert(data_general, "daily")
         data_general = clean_daily_foreign_data(data_general)
@@ -386,4 +362,4 @@ if __name__ == "__main__":
         'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis = 1, inplace = True)
         data_final = pd.merge(data_general, data_db, on = "symbol", how = "inner")
-    data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_general.to_csv("data_sg.csv", index = False)
+    data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
