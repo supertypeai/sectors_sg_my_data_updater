@@ -331,10 +331,10 @@ if __name__ == "__main__":
     foreign_sectors = my_sectors if args.malaysia else sg_sectors
 
     if args.monthly:
-        data = GetGeneralData(country)
-        links = data["Url"].tolist()
+        data_general = GetGeneralData(country)
+        links = data_general["Url"].tolist()
         extension, failed_links = GetAdditionalData(links)
-        data_full = pd.merge(data, extension, on = "Url", how = "inner")
+        data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
         # Retry the failed links
         n_try = 0
         failed_links["links"] = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]]
@@ -344,7 +344,7 @@ if __name__ == "__main__":
                 break
             new_extension, failed_links = GetAdditionalData(failed_links["links"])
             n_try += 1
-        remaining = data[data["Url"].isin(failed_links["links"])]
+        remaining = data_general[data_general["Url"].isin(failed_links["links"])]
         remaining = remaining.assign(Url = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]])
         updated_extension = pd.merge(remaining, new_extension, on = "Url", how = "inner")
         data_final = pd.concat([data_full[~data_full["Url"].isin(failed_links["links"])], updated_extension])
@@ -352,9 +352,9 @@ if __name__ == "__main__":
         data_final = clean_daily_foreign_data(data_final)
         data_final = clean_periodic_foreign_data(data_final, foreign_sectors)
     elif args.daily:
-        data = GetGeneralData(country)
-        data = rename_and_convert(data, "daily")
-        data = clean_daily_foreign_data(data)
+        data_general = GetGeneralData(country)
+        data_general = rename_and_convert(data_general, "daily")
+        data_general = clean_daily_foreign_data(data_general)
         db = "sgx_companies" if args.malaysia else "klse_companies"
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
@@ -363,5 +363,5 @@ if __name__ == "__main__":
         'monthly_signal', 'change_1d', 'change_7d', 'change_1m',
         'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis = 1, inplace = True)
-        data_final = pd.merge(data, data_db, on = "symbol", how = "inner")
-    data_final.to_csv("data_my.csv", index = False) if args.malaysia else data.to_csv("data_sg.csv", index = False)
+        data_final = pd.merge(data_general, data_db, on = "symbol", how = "inner")
+    data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_general.to_csv("data_sg.csv", index = False)
