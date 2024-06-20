@@ -1,2 +1,4 @@
 ERROR:root:error at overview page with link: /equities/sapphire-corporation-ltd
 INFO:httpx:HTTP Request: GET https://rfiycxgjbnkefczvbosm.supabase.co/rest/v1/klse_companies?select=%2A "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://rfiycxgjbnkefczvbosm.supabase.co/rest/v1/klse_companies?select=%2A "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://rfiycxgjbnkefczvbosm.supabase.co/rest/v1/klse_companies?select=%2A "HTTP/1.1 200 OK"
