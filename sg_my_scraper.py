@@ -22,11 +22,11 @@ def GetGeneralData(country):
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             json_data = response.json()
-            data_general = pd.DataFrame(json_data["data"])
+            data_from_api = pd.DataFrame(json_data["data"])
             break
         else:
             continue
-    return data_general
+    return data_from_api
 
 def GetAdditionalData(links):
     data_list = []
