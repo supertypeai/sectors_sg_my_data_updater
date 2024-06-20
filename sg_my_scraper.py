@@ -11,6 +11,14 @@ import argparse
 import numpy as np
 from bs4 import BeautifulSoup
 import json
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+import urllib.request
+proxy = os.environ.get("proxy")
+
+proxy_support = urllib.request.ProxyHandler({'http': proxy,'https': proxy})
+opener = urllib.request.build_opener(proxy_support)
+urllib.request.install_opener(opener)
 
 def GetGeneralData(country):
     if country == "sg":
@@ -19,14 +27,19 @@ def GetGeneralData(country):
         url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceDay%2CperformanceWeek%2CperformanceMonth%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=42&filter-domain=&page=0&page-size=2000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
     data_from_api = None
-    for i in range(10):
-        print(f"iterasi ke-{i+1}")
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            json_data = response.json()
-            data_from_api = pd.DataFrame(json_data["data"])
-            break
-    return data_from_api
+    with urllib.request.urlopen(url) as response:
+        html = response.read()
+
+    data_from_api = json.loads(html)
+    data_from_api = pd.DataFrame(data_from_api["data"])
+    # print(data_from_api)
+    # for i in range(10):
+        # response = requests.get(url, headers=headers)
+
+        # if response.status_code == 200:
+        #     json_data = response.json()
+        #     data_from_api = pd.DataFrame(json_data["data"])
+        #     break
     return data_from_api
 
 def GetAdditionalData(links):
