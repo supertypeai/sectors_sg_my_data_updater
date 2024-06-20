@@ -15,6 +15,7 @@ import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 import urllib.request
 proxy = os.environ.get("PROXY")
+print("proxy :", proxy)
 
 proxy_support = urllib.request.ProxyHandler({'http': proxy,'https': proxy})
 opener = urllib.request.build_opener(proxy_support)
