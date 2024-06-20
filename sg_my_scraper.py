@@ -27,6 +27,7 @@ def GetGeneralData(country):
             data_from_api = pd.DataFrame(json_data["data"])
             break
     return data_from_api
+    return data_from_api
 
 def GetAdditionalData(links):
     data_list = []
@@ -333,7 +334,10 @@ if __name__ == "__main__":
     if args.monthly:
         data_general = GetGeneralData(country)
         links = data_general["Url"].tolist()
+        data_general = GetGeneralData(country)
+        links = data_general["Url"].tolist()
         extension, failed_links = GetAdditionalData(links)
+        data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
         data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
         # Retry the failed links
         n_try = 0
@@ -345,6 +349,7 @@ if __name__ == "__main__":
             new_extension, failed_links = GetAdditionalData(failed_links["links"])
             n_try += 1
         remaining = data_general[data_general["Url"].isin(failed_links["links"])]
+        remaining = data_general[data_general["Url"].isin(failed_links["links"])]
         remaining = remaining.assign(Url = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]])
         updated_extension = pd.merge(remaining, new_extension, on = "Url", how = "inner")
         data_final = pd.concat([data_full[~data_full["Url"].isin(failed_links["links"])], updated_extension])
@@ -352,6 +357,9 @@ if __name__ == "__main__":
         data_final = clean_daily_foreign_data(data_final)
         data_final = clean_periodic_foreign_data(data_final, foreign_sectors)
     elif args.daily:
+        data_general = GetGeneralData(country)
+        data_general = rename_and_convert(data_general, "daily")
+        data_general = clean_daily_foreign_data(data_general)
         data_general = GetGeneralData(country)
         data_general = rename_and_convert(data_general, "daily")
         data_general = clean_daily_foreign_data(data_general)
