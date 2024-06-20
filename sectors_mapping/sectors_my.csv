@@ -1,0 +1,53 @@
+sector;industry;sectors_id;sub_sector_id
+Academic & Educational Services;Miscellaneous Educational Service Providers;Consumer Cyclicals;Consumer Services
+Basic Materials;Chemicals;Basic Materials;Basic Materials
+Basic Materials;Construction Materials;Basic Materials;Basic Materials
+Basic Materials;Containers & Packaging;Basic Materials;Basic Materials
+Basic Materials;Metals & Mining;Basic Materials;Basic Materials
+Basic Materials;Paper & Forest Products;Basic Materials;Basic Materials
+Consumer Cyclicals;Automobiles & Auto Parts;Consumer Cyclicals;Automobiles & Components
+Consumer Cyclicals;Diversified Retail;Consumer Cyclicals;Retailing
+Consumer Cyclicals;Homebuilding & Construction Supplies;Infrastructures;Heavy Constructions & Civil Engineering
+Consumer Cyclicals;Hotels & Entertainment Services;Consumer Cyclicals;Consumer Services
+Consumer Cyclicals;Household Goods;Consumer Cyclicals;Household Goods
+Consumer Cyclicals;Media & Publishing;Consumer Cyclicals;Media & Entertainment
+Consumer Cyclicals;Specialty Retailers;Consumer Cyclicals;Retailing
+Consumer Cyclicals;Textiles & Apparel;Consumer Cyclicals;Apparel & Luxury Goods
+Consumer Non-Cyclicals;Beverages;Consumer Non-Cyclicals;Food & Beverage
+Consumer Non-Cyclicals;Consumer Goods Conglomerates;Consumer Cyclicals;Apparel & Luxury Goods
+Consumer Non-Cyclicals;Food & Drug Retailing;Consumer Non-Cyclicals;Food & Staples Retailing
+Consumer Non-Cyclicals;Food & Tobacco;Consumer Non-Cyclicals;Tobacco
+Consumer Non-Cyclicals;Personal & Household Products & Services;Consumer Non-Cyclicals;Nondurable Household Products
+Energy;Oil & Gas;Energy;Oil, Gas & Coal
+Energy;Oil & Gas Related Equipment and Services;Energy;Oil, Gas & Coal
+Energy;Renewable Energy;Energy;Alternative Energy
+Financials;Banking Services;Financials;Banks
+Financials;Insurance;Financials;Insurance
+Financials;Investment Banking & Investment Services;Financials;Financing Service
+Financials;Investment Holding Companies;Financials;Holding & Investment Companies
+Government Activity;Government Activity;;
+Healthcare;Healthcare Equipment & Supplies;Healthcare;Healthcare Equipment & Providers
+Healthcare;Healthcare Providers & Services;Healthcare;Healthcare Equipment & Providers
+Healthcare;Pharmaceuticals;Healthcare;Pharmaceuticals & Health Care Research
+Industrials;Construction & Engineering;Infrastructures;Heavy Constructions & Civil Engineering
+Industrials;Diversified Industrial Goods Wholesale;Industrials;Industrial Goods
+Industrials;Freight & Logistics Services;Transportation & Logistic;Logistics & Deliveries
+Industrials;Machinery, Tools, Heavy Vehicles, Trains & Ships;Transportation & Logistic;Logistics & Deliveries
+Industrials;Passenger Transportation Services;Transportation & Logistic;Transportation
+Industrials;Professional & Commercial Services;Industrials;Industrial Services
+Industrials;Transport Infrastructure;Infrastructures;Transportation Infrastructure
+Real Estate;Real Estate Operations;Properties & Real Estate;Properties & Real Estate
+Real Estate;Residential & Commercial REITs;Properties & Real Estate;Properties & Real Estate
+Technology;Communications & Networking;Infrastructures;Telecommunication
+Technology;Computers, Phones & Household Electronics;Technology;Technology Hardware & Equipment
+Technology;Electronic Equipment & Parts;Technology;Technology Hardware & Equipment
+Technology;Financial Technology (Fintech) & Infrastructure;Technology;Software & IT Services
+Technology;Integrated Hardware & Software;Technology;Software & IT Services
+Technology;Office Equipment;Technology;Technology Hardware & Equipment
+Technology;Semiconductors & Semiconductor Equipment;Technology;Technology Hardware & Equipment
+Technology;Software & IT Services;Technology;Software & IT Services
+Technology;Telecommunications Services;Infrastructures;Telecommunication
+Utilities;Electrical Utilities & IPPs;Infrastructures;Utilities
+Utilities;Multiline Utilities;Infrastructures;Utilities
+Utilities;Natural Gas Utilities;Infrastructures;Utilities
+Utilities;Water & Related Utilities;Infrastructures;Utilities
