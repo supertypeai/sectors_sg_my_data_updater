@@ -327,6 +327,7 @@ if __name__ == "__main__":
 
     if args.monthly:
         data_general = GetGeneralData(country)
+        print(data_general)
         links = data_general["Url"].tolist()
         extension, failed_links = GetAdditionalData(links)
         data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
@@ -362,3 +363,4 @@ if __name__ == "__main__":
         data_db.drop(drop_cols, axis = 1, inplace = True)
         data_final = pd.merge(data_general, data_db, on = "symbol", how = "inner")
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
+    print("data final \n", data_final)
