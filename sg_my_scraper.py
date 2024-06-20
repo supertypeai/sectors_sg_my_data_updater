@@ -32,7 +32,7 @@ def GetGeneralData(country):
 
     data_from_api = json.loads(html)
     data_from_api = pd.DataFrame(data_from_api["data"])
-    
+
     # for i in range(10):
     #     response = requests.get(url, headers=headers)
 
@@ -40,7 +40,7 @@ def GetGeneralData(country):
     #         json_data = response.json()
     #         data_from_api = pd.DataFrame(json_data["data"])
     #         break
-    # return data_from_api
+    return data_from_api
 
 def GetAdditionalData(links):
     data_list = []
@@ -349,7 +349,6 @@ if __name__ == "__main__":
         data_final = clean_daily_foreign_data(data_final)
         data_final = clean_periodic_foreign_data(data_final, foreign_sectors)
     elif args.daily:
-        print("masuk ke daily juga dia ternyata jingan")
         data_general = GetGeneralData(country)
         data_general = rename_and_convert(data_general, "daily")
         data_general = clean_daily_foreign_data(data_general)
