@@ -48,7 +48,7 @@ def GetAdditionalData(links):
         "links" : [],
         "page" : []
     }
-    for link in links:
+    for link in links[:5]:
         try:
             data_dict = {
                 "Url" : link
@@ -336,6 +336,7 @@ if __name__ == "__main__":
         links = data_general["Url"].tolist()
         extension, failed_links = GetAdditionalData(links)
         data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
+        db = "klse_companies" if args.malaysia else "sgx_companies"
         # Retry the failed links
         n_try = 0
         if len(failed_links["links"]) != 0:
