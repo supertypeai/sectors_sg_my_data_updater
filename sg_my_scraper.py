@@ -101,6 +101,11 @@ def GetAdditionalData(links):
             if response.status_code == 200:
                 html_content= response.text
                 soup = BeautifulSoup(html_content, "html.parser")
+                general_infos = soup.find("div", class_ = "right general-info").find_all("div")
+                for general_info in general_infos:
+                    val = "S/N:"
+                    if val in general_info.get_text():
+                        data_dict["yfinance_ticker"] = general_info.find("span", class_ = "elp").get_text()
                 values = soup.find_all("tr")
                 expected_values = [
                     "P/E Ratio TTM", "Price to Sales TTM", "Price to Cash Flow MRQ", "Price to Free Cash Flow TTM", "Price to Book MRQ",
@@ -194,7 +199,8 @@ def rename_and_convert(data, period):
             'Total Debt to Equity MRQ' : 'debt_to_equity', 
             'Dividend Yield 5 Year Avg. 5YA' : 'five_year_dividend_average',
             'Dividend Growth Rate ANN' : 'dividend_growth_rate', 
-            'Payout Ratio TTM' : 'payout_ratio'
+            'Payout Ratio TTM' : 'payout_ratio',
+            'yfinance_ticker' : 'yfinance_ticker'
         }
         cleaned_data = data[rename_cols.keys()].rename(rename_cols, axis = 1)
 
