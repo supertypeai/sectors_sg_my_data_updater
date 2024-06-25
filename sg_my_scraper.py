@@ -48,7 +48,7 @@ def GetAdditionalData(links):
         "links" : [],
         "page" : []
     }
-    for link in links[:5]:
+    for link in links:
         try:
             data_dict = {
                 "Url" : link
