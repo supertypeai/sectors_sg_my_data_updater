@@ -10,6 +10,7 @@ import logging
 import argparse
 import numpy as np
 from bs4 import BeautifulSoup
+import yfinance as yf
 import json
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -101,11 +102,12 @@ def GetAdditionalData(links):
             if response.status_code == 200:
                 html_content= response.text
                 soup = BeautifulSoup(html_content, "html.parser")
-                general_infos = soup.find("div", class_ = "right general-info").find_all("div")
-                for general_info in general_infos:
-                    val = "S/N:"
-                    if val in general_info.get_text():
-                        data_dict["yfinance_ticker"] = general_info.find("span", class_ = "elp").get_text()
+                # Scrape ticker
+                # general_infos = soup.find("div", class_ = "right general-info").find_all("div")
+                # for general_info in general_infos:
+                #     val = "S/N:"
+                #     if val in general_info.get_text():
+                #         data_dict["yfinance_ticker"] = general_info.find("span", class_ = "elp").get_text()
                 values = soup.find_all("tr")
                 expected_values = [
                     "P/E Ratio TTM", "Price to Sales TTM", "Price to Cash Flow MRQ", "Price to Free Cash Flow TTM", "Price to Book MRQ",
@@ -132,6 +134,45 @@ def GetAdditionalData(links):
             failed_links["page"].append("all")
     extension = pd.DataFrame(data_list)
     return extension, failed_links
+
+def yf_data_updater(data_final):
+    close_list = []
+    for index, row in data_final.iterrows():
+        now = datetime.now()
+        prev_1month = datetime(now.year, now.month - 1 if now.month > 1 else 12, now.day).strftime("%Y-%m-%d")
+        ticker = yf.Ticker(row["symbol"] + ".SI")
+        yf_data = ticker.history(period="1mo").reset_index()
+        curr = yf_data.iloc[-1]
+        curr_date = curr["Date"].strftime("%Y-%m-%d")
+        currency = row["currency"]
+        data_final.loc[index, "volume"] = curr["Volume"]
+        # try:
+        #     if currency != "SGD":
+        #         rate = float(data[currency]['SGD'])
+        #         data_final.loc[index, "market_cap"] = ticker.info["marketCap"]*rate
+        #     else:
+        #         data_final.loc[index, "market_cap"] = ticker.info["marketCap"]
+        # except:
+        #     symbol = row["symbol"]
+        #     print(f"error at {symbol} have no market cap")
+        #     data_final.loc[index, "market_cap"] = np.nan
+        if currency != "SGD":
+            rate = float(data[currency]['SGD'])
+            market_cap = row["market_cap"]*rate
+            data_final.loc[index, "market_cap"] = market_cap
+            curr_close = float(curr["Close"])*rate
+        else:
+            curr_close = float(curr["Close"])
+        current_data = {
+            "date" : curr_date,
+            "close" : curr_close
+        }
+        close = [data for data in row["close"] if data["date"] > prev_1month]
+        if current_data["date"] > close[-1]["date"]:
+            close.append(current_data)
+        close_list.append(close)
+    data_final = data_final.assign(close = close_list)
+    return data_final
 
 def convert_to_number(x):
     if isinstance(x, str):
@@ -189,7 +230,7 @@ def rename_and_convert(data, period):
             '5 Year Sales Growth 5YA' : 'five_year_sales_growth', 
             '5 Year Capital Spending Growth 5YA' : 'five_year_capital_spending_growth',
             'Asset Turnover TTM' : 'asset_turnover', 
-            'Inventory Turnover TTM' : 'inventory turnover (ttm)', 
+            'Inventory Turnover TTM' : 'inventory_turnover_ttm', 
             'Receivable Turnover TTM' : 'receivable_turnover',
             'Gross margin TTM' : 'gross_margin', 
             'Operating margin TTM' : 'operating_margin', 
@@ -211,7 +252,7 @@ def rename_and_convert(data, period):
     
     elif period == "daily":
         rename_cols = {
-            'Symbol' : 'symbol',
+            'Symbol' : 'investing_symbol',
             'Last' : 'close', 
             'ChgPct' : 'percentage_change',
             'FundamentalMarketCap' : 'market_cap', 
@@ -262,10 +303,10 @@ def clean_daily_foreign_data(foreign_daily_data):
                         "three_year_percentage_change":"change_3y"}, inplace=True)
 
     # Delete redundant percentage change columns
-    foreign_daily_data.drop("percentage_change",axis=1, inplace = True)
+    foreign_daily_data.drop(["percentage_change", "close"],axis=1, inplace = True)
 
     # Change data type to float
-    float_columns = ['close', 'market_cap', 'volume','pe', 'revenue', 'beta','change_1d',
+    float_columns = ['market_cap', 'volume','pe', 'revenue', 'beta','change_1d',
        'change_7d', 'change_1m', 'change_ytd', 'change_1y', 'change_3y',]
 
     foreign_daily_data[float_columns] = foreign_daily_data[float_columns].applymap(lambda x:float(str(x).replace(',', '')))
@@ -322,6 +363,10 @@ if __name__ == "__main__":
         print("Error: Please specify either -d or -m, not both.")
         raise SystemExit(1)
     
+    url_currency = 'https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json'
+    response = requests.get(url_currency)
+    data = response.json()
+
     url_supabase = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_KEY")
     supabase = create_client(url_supabase, key)
@@ -355,6 +400,7 @@ if __name__ == "__main__":
         data_final = rename_and_convert(data_final, "monthly")
         data_final = clean_daily_foreign_data(data_final)
         data_final = clean_periodic_foreign_data(data_final, foreign_sectors)
+        data_final = yf_data_updater(data_final)
     elif args.daily:
         data_general = GetGeneralData(country)
         data_general = rename_and_convert(data_general, "daily")
@@ -362,16 +408,18 @@ if __name__ == "__main__":
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
-        drop_cols = ['close', 'market_cap', 'volume', 'pe',
+        drop_cols = ['market_cap', 'volume', 'pe',
         'revenue', 'beta', 'daily_signal', 'weekly_signal',
         'monthly_signal', 'change_1d', 'change_7d', 'change_1m',
         'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis = 1, inplace = True)
-        data_final = pd.merge(data_general, data_db, on = "symbol", how = "inner")
+        data_final = pd.merge(data_general, data_db, on = "investing_symbol", how = "inner")
+        data_final = yf_data_updater(data_final)
+
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
     # print("data final \n", data_final)
     records = data_final.replace({np.nan: None}).to_dict("records")
-    # print("records : \n", records)
+    print("records : \n", records)
     try:
         supabase.table(db).upsert(records, returning='minimal').execute()
         print("Upsert operation successful.")

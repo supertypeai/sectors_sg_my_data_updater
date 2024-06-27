@@ -1,33 +1,33 @@
-# name: Update sgx_companies and klse_companies daily data
+name: Update sgx_companies and klse_companies daily data
 
-# on:
-#   schedule:
-#       - cron: '0 18 * * *' # run at 06.00 PM everyday
-#   workflow_dispatch:
+on:
+  schedule:
+      - cron: '0 18 * * *' # run at 06.00 PM everyday
+  workflow_dispatch:
 
-# jobs:
-#   trigger_workflow:
-#     runs-on: ubuntu-latest
-#     steps:
+jobs:
+  trigger_workflow:
+    runs-on: ubuntu-latest
+    steps:
 
-#       - name: checkout repo content
-#         uses: actions/checkout@v2 # checkout the repository content to github runner
+      - name: checkout repo content
+        uses: actions/checkout@v2 # checkout the repository content to github runner
 
-#       - name: setup python
-#         uses: actions/setup-python@v4
-#         with:
-#           python-version: '3.9' # install the python version needed
+      - name: setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9' # install the python version needed
           
-#       - name: install python packages
-#         run: |
-#           python -m pip install --upgrade pip
-#           pip install -r requirements.txt
+      - name: install python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-#       - name: execute sg_my_scraper.py script
-#         env:
-#             SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-#             SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-#             PROXY: ${{ secrets.PROXY }}
-#         run: |
-#           python sg_my_scraper.py -sg -d
-#           python sg_my_scraper.py -my -d
+      - name: execute sg_my_scraper.py script
+        env:
+            SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+            SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+            PROXY: ${{ secrets.PROXY }}
+        run: |
+          python sg_my_scraper.py -sg -d
+          python sg_my_scraper.py -my -d
