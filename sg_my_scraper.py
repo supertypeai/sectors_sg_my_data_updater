@@ -84,7 +84,7 @@ def GetAdditionalData(links):
                             else:
                                 data_dict[expected_value] = value.replace(expected_value, "")
                 company_profile = soup.find(class_ = "mt-6 font-semibold md:mt-0")
-                desired_infos = ["Industry", "Sector"]
+                desired_infos = ["Industry", "Sector", "Employees"]
                 for info in company_profile:
                     info = info.get_text()
                     for desired_info in desired_infos:
@@ -205,10 +205,11 @@ def rename_and_convert(data, period):
     if period == "monthly":
         rename_cols = {
             'Name' : 'name', 
-            'Symbol' : 'symbol',
+            'Symbol' : 'investing_symbol',
             'currency' : 'currency',
             'Sector' : 'sector', 
             'Industry' : 'industry', 
+            'Employees' : 'employee_num',
             'Last' : 'close', 
             'ChgPct' : 'percentage_change',
             'FundamentalMarketCap' : 'market_cap', 
@@ -247,8 +248,7 @@ def rename_and_convert(data, period):
             'Total Debt to Equity MRQ' : 'debt_to_equity', 
             'Dividend Yield 5 Year Avg. 5YA' : 'five_year_dividend_average',
             'Dividend Growth Rate ANN' : 'dividend_growth_rate', 
-            'Payout Ratio TTM' : 'payout_ratio',
-            'yfinance_ticker' : 'yfinance_ticker'
+            'Payout Ratio TTM' : 'payout_ratio'
         }
         cleaned_data = data[rename_cols.keys()].rename(rename_cols, axis = 1)
 
@@ -344,7 +344,7 @@ def clean_periodic_foreign_data(foreign_periodic_data, foreign_sectors):
     
     float_columns = ['eps', 'dividend', 'dividend_yield', 'pe_ttm', 'ps_ttm', 'pcf', 'pcf_ttm', 'pb', 'five_year_eps_growth',
        'five_year_sales_growth', 'five_year_capital_spending_growth',
-       'asset_turnover', 'inventory turnover (ttm)', 'receivable_turnover',
+       'asset_turnover', 'inventory_turnover_ttm', 'receivable_turnover',
        'gross_margin', 'operating_margin', 'net_profit_margin', 'quick_ratio',
        'current_ratio', 'debt_to_equity', 'dividend_yield_5y_avg',
        'dividend_growth_rate', 'payout_ratio']
@@ -388,7 +388,6 @@ if __name__ == "__main__":
         links = data_general["Url"].tolist()
         extension, failed_links = GetAdditionalData(links)
         data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
-        db = "klse_companies" if args.malaysia else "sgx_companies"
         # Retry the failed links
         n_try = 0
         if len(failed_links["links"]) != 0:
@@ -407,6 +406,10 @@ if __name__ == "__main__":
         data_final = rename_and_convert(data_final, "monthly")
         data_final = clean_daily_foreign_data(data_final)
         data_final = clean_periodic_foreign_data(data_final, foreign_sectors)
+        db = "klse_companies" if args.malaysia else "sgx_companies"
+        data_db = supabase.table(db).select("*").execute()
+        data_db = pd.DataFrame(data_db.data)
+        data_final = pd.merge(data_final, data_db[["investing_symbol", "symbol", "close"]], on = "investing_symbol", how = "inner")
         data_final = yf_data_updater(data_final, country)
     elif args.daily:
         data_general = GetGeneralData(country)
