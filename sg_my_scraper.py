@@ -89,7 +89,8 @@ def GetAdditionalData(links):
                     info = info.get_text()
                     for desired_info in desired_infos:
                         if desired_info in info:
-                            data_dict[desired_info] = info.replace(desired_info, "")
+                            info = info.replace(desired_info, "")
+                            data_dict[desired_info] = info if info != "0" else np.nan
             else:
                 failed_links["links"].append(link)
                 failed_links["page"].append("overview")
@@ -148,19 +149,9 @@ def yf_data_updater(data_final, country):
             curr_date = curr["Date"].strftime("%Y-%m-%d")
             currency = row["currency"]
             data_final.loc[index, "volume"] = curr["Volume"]
-            # try:
-            #     if currency != "SGD":
-            #         rate = float(data[currency]['SGD'])
-            #         data_final.loc[index, "market_cap"] = ticker.info["marketCap"]*rate
-            #     else:
-            #         data_final.loc[index, "market_cap"] = ticker.info["marketCap"]
-            # except:
-            #     symbol = row["symbol"]
-            #     print(f"error at {symbol} have no market cap")
-            #     data_final.loc[index, "market_cap"] = np.nan
             country_currency = "MYR" if country == "my" else "SGD"
             if currency != country_currency:
-                rate = float(data[currency]['SGD'])
+                rate = float(data[currency][country_currency])
                 market_cap = row["market_cap"]*rate
                 data_final.loc[index, "market_cap"] = market_cap
                 curr_close = float(curr["Close"])*rate
@@ -427,9 +418,8 @@ if __name__ == "__main__":
         data_final = yf_data_updater(data_final, country)
 
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
-    # print("data final \n", data_final)
     records = data_final.replace({np.nan: None}).to_dict("records")
-    # print("records : \n", records)
+
     try:
         supabase.table(db).upsert(records, returning='minimal').execute()
         print("Upsert operation successful.")
