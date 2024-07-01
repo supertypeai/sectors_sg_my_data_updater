@@ -154,6 +154,10 @@ def yf_data_updater(data_final, country):
                 rate = float(data[currency][country_currency])
                 market_cap = row["market_cap"]*rate
                 data_final.loc[index, "market_cap"] = market_cap
+                revenue = row["revenue"]*rate
+                data_final.loc[index, "revenue"] = revenue
+                dividend = row["dividend"]*rate
+                data_final.loc[index, "dividend"] = dividend
                 curr_close = float(curr["Close"])*rate
             else:
                 curr_close = float(curr["Close"])
