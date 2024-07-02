@@ -405,7 +405,7 @@ if __name__ == "__main__":
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
         data_final = pd.merge(data_final, data_db[["investing_symbol", "symbol", "close"]], on = "investing_symbol", how = "inner")
-        data_final = yf_data_updater(data_final, country)
+        data_final = yf_data_updater(data_final, country).drop(["revenue", "earnings"], axis = 1)
     elif args.daily:
         data_general = GetGeneralData(country)
         data_general = rename_and_convert(data_general, "daily")
@@ -419,7 +419,7 @@ if __name__ == "__main__":
         'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis = 1, inplace = True)
         data_final = pd.merge(data_general, data_db, on = "investing_symbol", how = "inner")
-        data_final = yf_data_updater(data_final, country)
+        data_final = yf_data_updater(data_final, country).drop(["revenue", "earnings"], axis = 1)
 
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
     records = data_final.replace({np.nan: None}).to_dict("records")
