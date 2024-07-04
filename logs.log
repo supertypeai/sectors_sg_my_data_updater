@@ -1,0 +1,1 @@
+INFO:httpx:HTTP Request: GET https://rfiycxgjbnkefczvbosm.supabase.co/rest/v1/sgx_companies?select=%2A "HTTP/1.1 200 OK"

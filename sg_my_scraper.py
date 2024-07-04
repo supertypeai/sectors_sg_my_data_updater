@@ -49,7 +49,7 @@ def GetAdditionalData(links):
         "links" : [],
         "page" : []
     }
-    for link in links:
+    for link in links[:5]:
         try:
             data_dict = {
                 "Url" : link
@@ -137,6 +137,16 @@ def GetAdditionalData(links):
     return extension, failed_links
 
 def yf_data_updater(data_final, country):
+    data_dict = {
+        "close" : [],
+        "market_cap" : [],
+        "volume" : [],
+        "pe" : [],
+        "pb" : [],
+        "ps" : [],
+        "pcf" : [],
+        "beta" : []
+    }
     close_list = []
     for index, row in data_final.iterrows():
         try:
@@ -174,6 +184,72 @@ def yf_data_updater(data_final, country):
             logging.error(f"error in {symbol}: ", e)
             close_list.append(list())
     data_final = data_final.assign(close = close_list)
+    return data_final
+
+def employee_updater(data_final, country):
+    # getting the employee_num from sgx web
+    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
+    data_dict = {
+        "investing_symbol" : [],
+        "status" : [],
+        "employee_num_sgx" : []
+    }
+    special_case = {
+    'SRTA.SI' : 'STA.BK',
+    'CERG.SI' : '1130.HK',
+    'CTDM_p.SI' : 'CTDM.SI',
+    'TIAN.SI' : '600329.SS',
+    'UOAL.SI' : 'UOS.AX',
+    'WLAR.SI' : '0854.HK',
+    'IHHH.SI' : 'IHHH.KL',
+    'TOPG.SI' : 'TPGC.KL',
+    'AVJH.SI' : 'AVJ.AX',
+    'MYSC.SI' : 'MSCB.KL',
+    'SHNG.SI' : '0069.HK',
+    'PRTL.SI' : 'PRU.L',
+    'AMTI.SI' : 'AMTD.K',
+    'STELy.SI' : 'STEL.SI',
+    'COUA.SI' : '1145.HK',
+    'SRIT.SI' : 'STGT.BK',
+    'NIOI.SI' : 'NIO',
+    'EMPE.SI' : 'EMI.PS',
+    'YUNN.SI' : '1298.HK',
+    'CKFC.SI' : '0834.HK',
+    'COMB.SI' : '2342.HK'
+    }
+    for symbol in data_db["investing_symbol"].tolist():
+        ticker_extension = ".KL" if country == "my" else ".SI"
+        symbol = symbol + ticker_extension
+        data_dict["investing_symbol"].append(symbol)
+        if symbol in special_case.keys():
+            for key, value in zip(special_case.keys(), special_case.values()):
+                if symbol == key:
+                    url = f"https://api.sgx.com/companygeneralinformation/v1.0/countryCode/SG/ricCode/{value}?lang=en-US&params=companyDescription%2CstreetAddress1%2CstreetAddress2%2CstreetAddress3%2Ccity%2Cstate%2CpostalCode%2Ccountry%2Cemail%2Cwebsite%2CincorporatedDate%2CincorporatedCountry%2CpublicDate%2CnoOfEmployees%2CnoOfEmployeesLastUpdated"    
+        else:
+            url = f"https://api.sgx.com/companygeneralinformation/v1.0/countryCode/SG/ricCode/{symbol}?lang=en-US&params=companyDescription%2CstreetAddress1%2CstreetAddress2%2CstreetAddress3%2Ccity%2Cstate%2CpostalCode%2Ccountry%2Cemail%2Cwebsite%2CincorporatedDate%2CincorporatedCountry%2CpublicDate%2CnoOfEmployees%2CnoOfEmployeesLastUpdated"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data_dict["status"].append(response.status_code)
+            try:
+                employee_num_sgx = response.json()["data"][0]["noOfEmployees"]
+            except:
+                employee_num_sgx = np.nan
+            data_dict["employee_num_sgx"].append(employee_num_sgx)
+        else:
+            data_dict["status"].append(response.status_code)
+            data_dict["employee_num_sgx"].append(np.nan)
+    employee_sgx = pd.DataFrame(data_dict).drop("status", axis = 1)
+    employee_num_all = pd.merge(data_final, employee_sgx, on = "investing_symbol")
+    new_en = []
+    for en_investing, en_sgx in zip(employee_num_all["employee_num"], employee_num_all["employee_num_sgx"]):
+        if en_sgx > 0:
+            if en_investing > 0:
+                new_en.append(en_investing)
+            else:
+                new_en.append(np.nan)
+        else:
+            new_en.append(en_sgx)
+    data_final = data_final.assign(employee_num = new_en)
     return data_final
 
 def convert_to_number(x):
@@ -405,7 +481,8 @@ if __name__ == "__main__":
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
         data_final = pd.merge(data_final, data_db[["investing_symbol", "symbol", "close"]], on = "investing_symbol", how = "inner")
-        data_final = yf_data_updater(data_final, country).drop(["revenue", "earnings"], axis = 1)
+        data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend', 'dividend_yield'], axis = 1)
+        data_final = employee_updater(data_final, country)
     elif args.daily:
         data_general = GetGeneralData(country)
         data_general = rename_and_convert(data_general, "daily")
@@ -419,13 +496,13 @@ if __name__ == "__main__":
         'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis = 1, inplace = True)
         data_final = pd.merge(data_general, data_db, on = "investing_symbol", how = "inner")
-        data_final = yf_data_updater(data_final, country).drop(["revenue", "earnings"], axis = 1)
+        data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend', 'dividend_yield'], axis = 1)
 
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
     records = data_final.replace({np.nan: None}).to_dict("records")
 
-    try:
-        supabase.table(db).upsert(records, returning='minimal').execute()
-        print("Upsert operation successful.")
-    except Exception as e:
-        print(f"Error during upsert operation: {e}")
+    # try:
+    #     supabase.table(db).upsert(records, returning='minimal').execute()
+    #     print("Upsert operation successful.")
+    # except Exception as e:
+    #     print(f"Error during upsert operation: {e}")
