@@ -218,9 +218,9 @@ def employee_updater(data_final, country):
     'COMB.SI' : '2342.HK'
     }
     for symbol in data_db["investing_symbol"].tolist():
+        data_dict["investing_symbol"].append(symbol)
         ticker_extension = ".KL" if country == "my" else ".SI"
         symbol = symbol + ticker_extension
-        data_dict["investing_symbol"].append(symbol)
         if symbol in special_case.keys():
             for key, value in zip(special_case.keys(), special_case.values()):
                 if symbol == key:
@@ -239,16 +239,16 @@ def employee_updater(data_final, country):
             data_dict["status"].append(response.status_code)
             data_dict["employee_num_sgx"].append(np.nan)
     employee_sgx = pd.DataFrame(data_dict).drop("status", axis = 1)
-    employee_num_all = pd.merge(data_final, employee_sgx, on = "investing_symbol")
+    employee_num_all = pd.merge(data_final, employee_sgx, on = "investing_symbol", how = "left")
     new_en = []
-    for en_investing, en_sgx in zip(employee_num_all["employee_num"], employee_num_all["employee_num_sgx"]):
+    for en_investing, en_sgx in zip(employee_num_all["employee_num"].tolist(), employee_num_all["employee_num_sgx"].tolist()):
         if en_sgx > 0:
+            new_en.append(en_sgx)
+        else:
             if en_investing > 0:
                 new_en.append(en_investing)
             else:
                 new_en.append(np.nan)
-        else:
-            new_en.append(en_sgx)
     data_final = data_final.assign(employee_num = new_en)
     return data_final
 
@@ -501,8 +501,8 @@ if __name__ == "__main__":
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
     records = data_final.replace({np.nan: None}).to_dict("records")
 
-    # try:
-    #     supabase.table(db).upsert(records, returning='minimal').execute()
-    #     print("Upsert operation successful.")
-    # except Exception as e:
-    #     print(f"Error during upsert operation: {e}")
+    try:
+        supabase.table(db).upsert(records, returning='minimal').execute()
+        print("Upsert operation successful.")
+    except Exception as e:
+        print(f"Error during upsert operation: {e}")
