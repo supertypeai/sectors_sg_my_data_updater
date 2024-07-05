@@ -16,6 +16,10 @@ import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 import urllib.request
 proxy = os.environ.get("PROXY")
+from scraper import scrap_function
+from combiner import combine_data
+import time
+from multiprocessing import Process
 
 proxy_support = urllib.request.ProxyHandler({'http': proxy,'https': proxy})
 opener = urllib.request.build_opener(proxy_support)
@@ -506,3 +510,5 @@ if __name__ == "__main__":
         print("Upsert operation successful.")
     except Exception as e:
         print(f"Error during upsert operation: {e}")
+
+    
