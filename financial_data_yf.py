@@ -6,6 +6,7 @@ import requests
 import numpy as np
 from datetime import datetime,timedelta 
 import json
+import sys
 import pytz
 import argparse
 from dotenv import load_dotenv
@@ -20,7 +21,7 @@ def fetch_existing_symbol(country,supabase):
 
     return data
 
-def upsert_db(update_data, supabase, country, db_data):
+def upsert_db(update_data, supabase, country):
     if country == "SG":
         table = "sgx_companies"
     elif country == "MY":
@@ -93,7 +94,7 @@ def update_div_ttm(country,country_data,supabase):
 
         print(f"---------------------------------------------------------")
 
-    upsert_db(div_ttm,supabase,country,country_data)
+    upsert_db(div_ttm,supabase,country)
 
 # Monthly Financial Data Function
 def fetch_highlight_data(stock, currency, country_code):
@@ -101,61 +102,65 @@ def fetch_highlight_data(stock, currency, country_code):
 
     ticker = yf.Ticker(f"{stock}.{country_code}")
 
-    data_currency = ticker.info['currency']
-
     try:
-        dividend = ticker.info['dividendRate']    
-
-        if data_currency != currency:
-            resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
-            resp = resp.json()
-            curr_value = resp[data_currency][currency]
-
-            dividend = dividend * curr_value
-    except:
+        data_currency = ticker.info['currency']
 
         try:
-            last_dividend_date = datetime.utcfromtimestamp(ticker.info['lastDividendDate']).year
+            dividend = ticker.info['dividendRate']    
+
+            if data_currency != currency:
+                resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
+                resp = resp.json()
+                curr_value = resp[data_currency][currency]
+
+                dividend = dividend * curr_value
         except:
-            last_dividend_date = np.nan
 
-        if np.isnan(last_dividend_date):
-            dividend = np.nan
-        elif last_dividend_date < datetime.now().year:  
-            dividend = 0
-        else:
-            dividend = np.nan
-            
-        print(f"{stock} doesn't have any data for forward dividend")
-    
-    row_list.append(dividend)
+            try:
+                last_dividend_date = datetime.utcfromtimestamp(ticker.info['lastDividendDate']).year
+            except:
+                last_dividend_date = np.nan
 
-    try:
-        dividend_yield = ticker.info['dividendYield']
-    except:
-        if np.isnan(dividend):
-            dividend_yield = np.nan
-        elif dividend == 0:    
-            dividend_yield = 0
+            if np.isnan(last_dividend_date):
+                dividend = np.nan
+            elif last_dividend_date < datetime.now().year:  
+                dividend = 0
+            else:
+                dividend = np.nan
+                
+            print(f"{stock} doesn't have any data for forward dividend")
         
-        print(f"{stock} doesn't have any data for forward dividend_yield")
-    
-    row_list.append(dividend_yield)
-    
-    for metrics in ['profitMargins',"operatingMargins","grossMargins","quickRatio","currentRatio","debtToEquity","payoutRatio","trailingEps"]:
+        row_list.append(dividend)
+
         try:
-            metrics_value = ticker.info[metrics]
+            dividend_yield = ticker.info['dividendYield']
         except:
-            metrics_value = np.nan
-            print(f"{stock} doesn't have any data for {metrics}")
-        
-        if metrics == "debtToEquity":
-            metrics_value = metrics_value/100
+            if np.isnan(dividend):
+                dividend_yield = np.nan
+            elif dividend == 0:    
+                dividend_yield = 0
             
-        row_list.append(metrics_value)
+            print(f"{stock} doesn't have any data for forward dividend_yield")
+        
+        row_list.append(dividend_yield)
+        
+        for metrics in ['profitMargins',"operatingMargins","grossMargins","quickRatio","currentRatio","debtToEquity","payoutRatio","trailingEps"]:
+            try:
+                metrics_value = ticker.info[metrics]
+            except:
+                metrics_value = np.nan
+                print(f"{stock} doesn't have any data for {metrics}")
+            
+            if metrics == "debtToEquity":
+                metrics_value = metrics_value/100
+                
+            row_list.append(metrics_value)
 
-    data = pd.DataFrame(row_list).T
-    data.columns = ['symbol','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"]
+        data = pd.DataFrame(row_list).T
+        data.columns = ['symbol','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"]
+    except:
+        data = pd.DataFrame([stock,None,None,None,None,None,None,None,None,None,None]).T
+        data.columns = ['symbol','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"]
 
     return data
 
@@ -180,7 +185,7 @@ def update_financial_data(country,country_data,supabase):
 
         print(f"---------------------------------------------------------")
     
-    upsert_db(highlight_data,supabase,country,country_data)
+    upsert_db(highlight_data,supabase,country)
     
 
 def main():
@@ -209,7 +214,6 @@ def main():
         update_div_ttm(args.country,country_data,supabase)
     elif args.fetch_type == "monthly":
         update_financial_data(args.country,country_data,supabase)
-
 
 if __name__ == "__main__":
     main()
