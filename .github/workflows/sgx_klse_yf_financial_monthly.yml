@@ -1,0 +1,38 @@
+
+name: Update sgx_klse monthly financial data from yahoo finance
+
+on:
+  schedule:
+    - cron: '0 0 1 * *' # Run every 1st day of the month
+  
+  workflow_dispatch:
+      
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9 # Replace with your desired Python version
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Run Python Script SGX
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      run: python financial_data_yf.py MY monthly
+    
+    - name: Run Python Script SGX
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      run: python financial_data_yf.py SG monthly
