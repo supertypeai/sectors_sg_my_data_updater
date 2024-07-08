@@ -209,7 +209,6 @@ def main():
 
     # Take Existing symbol From DB
     country_data = fetch_existing_symbol(args.country,supabase)
-    country_data = country_data.iloc[0:5,:]
 
     if args.fetch_type == "weekly":
         update_div_ttm(args.country,country_data,supabase)
