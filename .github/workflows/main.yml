@@ -2,7 +2,7 @@ name: Update sgx_klse weekly financial data (dividend_ttm) from yahoo finance
 
 on:
   schedule:
-    - cron: '0 11 * * 1-5' # Run every monday at 8am (Western Indonesia Time)
+    - cron: '0 1 * * 1' # Run every monday at 8am (Western Indonesia Time)
   
   workflow_dispatch:
       
