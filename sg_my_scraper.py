@@ -16,8 +16,8 @@ import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 import urllib.request
 proxy = os.environ.get("PROXY")
-from scraper import scrap_function
-from combiner import combine_data
+# from scraper import scrap_function
+# from combiner import combine_data
 import time
 from multiprocessing import Process
 
@@ -140,55 +140,123 @@ def GetAdditionalData(links):
     extension = pd.DataFrame(data_list)
     return extension, failed_links
 
-def yf_data_updater(data_final, country):
-    data_dict = {
-        "close" : [],
-        "market_cap" : [],
-        "volume" : [],
-        "pe" : [],
-        "pb" : [],
-        "ps" : [],
-        "pcf" : [],
-        "beta" : []
-    }
-    close_list = []
-    for index, row in data_final.iterrows():
+def yf_data_updater(data_prep, country):
+    date_format = "%Y-%m-%d"
+    # take latest date from database
+    last_date = datetime.strptime(data_prep["close"][0][-1]["date"], date_format)
+    last_year = last_date.year
+    last_month = last_date.month
+    last_day = last_date.day
+
+    # take current date from datetime library
+    current_date = datetime.now()
+    current_year = current_date.year
+    current_month = current_date.month
+    current_day = current_date.day
+
+    # get the list of new dates that not in the db
+    list_dates = []
+    if last_year == current_year:
+        if last_month == current_month:
+            for i in range(last_day + 1, current_day + 1, 1):
+                temp_date = datetime(current_year, current_month, i).strftime(date_format)
+                list_dates.append(temp_date)
+        else:
+            max_day = 31
+            min_day = 1
+            for i in range(current_day + 1, max_day + 1, 1):
+                try:
+                    temp_date = datetime(current_year, last_month, i).strftime(date_format)
+                    list_dates.append(temp_date)
+                except:
+                    pass
+            for i in range(min_day, current_day, 1):
+                temp_date = datetime(current_year, current_month, i).strftime(date_format)
+                list_dates.append(temp_date)
+
+    else:
+        max_day = 31
+        min_day = 1
+        for i in range(current_day + 1, max_day + 1, 1):
+            try:
+                temp_date = datetime(last_year, last_month, i).strftime(date_format)
+                list_dates.append(temp_date)
+            except:
+                pass
+        for i in range(min_day, current_day, 1):
+            temp_date = datetime(current_year, current_month, i).strftime(date_format)
+            list_dates.append(temp_date)
+
+    now = datetime.now()
+    prev_1month = datetime(now.year, now.month - 1 if now.month > 1 else 12, now.day).strftime(date_format)
+
+    new_close = []
+    for index, row in data_prep.iterrows():
         try:
-            now = datetime.now()
-            prev_1month = datetime(now.year, now.month - 1 if now.month > 1 else 12, now.day).strftime("%Y-%m-%d")
             ticker_extension = ".KL" if country == "my" else ".SI"
             ticker = yf.Ticker(row["symbol"] + ticker_extension)
-            yf_data = ticker.history(period="1mo").reset_index()
-            curr = yf_data.iloc[-1]
-            curr_date = curr["Date"].strftime("%Y-%m-%d")
             currency = row["currency"]
-            data_final.loc[index, "volume"] = curr["Volume"]
             country_currency = "MYR" if country == "my" else "SGD"
-            if currency != country_currency:
-                rate = float(data[currency][country_currency])
-                market_cap = row["market_cap"]*rate
-                data_final.loc[index, "market_cap"] = market_cap
-                revenue = row["revenue"]*rate
-                data_final.loc[index, "revenue"] = revenue
-                dividend = row["dividend"]*rate
-                data_final.loc[index, "dividend"] = dividend
-                curr_close = float(curr["Close"])*rate
-            else:
-                curr_close = float(curr["Close"])
-            current_data = {
-                "date" : curr_date,
-                "close" : curr_close
-            }
-            close = [data for data in row["close"] if data["date"] > prev_1month]
-            if current_data["date"] > close[-1]["date"]:
-                close.append(current_data)
-            close_list.append(close)
+            
+            # update data from info yfinance
+            data_json = ticker.info
+            desired_values = {
+                "marketCap" : "market_cap",
+                "volume" : "volume",
+                "trailingPE" : "pe", 
+                "priceToSalesTrailing12Months" : "ps_ttm", 
+                "priceToBook" : "pb", 
+                "beta" : "beta"
+                }
+            for key_dv, val_dv in zip(desired_values.keys(), desired_values.values()):
+                try:
+                    if val_dv == "market_cap":
+                        if currency != country_currency:
+                            rate = float(data[currency][country_currency])
+                            temp_val = data_json[key_dv] * rate
+                        else:
+                            temp_val = data_json[key_dv]
+                        data_prep.loc[index, val_dv] = temp_val
+                    else:
+                        data_prep.loc[index, val_dv] = data_json[key_dv]
+                except Exception as e:
+                    """
+                    if this appear, that means yf don't have the data of the metrics
+                    so it will be filled by NaN, or we can just still used investing.com values
+                    for "pe" it will be calculated first with this formula, pe = close/eps_ttm
+                    """
+                    if val_dv == "pe":
+                        temp_pe = row["close"][-1]["close"]/row["eps"]
+                        data_prep.loc[index, "pe"] = temp_pe
+                    else:
+                        data_prep.loc[index, val_dv] = np.nan
+
+            # update data from history yfinance
+            yf_data = ticker.history(period="1mo").reset_index()
+            close_data = row["close"]
+            for i in range(len(yf_data)):
+                curr = yf_data.iloc[i]
+                curr_date = curr["Date"].strftime(date_format)
+                if curr_date in list_dates:
+                    curr_close =  float(curr["Close"])
+                    if currency != country_currency:
+                        rate = float(data[currency][country_currency])
+                        curr_close = float(curr["Close"])*rate
+                    else:
+                        curr_close = float(curr["Close"])
+                    temp = {
+                        "date" : curr_date,
+                        "close" : curr_close
+                    }
+                    close_data.append(temp)
+            close_data = [close for close in close_data if close["date"] > prev_1month]
+            new_close.append(close_data)
         except Exception as e:
             symbol = row["symbol"]
-            logging.error(f"error in {symbol}: ", e)
-            close_list.append(list())
-    data_final = data_final.assign(close = close_list)
-    return data_final
+            print(f"error in symbol {symbol} : ", e)
+            new_close.append(np.nan)
+    data_prep = data_prep.assign(close = new_close)
+    return data_prep
 
 def employee_updater(data_final, country):
     # getting the employee_num from sgx web
@@ -485,7 +553,7 @@ if __name__ == "__main__":
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
         data_final = pd.merge(data_final, data_db[["investing_symbol", "symbol", "close"]], on = "investing_symbol", how = "inner")
-        data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend', 'dividend_yield'], axis = 1)
+        data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend', 'dividend_yield', 'dividend_ttm','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"], axis = 1)
         data_final = employee_updater(data_final, country)
     elif args.daily:
         data_general = GetGeneralData(country)
@@ -500,7 +568,7 @@ if __name__ == "__main__":
         'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis = 1, inplace = True)
         data_final = pd.merge(data_general, data_db, on = "investing_symbol", how = "inner")
-        data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend', 'dividend_yield'], axis = 1)
+        data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend_ttm','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"], axis = 1)
 
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
     records = data_final.replace({np.nan: None}).to_dict("records")
