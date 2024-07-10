@@ -532,15 +532,16 @@ if __name__ == "__main__":
         extension, failed_links = GetAdditionalData(links)
         data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
         # Retry the failed links
-        n_try = 0
+        
         if len(failed_links["links"]) != 0:
             failed_links["links"] = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]]
-            # while len(failed_links["links"]) != 0 or n_try < 10:
-            for i in range(10):
+            n_try = 0
+            while len(failed_links["links"]) != 0 or n_try < 10:
                 if len(failed_links["links"]) == 0:
                     break
-                if i == 9:
-                    print("failed to retrieved failed symbols data")
+                if n_try == 10:
+                    print("failed to update 'failed links'")
+                    break
                 new_extension, failed_links = GetAdditionalData(failed_links["links"])
                 n_try += 1
             remaining = data_general[data_general["Url"].isin(failed_links["links"])]
