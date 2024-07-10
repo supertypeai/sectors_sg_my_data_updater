@@ -533,23 +533,24 @@ if __name__ == "__main__":
         data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
         # Retry the failed links
         
-        if len(failed_links["links"]) != 0:
-            failed_links["links"] = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]]
-            n_try = 0
-            while len(failed_links["links"]) != 0 or n_try < 10:
-                if len(failed_links["links"]) == 0:
-                    break
-                if n_try == 10:
-                    print("failed to update 'failed links'")
-                    break
-                new_extension, failed_links = GetAdditionalData(failed_links["links"])
-                n_try += 1
-            remaining = data_general[data_general["Url"].isin(failed_links["links"])]
-            remaining = remaining.assign(Url = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]])
-            updated_extension = pd.merge(remaining, new_extension, on = "Url", how = "inner")
-            data_final = pd.concat([data_full[~data_full["Url"].isin(failed_links["links"])], updated_extension])
-        else:
-            data_final = data_full.copy()
+        # if len(failed_links["links"]) != 0:
+        #     failed_links["links"] = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]]
+        #     n_try = 0
+        #     while len(failed_links["links"]) != 0 or n_try < 10:
+        #         if len(failed_links["links"]) == 0:
+        #             break
+        #         if n_try == 10:
+        #             print("failed to update 'failed links'")
+        #             break
+        #         new_extension, failed_links = GetAdditionalData(failed_links["links"])
+        #         n_try += 1
+        #     remaining = data_general[data_general["Url"].isin(failed_links["links"])]
+        #     remaining = remaining.assign(Url = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]])
+        #     updated_extension = pd.merge(remaining, new_extension, on = "Url", how = "inner")
+        #     data_final = pd.concat([data_full[~data_full["Url"].isin(failed_links["links"])], updated_extension])
+        # else:
+        #     data_final = data_full.copy()
+        data_final = data_full.copy()
         data_final = rename_and_convert(data_final, "monthly")
         data_final = clean_daily_foreign_data(data_final)
         data_final = clean_periodic_foreign_data(data_final, foreign_sectors)
