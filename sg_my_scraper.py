@@ -47,99 +47,6 @@ def GetGeneralData(country):
     #         break
     return data_from_api
 
-def GetAdditionalData(links):
-    data_list = []
-    failed_links = {
-        "links" : [],
-        "page" : []
-    }
-    for link in links[:5]:
-        try:
-            data_dict = {
-                "Url" : link
-            }
-            # Page Overview
-            url = f"https://www.investing.com{link}"
-            response = requests.get(url)
-            if response.status_code == 200:
-                html_content = response.text
-                soup = BeautifulSoup(html_content, "html.parser")
-                close = soup.find(class_ = "text-5xl/9 font-bold text-[#232526] md:text-[42px] md:leading-[60px]").get_text()
-                change_percent = soup.find('span', {'data-test': 'instrument-price-change-percent'}).get_text().replace("(", "").replace(")", "")
-                currency = soup.find(class_ = "ml-1.5 font-bold").get_text()
-                values = soup.find_all(class_ = "flex flex-wrap items-center justify-between border-t border-t-[#e6e9eb] pt-2.5 sm:pb-2.5 pb-2.5")
-                expected_values = ["Volume", "Market Cap", "Revenue", "P/E Ratio", "EPS",  "Dividend (Yield)"]
-                data_dict["close"] = close
-                data_dict["change_percent"] = change_percent
-                data_dict["currency"] = currency
-                for value in values:
-                    value = value.get_text()
-                    for expected_value in expected_values:
-                        if expected_value in value:
-                            if expected_value == "Dividend (Yield)":
-                                value = value.replace(expected_value, "")
-                                try:
-                                    dividend, yields = value.split("(")
-                                    data_dict["dividend"] = dividend
-                                    data_dict["dividend_yield"] = yields.replace(")", "")
-                                except:
-                                    data_dict["dividend"] = "-"
-                                    data_dict["dividend_yield"] = "-"
-                            else:
-                                data_dict[expected_value] = value.replace(expected_value, "")
-                company_profile = soup.find(class_ = "mt-6 font-semibold md:mt-0")
-                desired_infos = ["Industry", "Sector", "Employees"]
-                for info in company_profile:
-                    info = info.get_text()
-                    for desired_info in desired_infos:
-                        if desired_info in info:
-                            info = info.replace(desired_info, "")
-                            data_dict[desired_info] = info if info != "0" else np.nan
-            else:
-                failed_links["links"].append(link)
-                failed_links["page"].append("overview")
-                logging.error(f"error at overview page with link: {link}")
-                print(f"error at overview page with link: {link}")
-                
-            # Page Ratios
-            url = f"https://www.investing.com{link}-ratios"
-            response = requests.get(url)
-            if response.status_code == 200:
-                html_content= response.text
-                soup = BeautifulSoup(html_content, "html.parser")
-                # Scrape ticker
-                # general_infos = soup.find("div", class_ = "right general-info").find_all("div")
-                # for general_info in general_infos:
-                #     val = "S/N:"
-                #     if val in general_info.get_text():
-                #         data_dict["yfinance_ticker"] = general_info.find("span", class_ = "elp").get_text()
-                values = soup.find_all("tr")
-                expected_values = [
-                    "P/E Ratio TTM", "Price to Sales TTM", "Price to Cash Flow MRQ", "Price to Free Cash Flow TTM", "Price to Book MRQ",
-                    "5 Year EPS Growth 5YA", "5 Year Sales Growth 5YA", "5 Year Capital Spending Growth 5YA", "Asset Turnover TTM",
-                    "Inventory Turnover TTM", "Receivable Turnover TTM", "Gross margin TTM", "Operating margin TTM", "Net Profit margin TTM",
-                    "Quick Ratio MRQ", "Current Ratio MRQ", "Total Debt to Equity MRQ", "Dividend Yield 5 Year Avg. 5YA", "Dividend Growth Rate ANN",
-                    "Payout Ratio TTM"
-                ]
-                for value in values:
-                    temp = value.get_text()
-                    for expected_value in expected_values:
-                        if expected_value in temp:
-                            metric = value.find_all("td")[1].get_text()
-                            data_dict[expected_value] = metric
-            else:
-                failed_links["links"].append(link)
-                failed_links["page"].append("ratios")
-                logging.error(f"error at ratios page with link: {link}")
-                print(f"error at ratios page with link: {link}")
-            data_list.append(data_dict)
-        except Exception as e:
-            logging.error(f"error in {link}: ", e)
-            failed_links["links"].append(link)
-            failed_links["page"].append("all")
-    extension = pd.DataFrame(data_list)
-    return extension, failed_links
-
 def yf_data_updater(data_prep, country):
     date_format = "%Y-%m-%d"
     # take latest date from database
@@ -206,7 +113,8 @@ def yf_data_updater(data_prep, country):
                 "trailingPE" : "pe", 
                 "priceToSalesTrailing12Months" : "ps_ttm", 
                 "priceToBook" : "pb", 
-                "beta" : "beta"
+                "beta" : "beta",
+                "operatingCashflow" : "ocf" 
                 }
             for key_dv, val_dv in zip(desired_values.keys(), desired_values.values()):
                 try:
@@ -217,6 +125,9 @@ def yf_data_updater(data_prep, country):
                         else:
                             temp_val = data_json[key_dv]
                         data_prep.loc[index, val_dv] = temp_val
+                    elif val_dv == "ocf":
+                        temp_val = data_json["marketCap"]/data_json[key_dv]
+                        data_prep.loc[index, "pcf"] = temp_val
                     else:
                         data_prep.loc[index, val_dv] = data_json[key_dv]
                 except Exception as e:
@@ -261,10 +172,14 @@ def yf_data_updater(data_prep, country):
 def employee_updater(data_final, country):
     # getting the employee_num from sgx web
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
-    data_dict = {
+    iv_data_dict = {
         "investing_symbol" : [],
         "status" : [],
         "employee_num_sgx" : []
+    }
+    yf_data_dict = {
+        "investing_symbol" : [],
+        "employee_num" : []
     }
     special_case = {
     'SRTA.SI' : 'STA.BK',
@@ -289,36 +204,44 @@ def employee_updater(data_final, country):
     'CKFC.SI' : '0834.HK',
     'COMB.SI' : '2342.HK'
     }
-    for symbol in data_db["investing_symbol"].tolist():
-        data_dict["investing_symbol"].append(symbol)
+    for iv_symbol in data_final["investing_symbol"].tolist():
+        iv_data_dict["investing_symbol"].append(iv_symbol)
         ticker_extension = ".KL" if country == "my" else ".SI"
-        symbol = symbol + ticker_extension
-        if symbol in special_case.keys():
+        iv_symbol = iv_symbol + ticker_extension
+        if iv_symbol in special_case.keys():
             for key, value in zip(special_case.keys(), special_case.values()):
-                if symbol == key:
+                if iv_symbol == key:
                     url = f"https://api.sgx.com/companygeneralinformation/v1.0/countryCode/SG/ricCode/{value}?lang=en-US&params=companyDescription%2CstreetAddress1%2CstreetAddress2%2CstreetAddress3%2Ccity%2Cstate%2CpostalCode%2Ccountry%2Cemail%2Cwebsite%2CincorporatedDate%2CincorporatedCountry%2CpublicDate%2CnoOfEmployees%2CnoOfEmployeesLastUpdated"    
         else:
-            url = f"https://api.sgx.com/companygeneralinformation/v1.0/countryCode/SG/ricCode/{symbol}?lang=en-US&params=companyDescription%2CstreetAddress1%2CstreetAddress2%2CstreetAddress3%2Ccity%2Cstate%2CpostalCode%2Ccountry%2Cemail%2Cwebsite%2CincorporatedDate%2CincorporatedCountry%2CpublicDate%2CnoOfEmployees%2CnoOfEmployeesLastUpdated"
+            url = f"https://api.sgx.com/companygeneralinformation/v1.0/countryCode/SG/ricCode/{iv_symbol}?lang=en-US&params=companyDescription%2CstreetAddress1%2CstreetAddress2%2CstreetAddress3%2Ccity%2Cstate%2CpostalCode%2Ccountry%2Cemail%2Cwebsite%2CincorporatedDate%2CincorporatedCountry%2CpublicDate%2CnoOfEmployees%2CnoOfEmployeesLastUpdated"
         response = requests.get(url)
         if response.status_code == 200:
-            data_dict["status"].append(response.status_code)
+            iv_data_dict["status"].append(response.status_code)
             try:
                 employee_num_sgx = response.json()["data"][0]["noOfEmployees"]
             except:
                 employee_num_sgx = np.nan
-            data_dict["employee_num_sgx"].append(employee_num_sgx)
+            iv_data_dict["employee_num_sgx"].append(employee_num_sgx)
         else:
-            data_dict["status"].append(response.status_code)
-            data_dict["employee_num_sgx"].append(np.nan)
-    employee_sgx = pd.DataFrame(data_dict).drop("status", axis = 1)
-    employee_num_all = pd.merge(data_final, employee_sgx, on = "investing_symbol", how = "left")
+            iv_data_dict["status"].append(response.status_code)
+            iv_data_dict["employee_num_sgx"].append(np.nan)
+    for iv_symbol, yf_symbol in zip(data_final["investing_symbol"].tolist(), data_final["symbol"].tolist()):
+        yf_data_dict["investing_symbol"].append(iv_symbol)
+        try:
+            temp = yf.Ticker(yf_symbol + ".SI")
+            employee = temp.info["fullTimeEmployees"]
+            yf_data_dict["employee_num"].append(employee)
+        except:
+            yf_data_dict["employee_num"].append(np.nan)
+    employee_sgx = pd.DataFrame(iv_data_dict).drop("status", axis = 1)
+    employee_yf = pd.DataFrame(yf_data_dict)
     new_en = []
-    for en_investing, en_sgx in zip(employee_num_all["employee_num"].tolist(), employee_num_all["employee_num_sgx"].tolist()):
+    for en_yf, en_sgx in zip(employee_yf["employee_num"].tolist(), employee_sgx["employee_num_sgx"].tolist()):
         if en_sgx > 0:
             new_en.append(en_sgx)
         else:
-            if en_investing > 0:
-                new_en.append(en_investing)
+            if en_yf > 0:
+                new_en.append(en_yf)
             else:
                 new_en.append(np.nan)
     data_final = data_final.assign(employee_num = new_en)
@@ -527,39 +450,10 @@ if __name__ == "__main__":
     foreign_sectors = my_sectors if args.malaysia else sg_sectors
 
     if args.monthly:
-        data_general = GetGeneralData(country)
-        links = data_general["Url"].tolist()
-        extension, failed_links = GetAdditionalData(links)
-        data_full = pd.merge(data_general, extension, on = "Url", how = "inner")
-        # Retry the failed links
-        
-        # if len(failed_links["links"]) != 0:
-        #     failed_links["links"] = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]]
-        #     n_try = 0
-        #     while len(failed_links["links"]) != 0 or n_try < 10:
-        #         if len(failed_links["links"]) == 0:
-        #             break
-        #         if n_try == 10:
-        #             print("failed to update 'failed links'")
-        #             break
-        #         new_extension, failed_links = GetAdditionalData(failed_links["links"])
-        #         n_try += 1
-        #     remaining = data_general[data_general["Url"].isin(failed_links["links"])]
-        #     remaining = remaining.assign(Url = [link.split("?")[0] if "?" in link else link for link in failed_links["links"]])
-        #     updated_extension = pd.merge(remaining, new_extension, on = "Url", how = "inner")
-        #     data_final = pd.concat([data_full[~data_full["Url"].isin(failed_links["links"])], updated_extension])
-        # else:
-        #     data_final = data_full.copy()
-        data_final = data_full.copy()
-        data_final = rename_and_convert(data_final, "monthly")
-        data_final = clean_daily_foreign_data(data_final)
-        data_final = clean_periodic_foreign_data(data_final, foreign_sectors)
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
-        data_final = pd.merge(data_final, data_db[["investing_symbol", "symbol", "close"]], on = "investing_symbol", how = "inner")
-        data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend', 'dividend_yield', 'dividend_ttm','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"], axis = 1)
-        data_final = employee_updater(data_final, country)
+        data_final = employee_updater(data_db, country)
     elif args.daily:
         data_general = GetGeneralData(country)
         data_general = rename_and_convert(data_general, "daily")
