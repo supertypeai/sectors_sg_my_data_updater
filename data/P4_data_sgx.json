@@ -1,0 +1,752 @@
+[
+  {
+    "symbol": "STG",
+    "sector": "Healthcare Services",
+    "sub_sector": " Medical Equipment"
+  },
+  {
+    "symbol": "J36",
+    "sector": "Consumer Goods Conglomerates",
+    "sub_sector": " Consumer Goods Conglomerates"
+  },
+  {
+    "symbol": "T13",
+    "sector": "Energy - Fossil Fuels",
+    "sub_sector": " Oil & Gas Exploration and Productio"
+  },
+  {
+    "symbol": "T14",
+    "sector": "Pharmaceuticals & Medical Research",
+    "sub_sector": " Pharmaceuticals"
+  },
+  {
+    "symbol": "T15",
+    "sector": "Transportation",
+    "sub_sector": " Ground Freight & Logistics"
+  },
+  {
+    "symbol": "504",
+    "sector": "Cyclical Consumer Products",
+    "sub_sector": " Home Furnishings"
+  },
+  {
+    "symbol": "AOF",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "T24",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "T41",
+    "sector": "Technology Equipment",
+    "sub_sector": " Phones & Handheld Devices"
+  },
+  {
+    "symbol": "541",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Commercial Printing Services"
+  },
+  {
+    "symbol": "T43",
+    "sector": "Cyclical Consumer Products",
+    "sub_sector": " Construction Supplies & Fixtures"
+  },
+  {
+    "symbol": "T55",
+    "sector": "Collective Investments",
+    "sub_sector": " Closed End Funds"
+  },
+  {
+    "symbol": "TCU",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Professional Information Services"
+  },
+  {
+    "symbol": "TPED",
+    "sector": "Energy Minerals",
+    "sub_sector": "Integrated Oil"
+  },
+  {
+    "symbol": "566",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Construction & Engineering"
+  },
+  {
+    "symbol": "AWC",
+    "sector": "Industrial Goods",
+    "sub_sector": " Electrical Components & Equipment"
+  },
+  {
+    "symbol": "AWI",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "AXB",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Construction & Engineering"
+  },
+  {
+    "symbol": "P8Z",
+    "sector": "Food & Beverages",
+    "sub_sector": " Food Processing"
+  },
+  {
+    "symbol": "TQ5",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "TS0U",
+    "sector": "Real Estate",
+    "sub_sector": " Diversified REITs"
+  },
+  {
+    "symbol": "B69",
+    "sector": "Industrial Goods",
+    "sub_sector": " Industrial Machinery & Equipment"
+  },
+  {
+    "symbol": "BVQ",
+    "sector": "Software & IT Services",
+    "sub_sector": " IT Services & Consulting"
+  },
+  {
+    "symbol": "TVV",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Business Support Services"
+  },
+  {
+    "symbol": "U06",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "BCD",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "BEC",
+    "sector": "Cyclical Consumer Products",
+    "sub_sector": " Construction Supplies & Fixtures"
+  },
+  {
+    "symbol": "U10",
+    "sector": "Banking & Investment Services",
+    "sub_sector": " Investment Banking & Brokerage Services"
+  },
+  {
+    "symbol": "T12",
+    "sector": "Applied Resources",
+    "sub_sector": " Paper Packaging"
+  },
+  {
+    "symbol": "T6I",
+    "sector": "Retailers",
+    "sub_sector": " Apparel & Accessories Retailers"
+  },
+  {
+    "symbol": "TATD",
+    "sector": "Transportation",
+    "sub_sector": "Other Transportation"
+  },
+  {
+    "symbol": "BWCU",
+    "sector": "Real Estate",
+    "sub_sector": " Specialized REITs"
+  },
+  {
+    "symbol": "S68",
+    "sector": "Banking & Investment Services",
+    "sub_sector": " Financial & Commodity Market Operators"
+  },
+  {
+    "symbol": "U11",
+    "sector": "Banking & Investment Services",
+    "sub_sector": " Banks"
+  },
+  {
+    "symbol": "U13",
+    "sector": "Insurance",
+    "sub_sector": " Multiline Insurance & Brokers"
+  },
+  {
+    "symbol": "1A1",
+    "sector": "Industrial Goods",
+    "sub_sector": " Industrial Machinery & Equipment"
+  },
+  {
+    "symbol": "5AU",
+    "sector": "Chemicals",
+    "sub_sector": " Specialty Chemicals"
+  },
+  {
+    "symbol": "VC2",
+    "sector": "Food & Beverages",
+    "sub_sector": " Food Processing"
+  },
+  {
+    "symbol": "5DM",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "U96",
+    "sector": "Utilities",
+    "sub_sector": " Multiline Utilities"
+  },
+  {
+    "symbol": "UD2",
+    "sector": "Food & Beverages",
+    "sub_sector": " Food Processing"
+  },
+  {
+    "symbol": "UUK",
+    "sector": "Healthcare Services",
+    "sub_sector": " Advanced Medical Equipment & Technology"
+  },
+  {
+    "symbol": "1AZ",
+    "sector": "Cyclical Consumer Services",
+    "sub_sector": " Consumer Publishing"
+  },
+  {
+    "symbol": "OTS",
+    "sector": "Food & Beverages",
+    "sub_sector": " Food Processing"
+  },
+  {
+    "symbol": "T82U",
+    "sector": "Real Estate",
+    "sub_sector": " Commercial REITs"
+  },
+  {
+    "symbol": "5DO",
+    "sector": "Cyclical Consumer Services",
+    "sub_sector": " Restaurants & Bars"
+  },
+  {
+    "symbol": "TWL",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Construction & Engineering"
+  },
+  {
+    "symbol": "U09",
+    "sector": "Cyclical Consumer Products",
+    "sub_sector": " Construction Supplies & Fixtures"
+  },
+  {
+    "symbol": "9CI",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Services"
+  },
+  {
+    "symbol": "V03",
+    "sector": "Technology Equipment",
+    "sub_sector": " Electronic Equipment & Parts"
+  },
+  {
+    "symbol": "V2Y",
+    "sector": "Insurance",
+    "sub_sector": " Multiline Insurance & Brokers"
+  },
+  {
+    "symbol": "V7R",
+    "sector": "Energy - Fossil Fuels",
+    "sub_sector": " Coal"
+  },
+  {
+    "symbol": "U14",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "U77",
+    "sector": "Industrial Goods",
+    "sub_sector": " Industrial Machinery & Equipment"
+  },
+  {
+    "symbol": "VI2",
+    "sector": "Automobiles & Auto Parts",
+    "sub_sector": " Auto & Truck Manufacturers"
+  },
+  {
+    "symbol": "1A4",
+    "sector": "Holding Companies",
+    "sub_sector": " Investment Holding Companies"
+  },
+  {
+    "symbol": "U9E",
+    "sector": "Utilities",
+    "sub_sector": " Water Utilities"
+  },
+  {
+    "symbol": "533",
+    "sector": "Food & Beverages",
+    "sub_sector": " Food Processing"
+  },
+  {
+    "symbol": "UIX",
+    "sector": "Automobiles & Auto Parts",
+    "sub_sector": " Auto & Truck Manufacturers"
+  },
+  {
+    "symbol": "WVJ",
+    "sector": "Retailers",
+    "sub_sector": " Apparel & Accessories Retailers"
+  },
+  {
+    "symbol": "URR",
+    "sector": "Cyclical Consumer Services",
+    "sub_sector": " Leisure & Recreation"
+  },
+  {
+    "symbol": "W05",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "WJ9",
+    "sector": "Technology Equipment",
+    "sub_sector": " Semiconductor Equipment & Testing"
+  },
+  {
+    "symbol": "WPC",
+    "sector": "Transportation",
+    "sub_sector": " Marine Freight & Logistics"
+  },
+  {
+    "symbol": "B9S",
+    "sector": "Mineral Resources",
+    "sub_sector": " Iron & Steel"
+  },
+  {
+    "symbol": "V3M",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Environmental Services & Equipment"
+  },
+  {
+    "symbol": "XCF",
+    "sector": "Cyclical Consumer Products",
+    "sub_sector": " Apparel & Accessories"
+  },
+  {
+    "symbol": "BCY",
+    "sector": "Technology Equipment",
+    "sub_sector": " Communications & Networking"
+  },
+  {
+    "symbol": "BDX",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Business Support Services"
+  },
+  {
+    "symbol": "Y8E",
+    "sector": "Chemicals",
+    "sub_sector": " Commodity Chemicals"
+  },
+  {
+    "symbol": "BEI",
+    "sector": "Applied Resources",
+    "sub_sector": " Forest & Wood Products"
+  },
+  {
+    "symbol": "V8Y",
+    "sector": "Healthcare Services",
+    "sub_sector": " Healthcare Facilities & Services"
+  },
+  {
+    "symbol": "XJB",
+    "sector": "Cyclical Consumer Services",
+    "sub_sector": " Entertainment Production"
+  },
+  {
+    "symbol": "BFU",
+    "sector": "Automobiles & Auto Parts",
+    "sub_sector": " Auto"
+  },
+  {
+    "symbol": "VVL",
+    "sector": "Software & IT Services",
+    "sub_sector": " IT Services & Consulting"
+  },
+  {
+    "symbol": "Y35",
+    "sector": "Energy - Fossil Fuels",
+    "sub_sector": " Oil & Gas Refining and Marketin"
+  },
+  {
+    "symbol": "Y3D",
+    "sector": "Retailers",
+    "sub_sector": " Computer & Electronics Retailers"
+  },
+  {
+    "symbol": "5SY",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Services"
+  },
+  {
+    "symbol": "J91U",
+    "sector": "Real Estate",
+    "sub_sector": " Commercial REITs"
+  },
+  {
+    "symbol": "Y45",
+    "sector": "Transportation",
+    "sub_sector": " Airport Services"
+  },
+  {
+    "symbol": "BJV",
+    "sector": "Food & Beverages",
+    "sub_sector": " Food Processing"
+  },
+  {
+    "symbol": "WJP",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Business Support Services"
+  },
+  {
+    "symbol": "Y92",
+    "sector": "Food & Beverages",
+    "sub_sector": " Distillers & Wineries"
+  },
+  {
+    "symbol": "BKV",
+    "sector": "Food & Beverages",
+    "sub_sector": " Fishing & Farming"
+  },
+  {
+    "symbol": "BKZ",
+    "sector": "Pharmaceuticals & Medical Research",
+    "sub_sector": " Pharmaceuticals"
+  },
+  {
+    "symbol": "YF8",
+    "sector": "Banking & Investment Services",
+    "sub_sector": " Investment Management & Fund Operators"
+  },
+  {
+    "symbol": "BQC",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Commercial Printing Services"
+  },
+  {
+    "symbol": "J69U",
+    "sector": "Real Estate",
+    "sub_sector": " Commercial REITs"
+  },
+  {
+    "symbol": "XVG",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Construction & Engineering"
+  },
+  {
+    "symbol": "D8DU",
+    "sector": "Transportation",
+    "sub_sector": " Marine Freight & Logistics"
+  },
+  {
+    "symbol": "TCPD",
+    "sector": "Retail Trade",
+    "sub_sector": "Food Retail"
+  },
+  {
+    "symbol": "XZL",
+    "sector": "Real Estate",
+    "sub_sector": " Specialized REITs"
+  },
+  {
+    "symbol": "BSL",
+    "sector": "Healthcare Services",
+    "sub_sector": " Healthcare Facilities & Services"
+  },
+  {
+    "symbol": "Y03",
+    "sector": "Food & Beverages",
+    "sub_sector": " Food Processing"
+  },
+  {
+    "symbol": "Y06",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Construction & Engineering"
+  },
+  {
+    "symbol": "49B",
+    "sector": "Industrial Goods",
+    "sub_sector": " Industrial Machinery & Equipment"
+  },
+  {
+    "symbol": "5DP",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "YK9",
+    "sector": "Cyclical Consumer Services",
+    "sub_sector": " Restaurants & Bars"
+  },
+  {
+    "symbol": "YYB",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Employment Services"
+  },
+  {
+    "symbol": "5OR",
+    "sector": "Industrial Goods",
+    "sub_sector": " Electrical Components & Equipment"
+  },
+  {
+    "symbol": "CTO",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "K71U",
+    "sector": "Real Estate",
+    "sub_sector": " Commercial REITs"
+  },
+  {
+    "symbol": "D03",
+    "sector": "Food & Beverages",
+    "sub_sector": " Food Processing"
+  },
+  {
+    "symbol": "N2IU",
+    "sector": "Real Estate",
+    "sub_sector": " Commercial REITs"
+  },
+  {
+    "symbol": "Z4D",
+    "sector": "Healthcare Services",
+    "sub_sector": " Healthcare Facilities & Services"
+  },
+  {
+    "symbol": "F1E",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Construction & Engineering"
+  },
+  {
+    "symbol": "H22",
+    "sector": "Automobiles & Auto Parts",
+    "sub_sector": " Auto"
+  },
+  {
+    "symbol": "Z59",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "Z74",
+    "sector": "Telecommunications Services",
+    "sub_sector": " Integrated Telecommunications Services"
+  },
+  {
+    "symbol": "E5H",
+    "sector": "Food & Beverages",
+    "sub_sector": " Food Processing"
+  },
+  {
+    "symbol": "H02",
+    "sector": "Pharmaceuticals & Medical Research",
+    "sub_sector": " Pharmaceuticals"
+  },
+  {
+    "symbol": "ZB9",
+    "sector": "Mineral Resources",
+    "sub_sector": " Iron & Steel"
+  },
+  {
+    "symbol": "C2PU",
+    "sector": "Real Estate",
+    "sub_sector": " Specialized REITs"
+  },
+  {
+    "symbol": "L02",
+    "sector": "Utilities",
+    "sub_sector": " Electric Utilities"
+  },
+  {
+    "symbol": "YYN",
+    "sector": "Software & IT Services",
+    "sub_sector": " IT Services & Consulting"
+  },
+  {
+    "symbol": "J85",
+    "sector": "Real Estate",
+    "sub_sector": " Specialized REITs"
+  },
+  {
+    "symbol": "O9E",
+    "sector": "Retailers",
+    "sub_sector": " Department Stores"
+  },
+  {
+    "symbol": "Z25",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Development & Operations"
+  },
+  {
+    "symbol": "J2T",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Construction & Engineering"
+  },
+  {
+    "symbol": "ZXY",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Construction & Engineering"
+  },
+  {
+    "symbol": "5LE",
+    "sector": "Applied Resources",
+    "sub_sector": " Forest & Wood Products"
+  },
+  {
+    "symbol": "LYY",
+    "sector": "Software & IT Services",
+    "sub_sector": " IT Services & Consulting"
+  },
+  {
+    "symbol": "Z77",
+    "sector": "Telecommunications Services",
+    "sub_sector": " Integrated Telecommunications Services"
+  },
+  {
+    "symbol": "LS9",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Environmental Services & Equipment"
+  },
+  {
+    "symbol": "N01",
+    "sector": "Technology Equipment",
+    "sub_sector": " Communications & Networking"
+  },
+  {
+    "symbol": "BTJ",
+    "sector": "Transportation",
+    "sub_sector": " Air Freight & Logistics"
+  },
+  {
+    "symbol": "BTX",
+    "sector": "Industrial Goods",
+    "sub_sector": " Industrial Machinery & Equipment"
+  },
+  {
+    "symbol": "BVA",
+    "sector": "Healthcare Services",
+    "sub_sector": " Medical Equipment"
+  },
+  {
+    "symbol": "1D0",
+    "sector": "Cyclical Consumer Services",
+    "sub_sector": " Restaurants & Bars"
+  },
+  {
+    "symbol": "P9D",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Construction & Engineering"
+  },
+  {
+    "symbol": "O5RU",
+    "sector": "Real Estate",
+    "sub_sector": " Commercial REITs"
+  },
+  {
+    "symbol": "1F2",
+    "sector": "Utilities",
+    "sub_sector": " Natural Gas Utilities"
+  },
+  {
+    "symbol": "ODBU",
+    "sector": "Real Estate",
+    "sub_sector": " Commercial REITs"
+  },
+  {
+    "symbol": "S20",
+    "sector": "Mineral Resources",
+    "sub_sector": " Specialty Mining & Metals"
+  },
+  {
+    "symbol": "CLN",
+    "sector": "Real Estate",
+    "sub_sector": " Real Estate Services"
+  },
+  {
+    "symbol": "P74",
+    "sector": "Food & Beverages",
+    "sub_sector": " Food Processing"
+  },
+  {
+    "symbol": "1H3",
+    "sector": "Healthcare Services",
+    "sub_sector": " Healthcare Facilities & Services"
+  },
+  {
+    "symbol": "QES",
+    "sector": "Chemicals",
+    "sub_sector": " Specialty Chemicals"
+  },
+  {
+    "symbol": "CMOU",
+    "sector": "Real Estate",
+    "sub_sector": " Commercial REITs"
+  },
+  {
+    "symbol": "RCU",
+    "sector": "Software & IT Services",
+    "sub_sector": " IT Services & Consulting"
+  },
+  {
+    "symbol": "KUX",
+    "sector": "Financial Technology (Fintech) & Infrastructure",
+    "sub_sector": " Blockchain & Cryptocurrency"
+  },
+  {
+    "symbol": "NXR",
+    "sector": "Technology Equipment",
+    "sub_sector": " Integrated Hardware & Software"
+  },
+  {
+    "symbol": "UD1U",
+    "sector": "Real Estate",
+    "sub_sector": " Commercial REITs"
+  },
+  {
+    "symbol": "9G2",
+    "sector": "Health Services",
+    "sub_sector": "Hospital/Nursing Management"
+  },
+  {
+    "symbol": "NPL",
+    "sector": "Personal & Household Products & Services",
+    "sub_sector": " Personal Services"
+  },
+  {
+    "symbol": "ZKX",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Construction & Engineering"
+  },
+  {
+    "symbol": "SGR",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Employment Services"
+  },
+  {
+    "symbol": "WKS",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Business Support Services"
+  },
+  {
+    "symbol": "LMS",
+    "sector": "Industrial & Commercial Services",
+    "sub_sector": " Business Support Services"
+  },
+  {
+    "symbol": "STC",
+    "sector": "Technology Equipment",
+    "sub_sector": " Communications & Networking"
+  }
+]

@@ -1,5 +1,6 @@
-from scraper import scrap_function
-from combiner import combine_data
+from sector_scraper_klse import scrap_function
+from combiner_klse import combine_data
+from additional_scrapper_tv_klse import scrap_null_data
 import pandas as pd
 from multiprocessing import Process
 import os
@@ -17,13 +18,13 @@ if __name__ == "__main__":
   supabase = create_client(url_supabase, key)
 
   # Get the table
-  db_data = supabase.table("sgx_companies").select("").execute()
+  db_data = supabase.table("klse_companies").select("").execute()
   df_db_data = pd.DataFrame(db_data.data)
 
   cols = df_db_data.columns.tolist()
 
   # Get symbol data
-  symbol_list = df_db_data['symbol'].tolist()
+  symbol_list = df_db_data['investing_symbol'].tolist()
 
   start = time.time()
 
@@ -48,22 +49,18 @@ if __name__ == "__main__":
   p3.join()
   p4.join()
 
+  # Handle null data
+  scrap_null_data()
+
   # Merge data
   df_final = combine_data(df_db_data)
-
-  # # Save to JSON and CSV
-  cwd = os.getcwd()
-  data_dir = os.path.join(cwd, "data")
-  
-  df_final.to_json(os.path.join(data_dir, "final_data.json"), orient="records", indent=2)
-  df_final.to_csv(os.path.join(data_dir, "final_data.csv"), index=False)
 
   # Convert to json. Remove the index in dataframe
   records = df_final.to_dict(orient="records")
 
   # Upsert to db
   try:
-    supabase.table("sgx_companies").upsert(
+    supabase.table("klse_companies").upsert(
         records
     ).execute()
     print(

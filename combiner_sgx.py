@@ -7,7 +7,7 @@ import numpy as np
 def combine_data (df_db_data):
   cwd = os.getcwd()
   data_dir = os.path.join(cwd, "data")
-  data_file_path = [os.path.join(data_dir,f'P{i}_data.json') for i in range(1,5)]
+  data_file_path = [os.path.join(data_dir,f'P{i}_data_sgx.json') for i in range(1,5)]
 
   # Combine data
   all_data_list = list()
@@ -19,15 +19,17 @@ def combine_data (df_db_data):
   # Make Dataframe
   df_scraped = pd.DataFrame(all_data_list)
 
-  # Drop Column
-  df_scraped = df_scraped.drop(['sector', 'name'], axis=1)
-
-  # Rename columns
-  df_scraped = df_scraped.rename(columns={"stock_code": "symbol", "industry": "sector", "sub_industry": "sub_sector"})
   
   # Sort df_db_data and df_scraped
   df_db_data = df_db_data.sort_values(['symbol'])
   df_scraped = df_scraped.sort_values(['symbol'])
+
+  # # Save to JSON and CSV
+  cwd = os.getcwd()
+  data_dir = os.path.join(cwd, "data")
+  
+  df_scraped.to_json(os.path.join(data_dir, "final_data_sgx.json"), orient="records", indent=2)
+  df_scraped.to_csv(os.path.join(data_dir, "final_data_sgx.csv"), index=False)
 
   indices_list = df_db_data.index.tolist()
 

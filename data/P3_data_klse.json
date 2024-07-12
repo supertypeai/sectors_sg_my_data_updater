@@ -1,0 +1,1262 @@
+[
+  {
+    "investing_symbol": "HONG",
+    "sector": "Healthcare",
+    "sub_sector": "Healthcare Providers & Services"
+  },
+  {
+    "investing_symbol": "MAST",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "MINO",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "CVIE",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "DUTA",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MATE",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Textiles & Apparel"
+  },
+  {
+    "investing_symbol": "BATO",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "HSON",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Drug Retailing "
+  },
+  {
+    "investing_symbol": "MISC",
+    "sector": "Industrials",
+    "sub_sector": "Transport Infrastructure"
+  },
+  {
+    "investing_symbol": "BPOT",
+    "sector": "Industrials",
+    "sub_sector": "Transport Infrastructure"
+  },
+  {
+    "investing_symbol": "MATR",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MJPR",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MAXL",
+    "sector": "Basic Materials",
+    "sub_sector": "Paper & Forest Products"
+  },
+  {
+    "investing_symbol": "MMMG",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Media & Publishing"
+  },
+  {
+    "investing_symbol": "MMSI",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "IBRC",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MBBM",
+    "sector": "Financials",
+    "sub_sector": "Banking Services"
+  },
+  {
+    "investing_symbol": "MNCS",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MBSB",
+    "sector": "Financials",
+    "sub_sector": "Banking Services"
+  },
+  {
+    "investing_symbol": "MCEI",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Automobiles & Auto Parts"
+  },
+  {
+    "investing_symbol": "MNCW",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "IQGH",
+    "sector": "Technology",
+    "sub_sector": "Electronic Equipment & Parts"
+  },
+  {
+    "investing_symbol": "MCOM",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Media & Publishing"
+  },
+  {
+    "investing_symbol": "CITR",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "MARI",
+    "sector": "Industrials",
+    "sub_sector": "Transport Infrastructure"
+  },
+  {
+    "investing_symbol": "MCRK",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "MDCH",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MEGA",
+    "sector": "Energy",
+    "sub_sector": "Renewable Energy"
+  },
+  {
+    "investing_symbol": "MNRB",
+    "sector": "Financials",
+    "sub_sector": "Insurance"
+  },
+  {
+    "investing_symbol": "BUAB",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Related Equipment and Services"
+  },
+  {
+    "investing_symbol": "DEHB",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Related Equipment and Services"
+  },
+  {
+    "investing_symbol": "MPIM",
+    "sector": "Technology",
+    "sub_sector": "Semiconductors & Semiconductor Equipment"
+  },
+  {
+    "investing_symbol": "HTVE",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "MENT",
+    "sector": "Basic Materials",
+    "sub_sector": "Paper & Forest Products"
+  },
+  {
+    "investing_symbol": "MPIR",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Household Goods"
+  },
+  {
+    "investing_symbol": "APES",
+    "sector": "Financials",
+    "sub_sector": "Investment Banking & Investment Services"
+  },
+  {
+    "investing_symbol": "MERI",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "ANCR",
+    "sector": "Financials",
+    "sub_sector": "Banking Services"
+  },
+  {
+    "investing_symbol": "MEST",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Homebuilding & Construction Supplies"
+  },
+  {
+    "investing_symbol": "MPRM",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Media & Publishing"
+  },
+  {
+    "investing_symbol": "METO",
+    "sector": "Healthcare",
+    "sub_sector": "Healthcare Providers & Services"
+  },
+  {
+    "investing_symbol": "METR",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MQTE",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "IVRY",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MGBB",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "MSTP",
+    "sector": "Basic Materials",
+    "sub_sector": "Containers & Packaging"
+  },
+  {
+    "investing_symbol": "MHCP",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "MIEC",
+    "sector": "Basic Materials",
+    "sub_sector": "Paper & Forest Products"
+  },
+  {
+    "investing_symbol": "MIKB",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "KSSC",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "MSWK",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "MTAG",
+    "sector": "Industrials",
+    "sub_sector": "Professional & Commercial Services"
+  },
+  {
+    "investing_symbol": "MTOU",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "MITC",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MITR",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "MUBL",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "FOLU",
+    "sector": "Basic Materials",
+    "sub_sector": "Paper & Forest Products"
+  },
+  {
+    "investing_symbol": "MJYA",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "MKLH",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MLBS",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "MLTO",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MMAG",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "MHEB",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Related Equipment and Services"
+  },
+  {
+    "investing_symbol": "MUDA",
+    "sector": "Basic Materials",
+    "sub_sector": "Containers & Packaging"
+  },
+  {
+    "investing_symbol": "MUHB",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MUHI",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "MAEQ",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Household Goods"
+  },
+  {
+    "investing_symbol": "MMST",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "MUIB",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Hotels & Entertainment Services"
+  },
+  {
+    "investing_symbol": "MUIP",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "BIMB",
+    "sector": "Financials",
+    "sub_sector": "Banking Services"
+  },
+  {
+    "investing_symbol": "HOWA",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "AYER",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "GPPR",
+    "sector": "Utilities",
+    "sub_sector": "Electrical Utilities & IPPs"
+  },
+  {
+    "investing_symbol": "MXSC",
+    "sector": "Technology",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MNGA",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "MNHO",
+    "sector": "Basic Materials",
+    "sub_sector": "Paper & Forest Products"
+  },
+  {
+    "investing_symbol": "MYCS",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "AIRX",
+    "sector": "Industrials",
+    "sub_sector": "Passenger Transportation Services"
+  },
+  {
+    "investing_symbol": "MNLF",
+    "sector": "Financials",
+    "sub_sector": "Insurance"
+  },
+  {
+    "investing_symbol": "MYEG",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "KARE",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Personal &Household Products & Services"
+  },
+  {
+    "investing_symbol": "MNTH",
+    "sector": "Basic Materials",
+    "sub_sector": "Construction Materials"
+  },
+  {
+    "investing_symbol": "MOBI",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Household Goods"
+  },
+  {
+    "investing_symbol": "ETEX",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "MPHB",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Hotels & Entertainment Services"
+  },
+  {
+    "investing_symbol": "MYMB",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "MYNE",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Drug Retailing "
+  },
+  {
+    "investing_symbol": "MYRS",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "NATI",
+    "sector": "Technology",
+    "sub_sector": "Electronic Equipment & Parts"
+  },
+  {
+    "investing_symbol": "NCHB",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "KGRP",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "MRDI",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Specialty Retailers"
+  },
+  {
+    "investing_symbol": "MRHB",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Textiles & Apparel"
+  },
+  {
+    "investing_symbol": "EDEL",
+    "sector": "Technology",
+    "sub_sector": "Semiconductors & Semiconductor Equipment"
+  },
+  {
+    "investing_symbol": "MITE",
+    "sector": "Technology",
+    "sub_sector": "Semiconductors & Semiconductor Equipment"
+  },
+  {
+    "investing_symbol": "LAMB",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Textiles & Apparel"
+  },
+  {
+    "investing_symbol": "MROD",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "INNA",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Specialty Retailers"
+  },
+  {
+    "investing_symbol": "MSCB",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "DCHE",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Personal &Household Products & Services"
+  },
+  {
+    "investing_symbol": "MSMH",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "ANNU",
+    "sector": "Basic Materials",
+    "sub_sector": "Paper & Forest Products"
+  },
+  {
+    "investing_symbol": "IGBB",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "HEXC",
+    "sector": "Technology",
+    "sub_sector": "Communications & Networking"
+  },
+  {
+    "investing_symbol": "MSTG",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Hotels & Entertainment Services"
+  },
+  {
+    "investing_symbol": "GROS",
+    "sector": "Basic Materials",
+    "sub_sector": "Paper & Forest Products"
+  },
+  {
+    "investing_symbol": "MSTM",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "NCTA",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "NESM",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "NEXG",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "NEXT",
+    "sector": "Industrials",
+    "sub_sector": "Professional & Commercial Services"
+  },
+  {
+    "investing_symbol": "NHFH",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Automobiles & Auto Parts"
+  },
+  {
+    "investing_symbol": "NHSN",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Household Goods"
+  },
+  {
+    "investing_symbol": "NICH",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Textiles & Apparel"
+  },
+  {
+    "investing_symbol": "NMBS",
+    "sector": "Financials",
+    "sub_sector": "Holding Companies"
+  },
+  {
+    "investing_symbol": "NNCB",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "NOVS",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "NOVW",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "MYTE",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "NPCR",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "NSOS",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "NTPM",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Personal &Household Products & Services"
+  },
+  {
+    "investing_symbol": "NVTE",
+    "sector": "Technology",
+    "sub_sector": "Computers Phones & Household Electronics"
+  },
+  {
+    "investing_symbol": "OCBB",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "OCEA",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Textiles & Apparel"
+  },
+  {
+    "investing_symbol": "OCEN",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Related Equipment and Services"
+  },
+  {
+    "investing_symbol": "OCKG",
+    "sector": "Technology",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "OCRG",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "OFIH",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "OKAC",
+    "sector": "Basic Materials",
+    "sub_sector": "Construction Materials"
+  },
+  {
+    "investing_symbol": "OLYM",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Hotels & Entertainment Services"
+  },
+  {
+    "investing_symbol": "OMES",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "OMHO",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "ONEG",
+    "sector": "Healthcare",
+    "sub_sector": "Healthcare Equipment & Supplies"
+  },
+  {
+    "investing_symbol": "ONET",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "ONLY",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Hotels & Entertainment Services"
+  },
+  {
+    "investing_symbol": "OPPS",
+    "sector": "Technology",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "OPTI",
+    "sector": "Healthcare",
+    "sub_sector": "Healthcare Providers & Services"
+  },
+  {
+    "investing_symbol": "OPYS",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "ORGA",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "ORPA",
+    "sector": "Basic Materials",
+    "sub_sector": "Containers & Packaging"
+  },
+  {
+    "investing_symbol": "OSKH",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "OSKV",
+    "sector": "Financials",
+    "sub_sector": "Investment Banking & Investment Services"
+  },
+  {
+    "investing_symbol": "OTLS",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Specialty Retailers"
+  },
+  {
+    "investing_symbol": "OVER",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Hotels & Entertainment Services"
+  },
+  {
+    "investing_symbol": "PACO",
+    "sector": "Financials",
+    "sub_sector": "Insurance"
+  },
+  {
+    "investing_symbol": "PAND",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "PANS",
+    "sector": "Industrials",
+    "sub_sector": "Diversified Trading & Distributing"
+  },
+  {
+    "investing_symbol": "PAOS",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Personal &Household Products & Services"
+  },
+  {
+    "investing_symbol": "PAPP",
+    "sector": "Financials",
+    "sub_sector": "Banking Services"
+  },
+  {
+    "investing_symbol": "PARA",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Homebuilding & Construction Supplies"
+  },
+  {
+    "investing_symbol": "PARB",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "PARL",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Hotels & Entertainment Services"
+  },
+  {
+    "investing_symbol": "PARW",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "PASU",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "PBAH",
+    "sector": "Utilities",
+    "sub_sector": "Water Utilities"
+  },
+  {
+    "investing_symbol": "PCCS",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Textiles & Apparel"
+  },
+  {
+    "investing_symbol": "PCGB",
+    "sector": "Basic Materials",
+    "sub_sector": "Chemicals"
+  },
+  {
+    "investing_symbol": "PDNI",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Specialty Retailers"
+  },
+  {
+    "investing_symbol": "PDZH",
+    "sector": "Industrials",
+    "sub_sector": "Freight & Logistics Services"
+  },
+  {
+    "investing_symbol": "PECC",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Automobiles & Auto Parts"
+  },
+  {
+    "investing_symbol": "PEGA",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Household Goods"
+  },
+  {
+    "investing_symbol": "PEIN",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "PEKA",
+    "sector": "Utilities",
+    "sub_sector": "Electrical Utilities & IPPs"
+  },
+  {
+    "investing_symbol": "PELK",
+    "sector": "Industrials",
+    "sub_sector": "Professional & Commercial Services"
+  },
+  {
+    "investing_symbol": "PENS",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Household Goods"
+  },
+  {
+    "investing_symbol": "PEPT",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "PERM",
+    "sector": "Technology",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "PERT",
+    "sector": "Industrials",
+    "sub_sector": "Passenger Transportation Services"
+  },
+  {
+    "investing_symbol": "PESO",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "PETR",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas"
+  },
+  {
+    "investing_symbol": "PGAS",
+    "sector": "Utilities",
+    "sub_sector": "Natural Gas Utilities"
+  },
+  {
+    "investing_symbol": "PGFC",
+    "sector": "Basic Materials",
+    "sub_sector": "Construction Materials"
+  },
+  {
+    "investing_symbol": "PDEC",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "PGKN",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Hotels & Entertainment Services"
+  },
+  {
+    "investing_symbol": "PGON",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Household Goods"
+  },
+  {
+    "investing_symbol": "PHMA",
+    "sector": "Healthcare",
+    "sub_sector": "Pharmaceuticals"
+  },
+  {
+    "investing_symbol": "PHUA",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Household Goods"
+  },
+  {
+    "investing_symbol": "PIEN",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "PIMP",
+    "sector": "Financials",
+    "sub_sector": "Holding Companies"
+  },
+  {
+    "investing_symbol": "PINE",
+    "sector": "Technology",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "PINT",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "PERA",
+    "sector": "Industrials",
+    "sub_sector": "Transport Infrastructure"
+  },
+  {
+    "investing_symbol": "PIPB",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "PJSB",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "PLBE",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "PLET",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "PLHB",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "PLSB",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "PMAS",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "PMBT",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "PMCS",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "PMET",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "PMJU",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Automobiles & Auto Parts"
+  },
+  {
+    "investing_symbol": "PMMY",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Household Goods"
+  },
+  {
+    "investing_symbol": "PNEB",
+    "sector": "Technology",
+    "sub_sector": "Semiconductors & Semiconductor Equipment"
+  },
+  {
+    "investing_symbol": "PNHB",
+    "sector": "Industrials",
+    "sub_sector": "Professional & Commercial Services"
+  },
+  {
+    "investing_symbol": "POHK",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Textiles & Apparel"
+  },
+  {
+    "investing_symbol": "POLD",
+    "sector": "Industrials",
+    "sub_sector": "Professional & Commercial Services"
+  },
+  {
+    "investing_symbol": "POWE",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Beverages"
+  },
+  {
+    "investing_symbol": "POWR",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "symbol": "PREI",
+    "sector": "Finance",
+    "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+    "investing_symbol": "PRGH",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Textiles & Apparel"
+  },
+  {
+    "investing_symbol": "PRKN",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Diversified Retail"
+  },
+  {
+    "investing_symbol": "PROE",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "PRTB",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "PRTO",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "PSHL",
+    "sector": "Industrials",
+    "sub_sector": "Freight & Logistics Services"
+  },
+  {
+    "investing_symbol": "PSTM",
+    "sector": "Basic Materials",
+    "sub_sector": "Containers & Packaging"
+  },
+  {
+    "investing_symbol": "PTAR",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "PTMR",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas"
+  },
+  {
+    "investing_symbol": "PNTE",
+    "sector": "Basic Materials",
+    "sub_sector": "Metals & Mining"
+  },
+  {
+    "investing_symbol": "PTRD",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Related Equipment and Services"
+  },
+  {
+    "investing_symbol": "PTRE",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "PTTY",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "PPHB",
+    "sector": "Basic Materials",
+    "sub_sector": "Containers & Packaging"
+  },
+  {
+    "investing_symbol": "PUBM",
+    "sector": "Financials",
+    "sub_sector": "Banking Services"
+  },
+  {
+    "investing_symbol": "PWFC",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "QCHB",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "PRMS",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "QESG",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "QRES",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "RADI",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Specialty Retailers"
+  },
+  {
+    "investing_symbol": "RADU",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "RALC",
+    "sector": "Basic Materials",
+    "sub_sector": "Containers & Packaging"
+  },
+  {
+    "investing_symbol": "RAMS",
+    "sector": "Industrials",
+    "sub_sector": "Professional & Commercial Services"
+  },
+  {
+    "investing_symbol": "RANH",
+    "sector": "Utilities",
+    "sub_sector": "Water Utilities"
+  },
+  {
+    "investing_symbol": "RAPD",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "PTRS",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "REDH",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "REDI",
+    "sector": "Financials",
+    "sub_sector": "Banking Services"
+  },
+  {
+    "investing_symbol": "REDP",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "REKA",
+    "sector": "Others",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "RENE",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "RESE",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas"
+  },
+  {
+    "investing_symbol": "RESN",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Homebuilding & Construction Supplies"
+  },
+  {
+    "investing_symbol": "RESR",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Related Equipment and Services"
+  },
+  {
+    "investing_symbol": "REXI",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "REXT",
+    "sector": "Technology",
+    "sub_sector": "Software & IT Services"
+  },
+  {
+    "investing_symbol": "RGBI",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Hotels & Entertainment Services"
+  },
+  {
+    "investing_symbol": "RHBC",
+    "sector": "Financials",
+    "sub_sector": "Banking Services"
+  },
+  {
+    "investing_symbol": "RHOG",
+    "sector": "Consumer Cyclicals",
+    "sub_sector": "Household Goods"
+  },
+  {
+    "investing_symbol": "RHON",
+    "sector": "Healthcare",
+    "sub_sector": "Pharmaceuticals"
+  },
+  {
+    "investing_symbol": "RAYG",
+    "sector": "Energy",
+    "sub_sector": "Renewable Energy"
+  },
+  {
+    "investing_symbol": "RIMB",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "ROHA",
+    "sector": "Industrials",
+    "sub_sector": "Construction & Engineering"
+  },
+  {
+    "investing_symbol": "RTON",
+    "sector": "Technology",
+    "sub_sector": "Others"
+  },
+  {
+    "investing_symbol": "RVWL",
+    "sector": "Consumer Non-Cyclicals",
+    "sub_sector": "Food & Tobacco"
+  },
+  {
+    "investing_symbol": "SAEG",
+    "sector": "Industrials",
+    "sub_sector": "Machinery Equipment & Components"
+  },
+  {
+    "investing_symbol": "SAEN",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Related Equipment and Services"
+  },
+  {
+    "investing_symbol": "SAHB",
+    "sector": "Basic Materials",
+    "sub_sector": "Chemicals"
+  }
+]
