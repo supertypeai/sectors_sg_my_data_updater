@@ -228,16 +228,15 @@ def employee_updater(data_final, country):
     for iv_symbol, yf_symbol in zip(data_final["investing_symbol"].tolist(), data_final["symbol"].tolist()):
         yf_data_dict["investing_symbol"].append(iv_symbol)
         try:
-            temp = yf.Ticker(yf_symbol)
+            temp = yf.Ticker(yf_symbol + ".SI")
             employee = temp.info["fullTimeEmployees"]
             yf_data_dict["employee_num"].append(employee)
         except:
             yf_data_dict["employee_num"].append(np.nan)
     employee_sgx = pd.DataFrame(iv_data_dict).drop("status", axis = 1)
     employee_yf = pd.DataFrame(yf_data_dict)
-    employee_num_all = pd.merge(employee_yf, employee_sgx, on = "investing_symbol", how = "left")
     new_en = []
-    for en_yf, en_sgx in zip(employee_num_all["employee_num"].tolist(), employee_num_all["employee_num_sgx"].tolist()):
+    for en_yf, en_sgx in zip(employee_yf["employee_num"].tolist(), employee_sgx["employee_num_sgx"].tolist()):
         if en_sgx > 0:
             new_en.append(en_sgx)
         else:
