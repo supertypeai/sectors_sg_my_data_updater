@@ -166,7 +166,7 @@ def yf_data_updater(data_prep, country):
             symbol = row["symbol"]
             print(f"error in symbol {symbol} : ", e)
             new_close.append(np.nan)
-    data_prep = data_prep.assign(close = new_close)
+    data_prep = data_prep.assign(close = new_close).drop("ocf", axis = 1)
     return data_prep
 
 def employee_updater(data_final, country):
