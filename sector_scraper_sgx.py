@@ -76,20 +76,8 @@ def scrap_stock_page(base_url, symbol: str, new_symbol: str) -> dict | None:
 
   industry = None
   sub_industry = None
-  sector = None
-  name = None
 
   if (soup is not None):
-    # Get Name
-    try:
-      name_elm = soup.find("span", {"class" : "widget-security-details-name"}).get_text()
-      names = name_elm.split(" ")
-      names = names[:-1]
-      name = " ".join(names)
-    except:
-      print(f"Failed to get Name data from {url}")
-      name = None
-
     # Get Industry
     try:
       industry = soup.find("span", {"class": "widget-security-details-general-industry"}).get_text()
@@ -104,33 +92,19 @@ def scrap_stock_page(base_url, symbol: str, new_symbol: str) -> dict | None:
       print(f"Failed to get Industry data from {url}")
       industry = None
     
-    # Get Sector
-    try:
-      collapsible = soup.findAll("div", {"class": "cmp-collapsible-two-column-col"})
-      for elm in collapsible:
-        collapsible_title = elm.find("div", {"class" : "cmp-collapsible-two-column-item-title"}).find("span").get_text()
-        if (collapsible_title == "Sector"):
-          sector = elm.find("div", {"class": "cmp-collapsible-two-column-item-value"}).get_text()
-    except:
-      print(f"Failed to get Sector data from {url}")
-      sector = None
 
-    if (industry is not None and sub_industry is not None and sector is not None and name is not None):
+    if (industry is not None and sub_industry is not None):
       print(f"Successfully scrap from {symbol} stock page")
     else:
-      if (name is None):
-        print(f"Detected None type for Name variable from {symbol} stock page")
-      if (industry is None or sub_industry is None):
-        print(f"Detected None type for Industry or SubIndustry variable from {symbol} stock page")
-      if (sector is None):
-        print(f"Detected None type for Sector variable from {symbol} stock page")
+      if (industry is None):
+        print(f"Detected None type for Industry variable from {symbol} stock page")
+      else: # sub_industry is None
+        print(f"Detected None type for SubIndustry variable from {symbol} stock page")
     
     stock_data = dict()
-    stock_data['stock_code'] = symbol
-    stock_data['name'] = name
-    stock_data['industry'] = industry
-    stock_data['sub_industry'] = sub_industry
-    stock_data['sector'] = sector
+    stock_data['symbol'] = symbol
+    stock_data['sector'] = industry
+    stock_data['sub_sector'] = sub_industry
 
     return stock_data
   else:
@@ -157,27 +131,28 @@ def scrap_function(symbol_list, process_idx):
 
     if (symbol is not None):
       scrapped_data = {
-        "stock_code" : symbol,
-        "name" : None,
-        "industry" : None,
-        "sub_industry" : None,
-        "sector" : None
+        "symbol" : symbol,
+        "sector" : None,
+        "sub_sector" : None,
       }
 
       # Handling for page that returns None although it should not
-      while (scrapped_data['industry'] is None and scrapped_data['sector'] is None and attempt_count <= 5):
+      while (scrapped_data['sector'] is None and scrapped_data['sub_sector'] is None and attempt_count <= 3):
         
         # Iterate among possible URLs
         for key, base in LINK_ARR.items():
           print(f"Try scraping {symbol} using {key}")
           scrapped_data = scrap_stock_page(base, symbol, new_symbol)
 
-          if (scrapped_data['industry'] is not None and scrapped_data['sector'] is not None):
+          if (scrapped_data['sector'] is not None and scrapped_data['sub_sector'] is not None):
             break
 
-        if (scrapped_data['industry'] is None and scrapped_data['sector'] is None):
+        if (scrapped_data['sector'] is None and scrapped_data['sub_sector'] is None):
           print(f"Data not found! Retrying.. Attempt: {attempt_count}")
         attempt_count += 1
+
+        if (attempt_count == 3 and scrapped_data['sector'] is None):
+          print(f"Data for {symbol} is still None after all attempts!")
 
       all_data.append(scrapped_data)
 
@@ -188,7 +163,7 @@ def scrap_function(symbol_list, process_idx):
     time.sleep(0.2)
   
   # Save last
-  filename = f"P{process_idx}_data.json"
+  filename = f"P{process_idx}_data_sgx.json"
   print(f"==> Finished data is exported in {filename}")
   file_path = os.path.join(cwd, "data", filename)
 
