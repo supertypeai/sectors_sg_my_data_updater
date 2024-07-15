@@ -468,7 +468,8 @@ if __name__ == "__main__":
         data_db.drop(drop_cols, axis = 1, inplace = True)
         data_final = pd.merge(data_general, data_db, on = "investing_symbol", how = "inner")
         data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend_ttm','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"], axis = 1)
-
+    invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR', 'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
+    data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]    
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
     records = data_final.replace({np.nan: None}).to_dict("records")
 
