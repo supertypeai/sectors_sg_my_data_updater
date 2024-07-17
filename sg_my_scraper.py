@@ -114,11 +114,12 @@ def yf_data_updater(data_prep, country):
                 "priceToSalesTrailing12Months" : "ps_ttm", 
                 "priceToBook" : "pb", 
                 "beta" : "beta",
-                "operatingCashflow" : "ocf" 
+                "operatingCashflow" : "ocf",
+                "totalRevenue" : "revenue"
                 }
             for key_dv, val_dv in zip(desired_values.keys(), desired_values.values()):
                 try:
-                    if val_dv == "market_cap":
+                    if val_dv == "market_cap" or val_dv == "revenue":
                         if currency != country_currency:
                             rate = float(data[currency][country_currency])
                             temp_val = data_json[key_dv] * rate
