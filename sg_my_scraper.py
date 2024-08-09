@@ -479,9 +479,11 @@ if __name__ == "__main__":
             for record in records:
                 try:
                     supabase.table(db).upsert(record.dropna(axis = 1), returning='minimal').execute()
-                    print(f"Upsert operation for {record["symbol"]} successful.")
+                    symbol = record["symbol"]
+                    print(f"Upsert operation for {symbol} successful.")
                 except Exception as e:
-                    print(f"Error during upsert {record["symbol"]} : {e}")
+                    symbol = record["symbol"]
+                    print(f"Error during upsert {symbol} : {e}")
         else:
             supabase.table(db).upsert(records, returning='minimal').execute()
             print("Upsert operation successful.")
