@@ -476,13 +476,14 @@ if __name__ == "__main__":
 
     try:
         if args.daily:
-            for record in records:
+            for index, row in data_final.iterrows():
                 try:
-                    supabase.table(db).upsert(record.dropna(axis = 1), returning='minimal').execute()
-                    symbol = record["symbol"]
+                    symbol = row["symbol"]
+                    record = row.dropna(axis = 1).replace({np.nan: None}).to_dict("records")
+                    supabase.table(db).upsert(record, returning='minimal').execute()
                     print(f"Upsert operation for {symbol} successful.")
                 except Exception as e:
-                    symbol = record["symbol"]
+                    symbol = row["symbol"]
                     print(f"Error during upsert {symbol} : {e}")
         else:
             supabase.table(db).upsert(records, returning='minimal').execute()
