@@ -475,8 +475,16 @@ if __name__ == "__main__":
     records = data_final.replace({np.nan: None}).to_dict("records")
 
     try:
-        supabase.table(db).upsert(records, returning='minimal').execute()
-        print("Upsert operation successful.")
+        if args.daily:
+            for record in records:
+                try:
+                    supabase.table(db).upsert(record.dropna(axis = 1), returning='minimal').execute()
+                    print(f"Upsert operation for {record["symbol"]} successful.")
+                except Exception as e:
+                    print(f"Error during upsert {record["symbol"]} : {e}")
+        else:
+            supabase.table(db).upsert(records, returning='minimal').execute()
+            print("Upsert operation successful.")
     except Exception as e:
         print(f"Error during upsert operation: {e}")
 
