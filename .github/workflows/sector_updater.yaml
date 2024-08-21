@@ -30,7 +30,6 @@ jobs:
             SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
             PROXY: ${{ secrets.PROXY }}
         run: |
-          python sector_scraper_main.py MY
           python sector_scraper_main.py SG
 
       - name: Pull changes
