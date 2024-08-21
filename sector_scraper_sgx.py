@@ -55,7 +55,7 @@ def get_screener_page_data() -> bytes | None:
 def get_url(base_url: str, symbol: str) -> str:
   return f"{base_url}{symbol}"
 
-def read_page(url: str) -> BeautifulSoup | None:
+def read_page(url: str):
   try:
     session = HTMLSession()
     response = session.get(url)

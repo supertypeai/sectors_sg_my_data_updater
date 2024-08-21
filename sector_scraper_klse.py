@@ -49,13 +49,8 @@ SYMBOL_MAP = {
 def get_url(base_url: str, symbol: str) -> str:
   return f"{base_url}{symbol}.KL"
 
-def read_page(url: str) -> BeautifulSoup | None:
+def read_page(url: str):
   try:
-    # session = HTMLSession()
-    # response = session.get(url)
-    # response.html.render(sleep=5, timeout=10)
-    # soup = BeautifulSoup(response.html.html, "html.parser")
-
     headers = {'User-Agent': USER_AGENT}
     request = urllib.request.Request(url,None,headers)
     time.sleep(2)
@@ -66,10 +61,8 @@ def read_page(url: str) -> BeautifulSoup | None:
   except Exception as e:
     print(f"Failed to open {url}: {e}")
     return None
-  # finally:
-  #   print(f"Session in {url} is closed")
 
-def read_page_session(url: str) -> BeautifulSoup | None:
+def read_page_session(url: str):
   try:
     session = HTMLSession()
     response = session.get(url)
