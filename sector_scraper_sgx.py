@@ -39,7 +39,7 @@ SYMBOL_LIST_MAP = {
   "QSD" : "V7R" #Resources Global
 }
 
-def get_screener_page_data() -> bytes | None:
+def get_screener_page_data():
   try:
     res = requests.get(SCREENER_API_URL)
     if (res.status_code == 200):
@@ -70,7 +70,7 @@ def read_page(url: str):
     session.close()
     print(f"Session in {url} is closed")
 
-def scrap_stock_page(base_url, symbol: str, new_symbol: str) -> dict | None:
+def scrap_stock_page(base_url, symbol: str, new_symbol: str):
   url = get_url(base_url, new_symbol)
   soup = read_page(url)
 
@@ -207,6 +207,7 @@ def scrap_stock_page_additional( symbol : str) -> dict :
       return data_dict
   else:
     print(f"Detected None type for Beautifulsoup for {url}")
+    return data_dict
 
 def scrap_null_data_sg():
   cwd = os.getcwd()

@@ -77,7 +77,7 @@ def read_page_session(url: str):
     session.close()
     print(f"Session in {url} is closed")
 
-def scrap_stock_page(base_url: str, symbol: str, new_symbol: str) -> dict | None:
+def scrap_stock_page(base_url: str, symbol: str, new_symbol: str):
   url = get_url(base_url, new_symbol)
   soup = read_page(url)
   
@@ -229,6 +229,7 @@ def scrap_stock_page_additional( symbol : str) -> dict :
       return data_dict
   else:
     print(f"Detected None type for Beautifulsoup for {url}")
+    return data_dict
 
 def scrap_null_data_my():
   cwd = os.getcwd()
