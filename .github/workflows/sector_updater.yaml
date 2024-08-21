@@ -1,4 +1,4 @@
-name: Update sgx_companies and klse_companies monthly data
+name: Update MY and SG sector and subsector data
 
 on:
   schedule:
