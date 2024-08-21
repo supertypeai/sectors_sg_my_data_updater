@@ -24,14 +24,14 @@ jobs:
           pip install lxml[html_clean]
           pip install -r requirements.txt
 
-      - name: execute sg_my_scraper.py script
+      - name: execute scraper script
         env:
             SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
             SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
             PROXY: ${{ secrets.PROXY }}
         run: |
-          python main_klse.py
-          python main_sgx.py
+          python sector_scraper_main.py MY
+          python sector_scraper_main.py SG
 
       - name: Pull changes
         run: git pull origin main

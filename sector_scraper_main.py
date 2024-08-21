@@ -1,8 +1,6 @@
-from sector_scraper_klse import scrap_function_my
-from sector_scraper_sgx import scrap_function_sg
+from sector_scraper_klse import scrap_function_my, scrap_null_data_my
+from sector_scraper_sgx import scrap_function_sg, scrap_null_data_sg
 from sector_combiner import combine_data
-from additional_scrapper_klse import scrap_null_data_my
-from additional_scrapper_sgx import scrap_null_data_sg
 import pandas as pd
 from multiprocessing import Process
 import os
