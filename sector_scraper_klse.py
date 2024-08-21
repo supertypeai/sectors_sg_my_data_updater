@@ -111,7 +111,7 @@ def scrap_stock_page(base_url, symbol: str, new_symbol: str) -> dict | None:
     print(f"None type of BeautifulSoup")
     return None
 
-def scrap_function(symbol_list, process_idx):
+def scrap_function_my(symbol_list, process_idx):
   print(f"==> Start scraping from process P{process_idx}")
   all_data = []
   cwd = os.getcwd()
