@@ -116,7 +116,12 @@ def scrap_stock_page(base_url: str, symbol: str, new_symbol: str):
     return stock_data
   else:
     print(f"None type of BeautifulSoup")
-    return None
+    stock_data = {
+        "investing_symbol" : symbol,
+        "sector" : None,
+        "sub_sector" : None
+      }
+    return stock_data
 
 def scrap_function_my(symbol_list: list, process_idx: int):
   print(f"==> Start scraping from process P{process_idx}")
