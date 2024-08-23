@@ -6,4 +6,5 @@ pytz==2023.3
 Requests==2.32.3
 requests_html==0.10.0
 supabase==2.7.2
+websocket-client==1.8.0
 yfinance==0.2.42
