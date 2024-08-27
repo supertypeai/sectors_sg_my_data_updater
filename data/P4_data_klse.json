@@ -145,7 +145,7 @@
     "sub_sector": "Media & Publishing"
   },
   {
-    "symbol": "SENT",
+    "investing_symbol": "SENT",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -445,7 +445,7 @@
     "sub_sector": "Electrical Utilities & IPPs"
   },
   {
-    "symbol": "SUNW",
+    "investing_symbol": "SUNW",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -805,7 +805,7 @@
     "sub_sector": "Professional & Commercial Services"
   },
   {
-    "symbol": "TWRE",
+    "investing_symbol": "TWRE",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -885,7 +885,7 @@
     "sub_sector": "Others"
   },
   {
-    "symbol": "UOAR",
+    "investing_symbol": "UOAR",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -1180,7 +1180,7 @@
     "sub_sector": "Multiline Utilities"
   },
   {
-    "symbol": "YTLR",
+    "investing_symbol": "YTLR",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -1255,7 +1255,7 @@
     "sub_sector": "Freight & Logistics Services"
   },
   {
-    "symbol": "PROL",
+    "investing_symbol": "PROL",
     "sector": "Industrial Services",
     "sub_sector": "Engineering & Construction"
   },

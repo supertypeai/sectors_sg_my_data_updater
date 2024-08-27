@@ -24,9 +24,6 @@ jobs:
           pip install lxml[html_clean]
           pip install -r requirements.txt
 
-      - name: Clean up Chromium
-        run: rm -rf /home/runner/.local/share/pyppeteer/local-chromium/
-
       - name: execute scraper script
         env:
             SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

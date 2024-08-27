@@ -208,7 +208,7 @@ def scrap_stock_page_additional( symbol : str) -> dict :
   soup = read_page(url)
 
   data_dict = {
-    "symbol" : symbol,
+    "investing_symbol" : symbol,
     "sector" : None,
     "sub_sector" : None
   }

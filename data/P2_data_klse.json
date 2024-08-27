@@ -15,7 +15,7 @@
     "sub_sector": "Machinery Equipment & Components"
   },
   {
-    "symbol": "AMRY",
+    "investing_symbol": "AMRY",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -30,7 +30,7 @@
     "sub_sector": "Machinery Equipment & Components"
   },
   {
-    "symbol": "HEKR",
+    "investing_symbol": "HEKR",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -340,7 +340,7 @@
     "sub_sector": "Others"
   },
   {
-    "symbol": "IGRE",
+    "investing_symbol": "IGRE",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -740,7 +740,7 @@
     "sub_sector": "Construction & Engineering"
   },
   {
-    "symbol": "KIPR",
+    "investing_symbol": "KIPR",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -760,7 +760,7 @@
     "sub_sector": "Construction & Engineering"
   },
   {
-    "symbol": "KLCC",
+    "investing_symbol": "KLCC",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },

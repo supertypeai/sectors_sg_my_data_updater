@@ -55,7 +55,7 @@
     "sub_sector": "Construction & Engineering"
   },
   {
-    "symbol": "ATRL",
+    "investing_symbol": "ATRL",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -65,7 +65,7 @@
     "sub_sector": "Paper & Forest Products"
   },
   {
-    "symbol": "AXSR",
+    "investing_symbol": "AXSR",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -755,7 +755,7 @@
     "sub_sector": "Construction & Engineering"
   },
   {
-    "symbol": "CAMA",
+    "investing_symbol": "CAMA",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -960,7 +960,7 @@
     "sub_sector": "Containers & Packaging"
   },
   {
-    "symbol": "AMFL",
+    "investing_symbol": "AMFL",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
@@ -1035,7 +1035,7 @@
     "sub_sector": "Food & Tobacco"
   },
   {
-    "symbol": "ALQA",
+    "investing_symbol": "ALQA",
     "sector": "Finance",
     "sub_sector": "Real Estate Investment Trusts"
   },
