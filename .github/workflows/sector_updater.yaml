@@ -22,7 +22,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install lxml[html_clean]
-          pip install -r requirements.txt
+          pip install -r sector_requirements.txt
 
       - name: execute scraper script
         env:
@@ -30,6 +30,7 @@ jobs:
             SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
             PROXY: ${{ secrets.PROXY }}
         run: |
+          python sector_scraper_main.py MY
           python sector_scraper_main.py SG
 
       - name: Pull changes

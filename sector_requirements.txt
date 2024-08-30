@@ -2,8 +2,6 @@ beautifulsoup4==4.12.3
 numpy==1.24.2
 pandas==2.0.2
 python-dotenv==1.0.1
-pytz==2023.3
 Requests==2.32.3
 requests_html==0.10.0
-supabase==2.7.2
-yfinance==0.2.42
+supabase==2.6.0
