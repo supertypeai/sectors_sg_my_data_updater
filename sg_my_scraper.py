@@ -479,6 +479,7 @@ if __name__ == "__main__":
             for record in records:
                 try:
                     record = pd.DataFrame([record]).dropna(axis = 1).to_dict("records")
+                    print("record:", record[0]["close"])
                     if len(record[0]["close"]) == 0:
                         continue
                     supabase.table(db).upsert(record, returning='minimal').execute()
