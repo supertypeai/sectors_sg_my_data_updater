@@ -5,7 +5,7 @@ load_dotenv()
 from supabase import create_client
 import pandas as pd
 import datetime
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import argparse
 import numpy as np
@@ -49,53 +49,13 @@ def GetGeneralData(country):
 
 def yf_data_updater(data_prep, country):
     date_format = "%Y-%m-%d"
-    # take latest date from database
-    last_date = datetime.strptime(data_prep["close"][0][-1]["date"], date_format)
-    last_year = last_date.year
-    last_month = last_date.month
-    last_day = last_date.day
+    last_date = (datetime.now()-timedelta(days=31)).strftime(date_format)
 
-    # take current date from datetime library
-    current_date = datetime.now()
-    current_year = current_date.year
-    current_month = current_date.month
-    current_day = current_date.day
-
-    # get the list of new dates that not in the db
+    # get the list of dates within 1 latest month
     list_dates = []
-    if last_year == current_year:
-        if last_month == current_month:
-            for i in range(last_day + 1, current_day + 1, 1):
-                temp_date = datetime(current_year, current_month, i).strftime(date_format)
-                list_dates.append(temp_date)
-        else:
-            max_day = 31
-            min_day = 1
-            for i in range(current_day + 1, max_day + 1, 1):
-                try:
-                    temp_date = datetime(current_year, last_month, i).strftime(date_format)
-                    list_dates.append(temp_date)
-                except:
-                    pass
-            for i in range(min_day, current_day, 1):
-                temp_date = datetime(current_year, current_month, i).strftime(date_format)
-                list_dates.append(temp_date)
-
-    else:
-        max_day = 31
-        min_day = 1
-        for i in range(current_day + 1, max_day + 1, 1):
-            try:
-                temp_date = datetime(last_year, last_month, i).strftime(date_format)
-                list_dates.append(temp_date)
-            except:
-                pass
-        for i in range(min_day, current_day, 1):
-            temp_date = datetime(current_year, current_month, i).strftime(date_format)
-            list_dates.append(temp_date)
-
-    now = datetime.now()
-    prev_1month = datetime(now.year, now.month - 1 if now.month > 1 else 12, now.day).strftime(date_format)
+    for i in range(1, 32):
+        temp_date = (datetime.strptime(last_date, date_format) + timedelta(days = i)).strftime(date_format)
+        list_dates.append(temp_date)
 
     new_close = []
     for index, row in data_prep.iterrows():
@@ -144,8 +104,15 @@ def yf_data_updater(data_prep, country):
                         data_prep.loc[index, val_dv] = np.nan
 
             # update data from history yfinance
-            yf_data = ticker.history(period="1mo").reset_index()
-            close_data = row["close"]
+            try:
+                yf_data = ticker.history(period="1mo").reset_index()
+            except:
+                """
+                New stock that doesn't have 30 days history data, will go to this section instead
+                and retrieved all the data
+                """
+                yf_data = ticker.history(period="max").reset_index()
+            close_data = []
             for i in range(len(yf_data)):
                 curr = yf_data.iloc[i]
                 curr_date = curr["Date"].strftime(date_format)
@@ -161,7 +128,7 @@ def yf_data_updater(data_prep, country):
                         "close" : curr_close
                     }
                     close_data.append(temp)
-            close_data = [close for close in close_data if close["date"] > prev_1month]
+            close_data = [close for close in close_data if close["date"] > last_date]
             new_close.append(close_data)
         except Exception as e:
             symbol = row["symbol"]
@@ -480,7 +447,7 @@ if __name__ == "__main__":
                 try:
                     record = pd.DataFrame([record]).dropna(axis = 1).to_dict("records")
                     print("record:", record[0]["close"])
-                    if len(record[0]["close"]) == 0:
+                    if len(record[0]["close"]) <= 5:
                         continue
                     supabase.table(db).upsert(record, returning='minimal').execute()
                     symbol = record[0]["symbol"]
