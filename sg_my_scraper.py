@@ -423,9 +423,9 @@ if __name__ == "__main__":
         data_db = pd.DataFrame(data_db.data)
         data_final = employee_updater(data_db, country)
     elif args.daily:
-        data_general = GetGeneralData(country)
-        data_general = rename_and_convert(data_general, "daily")
-        data_general = clean_daily_foreign_data(data_general)
+        # data_general = GetGeneralData(country)
+        # data_general = rename_and_convert(data_general, "daily")
+        # data_general = clean_daily_foreign_data(data_general)
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
@@ -434,8 +434,9 @@ if __name__ == "__main__":
         'monthly_signal', 'change_1d', 'change_7d', 'change_1m',
         'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis = 1, inplace = True)
-        data_final = pd.merge(data_general, data_db, on = "investing_symbol", how = "inner")
-        data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend_ttm','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"], axis = 1)
+        # data_final = pd.merge(data_general, data_db, on = "investing_symbol", how = "inner")
+        # data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend_ttm','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"], axis = 1)
+        data_final = yf_data_updater(data_db, country)
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR', 'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]    
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
