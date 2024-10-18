@@ -21,9 +21,9 @@ proxy = os.environ.get("PROXY")
 import time
 from multiprocessing import Process
 
-proxy_support = urllib.request.ProxyHandler({'http': proxy,'https': proxy})
-opener = urllib.request.build_opener(proxy_support)
-urllib.request.install_opener(opener)
+# proxy_support = urllib.request.ProxyHandler({'http': proxy,'https': proxy})
+# opener = urllib.request.build_opener(proxy_support)
+# urllib.request.install_opener(opener)
 
 def GetGeneralData(country):
     if country == "sg":
