@@ -29,5 +29,5 @@ jobs:
             SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
             PROXY: ${{ secrets.PROXY }}
         run: |
-          python sg_my_scraper.py -sg -m
-          python sg_my_scraper.py -my -m
+          python sg_my_scraper.py -sg -w
+          python sg_my_scraper.py -my -w

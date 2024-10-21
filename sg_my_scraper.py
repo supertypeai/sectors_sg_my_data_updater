@@ -395,6 +395,7 @@ if __name__ == "__main__":
     parser.add_argument("-my", "--malaysia", action="store_true", default=False, help="Update malaysia data")
     parser.add_argument("-d", "--daily", action="store_true", default=False, help="Update daily data")
     parser.add_argument("-m", "--monthly", action="store_true", default=False, help="Update monthly data")
+    parser.add_argument("-w", "--weekly", action="store_true", default=False, help="Update weekly data")
 
     args = parser.parse_args()
     if args.singapore and args.malaysia:
