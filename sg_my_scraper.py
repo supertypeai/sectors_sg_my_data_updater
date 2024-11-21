@@ -65,6 +65,13 @@ def yf_data_updater(data_prep, country):
             ticker = yf.Ticker(row["symbol"] + ticker_extension)
             currency = row["currency"]
             country_currency = "MYR" if country == "my" else "SGD"
+
+            # update dividend_growth_rate
+            current_year = datetime.now().year
+            dividend_last_1_year = ticker.history(start = f"{current_year - 1}-01-01", end = f"{current_year - 1}-12-31")["Dividends"].sum()
+            dividend_current = ticker.history(start = f"{current_year}-01-01", end = f"{current_year}-12-31")["Dividends"].sum()
+            dividend_growth_rate = (dividend_current/dividend_last_1_year) - 1
+            data_prep.loc[index, "dividend_growth_rate"] = dividend_growth_rate
             
             # update data from info yfinance
             data_json = ticker.info
@@ -135,7 +142,10 @@ def yf_data_updater(data_prep, country):
             symbol = row["symbol"]
             print(f"error in symbol {symbol} : ", e)
             new_close.append(np.nan)
-    data_prep = data_prep.assign(close = new_close).drop("ocf", axis = 1)
+    try:
+        data_prep = data_prep.assign(close = new_close).drop("ocf", index = 1)
+    except:             
+        data_prep = data_prep.assign(close = new_close)
     return data_prep
 
 def employee_updater(data_final, country):
@@ -439,9 +449,6 @@ if __name__ == "__main__":
         data_final = pd.merge(data_general, data_db, on = "investing_symbol", how = "inner")
         data_final = data_final.drop(["revenue", 'dividend_ttm','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"], axis = 1)
     elif args.daily:
-        # data_general = GetGeneralData(country)
-        # data_general = rename_and_convert(data_general, "daily")
-        # data_general = clean_daily_foreign_data(data_general)
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
@@ -450,13 +457,12 @@ if __name__ == "__main__":
         'monthly_signal', 'change_1d', 'change_7d', 'change_1m',
         'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis = 1, inplace = True)
-        # data_final = pd.merge(data_general, data_db, on = "investing_symbol", how = "inner")
-        # data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend_ttm','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"], axis = 1)
         data_final = yf_data_updater(data_db, country)
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR', 'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]    
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
     records = data_final.replace({np.nan: None}).to_dict("records")
+    print(records)
 
     try:
         if args.daily:
