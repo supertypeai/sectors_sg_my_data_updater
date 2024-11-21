@@ -63,10 +63,7 @@ def yf_data_updater(data_prep, country):
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
             ticker = yf.Ticker(row["symbol"] + ticker_extension)
-            try:
-                currency = ticker.info["financialCurrency"]
-            except:
-                currency = ticker.info["currency"]
+            currency = ticker.info["currency"]
             country_currency = "MYR" if country == "my" else "SGD"
 
             # update dividend_growth_rate
@@ -90,9 +87,17 @@ def yf_data_updater(data_prep, country):
                 }
             for key_dv, val_dv in zip(desired_values.keys(), desired_values.values()):
                 try:
-                    if val_dv == "market_cap" or val_dv == "revenue":
+                    if val_dv == "market_cap":
                         if currency != country_currency:
                             rate = float(data[currency][country_currency])
+                            temp_val = data_json[key_dv] * rate
+                        else:
+                            temp_val = data_json[key_dv]
+                        data_prep.loc[index, val_dv] = temp_val
+                    elif val_dv == "revenue":
+                        financial_currency = ticker.info["financialCurrency"]
+                        if financial_currency != country_currency:
+                            rate = float(data[financial_currency][country_currency])
                             temp_val = data_json[key_dv] * rate
                         else:
                             temp_val = data_json[key_dv]
