@@ -5,7 +5,7 @@ load_dotenv()
 from supabase import create_client
 import pandas as pd
 import datetime
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import argparse
 import numpy as np
@@ -21,9 +21,9 @@ proxy = os.environ.get("PROXY")
 import time
 from multiprocessing import Process
 
-proxy_support = urllib.request.ProxyHandler({'http': proxy,'https': proxy})
-opener = urllib.request.build_opener(proxy_support)
-urllib.request.install_opener(opener)
+# proxy_support = urllib.request.ProxyHandler({'http': proxy,'https': proxy})
+# opener = urllib.request.build_opener(proxy_support)
+# urllib.request.install_opener(opener)
 
 def GetGeneralData(country):
     if country == "sg":
@@ -32,7 +32,8 @@ def GetGeneralData(country):
         url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceDay%2CperformanceWeek%2CperformanceMonth%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=42&filter-domain=&page=0&page-size=2000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
     data_from_api = None
-    with urllib.request.urlopen(url) as response:
+    req = urllib.request.Request(url, headers = headers)
+    with urllib.request.urlopen(req) as response:
         html = response.read()
 
     data_from_api = json.loads(html)
@@ -49,61 +50,28 @@ def GetGeneralData(country):
 
 def yf_data_updater(data_prep, country):
     date_format = "%Y-%m-%d"
-    # take latest date from database
-    last_date = datetime.strptime(data_prep["close"][0][-1]["date"], date_format)
-    last_year = last_date.year
-    last_month = last_date.month
-    last_day = last_date.day
+    last_date = (datetime.now()-timedelta(days=31)).strftime(date_format)
 
-    # take current date from datetime library
-    current_date = datetime.now()
-    current_year = current_date.year
-    current_month = current_date.month
-    current_day = current_date.day
-
-    # get the list of new dates that not in the db
+    # get the list of dates within 1 latest month
     list_dates = []
-    if last_year == current_year:
-        if last_month == current_month:
-            for i in range(last_day + 1, current_day + 1, 1):
-                temp_date = datetime(current_year, current_month, i).strftime(date_format)
-                list_dates.append(temp_date)
-        else:
-            max_day = 31
-            min_day = 1
-            for i in range(current_day + 1, max_day + 1, 1):
-                try:
-                    temp_date = datetime(current_year, last_month, i).strftime(date_format)
-                    list_dates.append(temp_date)
-                except:
-                    pass
-            for i in range(min_day, current_day, 1):
-                temp_date = datetime(current_year, current_month, i).strftime(date_format)
-                list_dates.append(temp_date)
-
-    else:
-        max_day = 31
-        min_day = 1
-        for i in range(current_day + 1, max_day + 1, 1):
-            try:
-                temp_date = datetime(last_year, last_month, i).strftime(date_format)
-                list_dates.append(temp_date)
-            except:
-                pass
-        for i in range(min_day, current_day, 1):
-            temp_date = datetime(current_year, current_month, i).strftime(date_format)
-            list_dates.append(temp_date)
-
-    now = datetime.now()
-    prev_1month = datetime(now.year, now.month - 1 if now.month > 1 else 12, now.day).strftime(date_format)
+    for i in range(1, 32):
+        temp_date = (datetime.strptime(last_date, date_format) + timedelta(days = i)).strftime(date_format)
+        list_dates.append(temp_date)
 
     new_close = []
     for index, row in data_prep.iterrows():
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
             ticker = yf.Ticker(row["symbol"] + ticker_extension)
-            currency = row["currency"]
+            currency = ticker.info["currency"]
             country_currency = "MYR" if country == "my" else "SGD"
+
+            # update dividend_growth_rate
+            current_year = datetime.now().year
+            dividend_last_1_year = ticker.history(start = f"{current_year - 1}-01-01", end = f"{current_year - 1}-12-31")["Dividends"].sum()
+            dividend_current = ticker.history(start = f"{current_year}-01-01", end = f"{current_year}-12-31")["Dividends"].sum()
+            dividend_growth_rate = (dividend_current/dividend_last_1_year) - 1
+            data_prep.loc[index, "dividend_growth_rate"] = dividend_growth_rate
             
             # update data from info yfinance
             data_json = ticker.info
@@ -119,9 +87,17 @@ def yf_data_updater(data_prep, country):
                 }
             for key_dv, val_dv in zip(desired_values.keys(), desired_values.values()):
                 try:
-                    if val_dv == "market_cap" or val_dv == "revenue":
+                    if val_dv == "market_cap":
                         if currency != country_currency:
                             rate = float(data[currency][country_currency])
+                            temp_val = data_json[key_dv] * rate
+                        else:
+                            temp_val = data_json[key_dv]
+                        data_prep.loc[index, val_dv] = temp_val
+                    elif val_dv == "revenue":
+                        financial_currency = ticker.info["financialCurrency"]
+                        if financial_currency != country_currency:
+                            rate = float(data[financial_currency][country_currency])
                             temp_val = data_json[key_dv] * rate
                         else:
                             temp_val = data_json[key_dv]
@@ -144,8 +120,15 @@ def yf_data_updater(data_prep, country):
                         data_prep.loc[index, val_dv] = np.nan
 
             # update data from history yfinance
-            yf_data = ticker.history(period="1mo").reset_index()
-            close_data = row["close"]
+            try:
+                yf_data = ticker.history(period="1mo").reset_index()
+            except:
+                """
+                New stock that doesn't have 30 days history data, will go to this section instead
+                and retrieved all the data
+                """
+                yf_data = ticker.history(period="max").reset_index()
+            close_data = []
             for i in range(len(yf_data)):
                 curr = yf_data.iloc[i]
                 curr_date = curr["Date"].strftime(date_format)
@@ -161,13 +144,16 @@ def yf_data_updater(data_prep, country):
                         "close" : curr_close
                     }
                     close_data.append(temp)
-            close_data = [close for close in close_data if close["date"] > prev_1month]
+            close_data = [close for close in close_data if close["date"] > last_date]
             new_close.append(close_data)
         except Exception as e:
             symbol = row["symbol"]
             print(f"error in symbol {symbol} : ", e)
             new_close.append(np.nan)
-    data_prep = data_prep.assign(close = new_close).drop("ocf", axis = 1)
+    try:
+        data_prep = data_prep.assign(close = new_close).drop("ocf", index = 1)
+    except:             
+        data_prep = data_prep.assign(close = new_close)
     return data_prep
 
 def employee_updater(data_final, country):
@@ -428,6 +414,7 @@ if __name__ == "__main__":
     parser.add_argument("-my", "--malaysia", action="store_true", default=False, help="Update malaysia data")
     parser.add_argument("-d", "--daily", action="store_true", default=False, help="Update daily data")
     parser.add_argument("-m", "--monthly", action="store_true", default=False, help="Update monthly data")
+    parser.add_argument("-w", "--weekly", action="store_true", default=False, help="Update weekly data")
 
     args = parser.parse_args()
     if args.singapore and args.malaysia:
@@ -455,7 +442,7 @@ if __name__ == "__main__":
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
         data_final = employee_updater(data_db, country)
-    elif args.daily:
+    elif args.weekly:
         data_general = GetGeneralData(country)
         data_general = rename_and_convert(data_general, "daily")
         data_general = clean_daily_foreign_data(data_general)
@@ -468,24 +455,37 @@ if __name__ == "__main__":
         'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis = 1, inplace = True)
         data_final = pd.merge(data_general, data_db, on = "investing_symbol", how = "inner")
-        data_final = yf_data_updater(data_final, country).drop(["revenue", 'dividend_ttm','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"], axis = 1)
+        data_final = data_final.drop(["revenue", 'dividend_ttm','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"], axis = 1)
+    elif args.daily:
+        db = "klse_companies" if args.malaysia else "sgx_companies"
+        data_db = supabase.table(db).select("*").execute()
+        data_db = pd.DataFrame(data_db.data)
+        drop_cols = ['market_cap', 'volume', 'pe',
+        'revenue', 'beta', 'daily_signal', 'weekly_signal',
+        'monthly_signal', 'change_1d', 'change_7d', 'change_1m',
+        'change_ytd', 'change_1y', 'change_3y']
+        data_db.drop(drop_cols, axis = 1, inplace = True)
+        data_final = yf_data_updater(data_db, country)
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR', 'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]    
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
     records = data_final.replace({np.nan: None}).to_dict("records")
+    print(records)
 
     try:
         if args.daily:
             for record in records:
                 try:
-                    record = pd.DataFrame([record]).dropna(axis = 1)
+                    record = pd.DataFrame([record]).dropna(axis = 1).to_dict("records")
+                    if len(record[0]["close"]) <= 5:
+                        continue
                     supabase.table(db).upsert(record, returning='minimal').execute()
-                    symbol = record["symbol"]
+                    symbol = record[0]["symbol"]
                     print(f"Upsert operation for {symbol} successful.")
                 except Exception as e:
-                    record = pd.DataFrame([record])
-                    symbol = record["symbol"]
-                    print(f"Error during upsert {symbol} : {e}")
+                    record = pd.DataFrame([record]).to_dict("records")
+                    symbol = record[0]["symbol"]
+                    raise ValueError(f"Error during upsert {symbol} : {e}")
         else:
             supabase.table(db).upsert(records, returning='minimal').execute()
             print("Upsert operation successful.")

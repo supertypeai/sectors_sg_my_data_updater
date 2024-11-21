@@ -1,8 +1,8 @@
-name: Update monthly data of sgx_companies and klse_companies
+name: Update weeky data of sgx_companies and klse_companies
 
 on:
   schedule:
-      - cron: '0 0 1 * *' # run at 1st day of every month at 12:00 AM
+      - cron: '00 18 * * 1' # run at 1st day of every week at 18:00 AM
   workflow_dispatch:
 
 jobs:
@@ -29,5 +29,5 @@ jobs:
             SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
             PROXY: ${{ secrets.PROXY }}
         run: |
-          python sg_my_scraper.py -sg -m
-          python sg_my_scraper.py -my -m
+          python sg_my_scraper.py -sg -w
+          python sg_my_scraper.py -my -w

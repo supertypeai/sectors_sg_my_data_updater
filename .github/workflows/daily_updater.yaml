@@ -1,4 +1,4 @@
-name: Update sgx_companies and klse_companies daily data
+name: Update daily data of sgx_companies and klse_companies
 
 on:
   schedule:
