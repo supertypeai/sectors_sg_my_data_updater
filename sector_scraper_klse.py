@@ -110,8 +110,8 @@ def scrap_stock_page(base_url: str, symbol: str, new_symbol: str):
     
     stock_data = dict()
     stock_data['investing_symbol'] = symbol
-    stock_data['sector'] = sector
-    stock_data['sub_sector'] = sub_sector
+    stock_data['sector'] = sector.strip()
+    stock_data['sub_sector'] = sub_sector.strip()
 
     return stock_data
   else:
@@ -225,8 +225,8 @@ def scrap_stock_page_additional( symbol : str) -> dict :
       else:
         print(f"There is at least 2 data needed on {url}")
       
-      data_dict['sector'] = sector
-      data_dict['sub_sector'] = sub_sector
+      data_dict['sector'] = sector.strip()
+      data_dict['sub_sector'] = sub_sector.strip()
 
       return data_dict
     except:
