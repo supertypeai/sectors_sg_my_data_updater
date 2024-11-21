@@ -309,15 +309,15 @@ def update_financial_data(country,country_data,supabase):
 def main():
     parser = argparse.ArgumentParser(description="Update sg or my data. If no argument is specified, the sg data will be updated.")
     parser.add_argument('country', type=str, help='Specify the Country Type the Pipeline will be ran')
-    parser.add_argument("fetch_type", type=str, help='Specify Pipeline Period (Weekly/Monthly)')
+    parser.add_argument("fetch_type", type=str, help='Specify Pipeline Period (Weekly/monthly/historical)')
 
     args = parser.parse_args()
 
     if args.country not in ['SG','MY']:
         raise ValueError("Please Specify Country Code Between SG and MY")
     
-    if args.fetch_type not in ['weekly','monthly']:
-        raise ValueError("Please Specify Fetch Type Between weekly and monthly")
+    if args.fetch_type not in ['weekly','monthly', 'historical']:
+        raise ValueError("Please Specify Fetch Type Between weekly, monthly, and historical")
     
     # Specify DB Credentials
     load_dotenv()
@@ -332,6 +332,7 @@ def main():
         update_div_ttm(args.country,country_data,supabase)
     elif args.fetch_type == "monthly":
         update_financial_data(args.country,country_data,supabase)
+    elif args.fetch_type == "historical":
         update_historical_data(args.country, country_data, supabase)
 
 if __name__ == "__main__":
