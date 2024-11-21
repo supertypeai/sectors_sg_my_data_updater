@@ -63,7 +63,10 @@ def yf_data_updater(data_prep, country):
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
             ticker = yf.Ticker(row["symbol"] + ticker_extension)
-            currency = row["currency"]
+            try:
+                currency = ticker.info["financialCurrency"]
+            except:
+                currency = ticker.info["currency"]
             country_currency = "MYR" if country == "my" else "SGD"
 
             # update dividend_growth_rate
@@ -469,7 +472,6 @@ if __name__ == "__main__":
             for record in records:
                 try:
                     record = pd.DataFrame([record]).dropna(axis = 1).to_dict("records")
-                    print("record:", record[0]["close"])
                     if len(record[0]["close"]) <= 5:
                         continue
                     supabase.table(db).upsert(record, returning='minimal').execute()
