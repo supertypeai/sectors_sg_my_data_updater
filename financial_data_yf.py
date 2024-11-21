@@ -99,7 +99,7 @@ def update_div_ttm(country,country_data,supabase):
 
     upsert_db(div_ttm,supabase,country)
 
-def earnings_fetcher(ticker,currency,stock):
+def earnings_fetcher(ticker,currency,stock, country):
    try:
       data_currency = ticker.info["financialCurrency"]
    except:
@@ -109,8 +109,8 @@ def earnings_fetcher(ticker,currency,stock):
          try:
             data_currency = ticker.info["currency"]
          except:
-            print(stock, " don't have any currency and will use SGD as the default")
-            data_currency = "SGD"
+            print(stock, " don't have any currency and will use SGD for sgx and MYR for KLSE as the default")
+            data_currency = "SGD" if country == "SG" else "MYR"
       
    if data_currency == currency:
       # Take the yearly net income value
@@ -192,7 +192,7 @@ def update_historical_data(country, country_data, supabase):
 
         currency = "SGD" if country == "SG" else "MYR"
 
-        net_income,revenue, last_data = earnings_fetcher(ticker,currency, stock)
+        net_income,revenue, last_data = earnings_fetcher(ticker,currency, stock, country)
 
         if type(last_data) == float:
             last_data = pd.DataFrame(data={'symbol':np.nan, "period": np.nan,'earnings':np.nan,'revenue':np.nan}, index=[0])
