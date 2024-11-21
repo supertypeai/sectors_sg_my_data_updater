@@ -90,9 +90,9 @@ def scrap_stock_page(base_url: str, symbol: str, new_symbol: str):
     # Get Sector
     try:
       sector_elm = soup.findAll("a", {"class": "stock-links"})
-      sector = sector_elm[0].get_text()
+      sector = sector_elm[0].get_text().strip()
       if (len(sector_elm) > 1):
-        sub_sector = sector_elm[1].get_text()
+        sub_sector = sector_elm[1].get_text().strip()
       else:
         sub_sector = sector
     except:
@@ -220,8 +220,8 @@ def scrap_stock_page_additional( symbol : str) -> dict :
       sector = None
       sub_sector = None
       if (len(needed_data) > 1):
-        sector = needed_data[0].get_text().replace(u'\xa0', u' ')
-        sub_sector = needed_data[1].get_text().replace(u'\xa0', u' ')
+        sector = needed_data[0].get_text().replace(u'\xa0', u' ').strip()
+        sub_sector = needed_data[1].get_text().replace(u'\xa0', u' ').strip()
       else:
         print(f"There is at least 2 data needed on {url}")
       

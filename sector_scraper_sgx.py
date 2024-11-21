@@ -84,8 +84,8 @@ def scrap_stock_page(base_url, symbol: str, new_symbol: str):
       if (industry is not None and len(industry) > 0): # Handling empty string or not found
         industry = industry.replace("Industry: ", "")
         industries = industry.split(",")
-        industry = industries[0]
-        sub_industry = industries[1]
+        industry = industries[0].strip()
+        sub_industry = industries[1].strip()
       else:
         industry = None
     except:
@@ -198,8 +198,8 @@ def scrap_stock_page_additional( symbol : str) -> dict :
       sector = None
       sub_sector = None
       if (len(needed_data) > 1):
-        sector = needed_data[0].get_text().replace(u'\xa0', u' ')
-        sub_sector = needed_data[1].get_text().replace(u'\xa0', u' ')
+        sector = needed_data[0].get_text().replace(u'\xa0', u' ').strip()
+        sub_sector = needed_data[1].get_text().replace(u'\xa0', u' ').strip()
       else:
         print(f"There is at least 2 data needed on {url}")
       
