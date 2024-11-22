@@ -10,6 +10,8 @@ import sys
 import pytz
 import argparse
 from dotenv import load_dotenv
+import warnings
+warnings.filterwarnings('ignore')
 
 def fetch_existing_symbol(country,supabase):
     if country == "SG":
@@ -209,7 +211,6 @@ def update_historical_data(country, country_data, supabase):
         df_earnings = pd.concat([df_earnings,data])
 
         print(f"success get {ticker} earnings")
-        print("df_earnings", df_earnings)
 
         upsert_db(df_earnings,supabase,country)
 
