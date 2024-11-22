@@ -212,7 +212,7 @@ def update_historical_data(country, country_data, supabase):
 
         print(f"success get {ticker} earnings")
 
-        upsert_db(df_earnings,supabase,country)
+    upsert_db(df_earnings,supabase,country)
 
 
 # Monthly Financial Data Function
