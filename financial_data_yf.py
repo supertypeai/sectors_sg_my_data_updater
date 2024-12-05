@@ -71,7 +71,8 @@ def fetch_div_ttm(stock, currency, symbol,curr):
             curr_value = resp[data_currency][currency]
 
             div_rate = div_rate * curr_value
-    except:
+    except Exception as e:
+        print(f"{stock} failed to retrieve and will be filled by 0 the error message:", e)
         div_rate = 0
 
     div_ttm = pd.DataFrame(data={'symbol':stock, 'dividend_ttm':div_rate}, index=[0])
