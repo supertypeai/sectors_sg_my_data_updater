@@ -15,6 +15,7 @@ warnings.filterwarnings('ignore')
 
 resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
 resp = resp.json()
+print("resp: ", resp)
 
 def fetch_existing_symbol(country,supabase):
     if country == "SG":
@@ -148,8 +149,8 @@ def earnings_fetcher(ticker,currency,stock, country):
          print(f"No Net Income and Revenue data for ticker {ticker}.SI")
 
    else:
-      resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
-      resp = resp.json()
+    #   resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
+    #   resp = resp.json()
       curr_value = resp[data_currency][currency]
 
       try:
@@ -230,8 +231,8 @@ def fetch_highlight_data(stock, currency, country_code):
             dividend = ticker.info['dividendRate']    
 
             if data_currency != currency:
-                resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
-                resp = resp.json()
+                # resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
+                # resp = resp.json()
                 curr_value = resp[data_currency][currency]
 
                 dividend = dividend * curr_value
