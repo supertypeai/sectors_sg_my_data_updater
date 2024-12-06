@@ -13,6 +13,9 @@ from dotenv import load_dotenv
 import warnings
 warnings.filterwarnings('ignore')
 
+resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
+resp = resp.json()
+
 def fetch_existing_symbol(country,supabase):
     if country == "SG":
         data = supabase.table("sgx_companies").select("symbol").execute()
@@ -66,8 +69,6 @@ def fetch_div_ttm(stock, currency, symbol,curr):
         data_currency = ticker.info['currency']
 
         if data_currency != curr:
-            resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
-            resp = resp.json()
             curr_value = resp[data_currency][currency]
 
             div_rate = div_rate * curr_value
