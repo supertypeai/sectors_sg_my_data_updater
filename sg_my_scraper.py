@@ -9,21 +9,28 @@ from datetime import datetime, timedelta
 import logging
 import argparse
 import numpy as np
-from bs4 import BeautifulSoup
-import yfinance as yf
+import yf_custom as yf
 import json
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 import urllib.request
 proxy = os.environ.get("PROXY")
-# from scraper import scrap_function
-# from combiner import combine_data
-import time
-from multiprocessing import Process
 
 # proxy_support = urllib.request.ProxyHandler({'http': proxy,'https': proxy})
 # opener = urllib.request.build_opener(proxy_support)
 # urllib.request.install_opener(opener)
+
+
+def safe_relative_diff(num1: float, num2: float):
+    # if both are 0, 0 difference
+    if num1 == 0:
+        return 0
+    # if the divisor is 0, return the number itself
+    if num2 == 0:
+        return num1
+    # else return the relative difference
+    return (num1 / num2) - 1
+
 
 def GetGeneralData(country):
     if country == "sg":
@@ -48,7 +55,7 @@ def GetGeneralData(country):
     #         break
     return data_from_api
 
-def yf_data_updater(data_prep, country):
+def yf_data_updater(data_prep: pd.DataFrame, country):
     date_format = "%Y-%m-%d"
     last_date = (datetime.now()-timedelta(days=31)).strftime(date_format)
 
@@ -60,17 +67,20 @@ def yf_data_updater(data_prep, country):
 
     new_close = []
     for index, row in data_prep.iterrows():
+        symbol = row["symbol"]
         try:
-            ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(row["symbol"] + ticker_extension)
-            currency = ticker.info["currency"]
-            country_currency = "MYR" if country == "my" else "SGD"
-
+            try:
+                ticker_extension = ".KL" if country == "my" else ".SI"
+                ticker = yf.Ticker(row["symbol"] + ticker_extension)
+                currency = ticker.info["currency"]
+                country_currency = "MYR" if country == "my" else "SGD"
+            except Exception as e:
+                raise AttributeError(f"no data available for {symbol}, possibly delisted: {e}")
             # update dividend_growth_rate
             current_year = datetime.now().year
             dividend_last_1_year = ticker.history(start = f"{current_year - 1}-01-01", end = f"{current_year - 1}-12-31")["Dividends"].sum()
             dividend_current = ticker.history(start = f"{current_year}-01-01", end = f"{current_year}-12-31")["Dividends"].sum()
-            dividend_growth_rate = (dividend_current/dividend_last_1_year) - 1
+            dividend_growth_rate = safe_relative_diff(dividend_current, dividend_last_1_year)
             data_prep.loc[index, "dividend_growth_rate"] = dividend_growth_rate
             
             # update data from info yfinance
@@ -107,14 +117,15 @@ def yf_data_updater(data_prep, country):
                         data_prep.loc[index, "pcf"] = temp_val
                     else:
                         data_prep.loc[index, val_dv] = data_json[key_dv]
-                except Exception as e:
+                except KeyError as e:
                     """
                     if this appear, that means yf don't have the data of the metrics
                     so it will be filled by NaN, or we can just still used investing.com values
                     for "pe" it will be calculated first with this formula, pe = close/eps_ttm
                     """
+                    # print(f"data unavailable from YF for {symbol}, trying to use data from other source: {e}")
                     if val_dv == "pe":
-                        temp_pe = row["close"][-1]["close"]/row["eps"]
+                        temp_pe = (row["close"][-1]["close"]/row["eps"]) if row["eps"] != 0 else np.nan
                         data_prep.loc[index, "pe"] = temp_pe
                     else:
                         data_prep.loc[index, val_dv] = np.nan
@@ -136,9 +147,7 @@ def yf_data_updater(data_prep, country):
                     curr_close =  float(curr["Close"])
                     if currency != country_currency:
                         rate = float(data[currency][country_currency])
-                        curr_close = float(curr["Close"])*rate
-                    else:
-                        curr_close = float(curr["Close"])
+                        curr_close = curr_close * rate
                     temp = {
                         "date" : curr_date,
                         "close" : curr_close
@@ -147,11 +156,10 @@ def yf_data_updater(data_prep, country):
             close_data = [close for close in close_data if close["date"] > last_date]
             new_close.append(close_data)
         except Exception as e:
-            symbol = row["symbol"]
             print(f"error in symbol {symbol} : ", e)
             new_close.append(np.nan)
     try:
-        data_prep = data_prep.assign(close = new_close).drop("ocf", index = 1)
+        data_prep = data_prep.assign(close = new_close).drop("ocf", axis="columns")
     except:             
         data_prep = data_prep.assign(close = new_close)
     return data_prep
@@ -470,26 +478,6 @@ if __name__ == "__main__":
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]    
     data_final.to_csv("data_my.csv", index = False) if args.malaysia else data_final.to_csv("data_sg.csv", index = False)
     records = data_final.replace({np.nan: None}).to_dict("records")
-    print(records)
 
-    try:
-        if args.daily:
-            for record in records:
-                try:
-                    record = pd.DataFrame([record]).dropna(axis = 1).to_dict("records")
-                    if len(record[0]["close"]) <= 5:
-                        continue
-                    supabase.table(db).upsert(record, returning='minimal').execute()
-                    symbol = record[0]["symbol"]
-                    print(f"Upsert operation for {symbol} successful.")
-                except Exception as e:
-                    record = pd.DataFrame([record]).to_dict("records")
-                    symbol = record[0]["symbol"]
-                    raise ValueError(f"Error during upsert {symbol} : {e}")
-        else:
-            supabase.table(db).upsert(records, returning='minimal').execute()
-            print("Upsert operation successful.")
-    except Exception as e:
-        print(f"Error during upsert operation: {e}")
-
-    
+    supabase.table(db).upsert(records, returning='minimal').execute()
+    print("Upsert operation successful.")
