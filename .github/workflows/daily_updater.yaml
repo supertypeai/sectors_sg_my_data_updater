@@ -9,25 +9,31 @@ jobs:
   trigger_workflow:
     runs-on: ubuntu-latest
     steps:
-
       - name: checkout repo content
-        uses: actions/checkout@v2 # checkout the repository content to github runner
+        uses: actions/checkout@v4 # checkout the repository content to github runner
 
       - name: setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9' # install the python version needed
-          
-      - name: install python packages
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python-version: 3.9
+          cache: pip
+          cache-dependency-path: requirements.txt
 
-      - name: execute sg_my_scraper.py script
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: execute SG update process
         env:
             SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
             SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
             PROXY: ${{ secrets.PROXY }}
         run: |
           python sg_my_scraper.py -sg -d
+
+      - name: execute MY update process
+        env:
+            SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+            SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+            PROXY: ${{ secrets.PROXY }}
+        run: |
           python sg_my_scraper.py -my -d
