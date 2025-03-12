@@ -15,7 +15,7 @@ class YFSession(CacheMixin, LimiterMixin, Session):
 
 
 _session = YFSession(
-    limiter=Limiter(RequestRate(2, Duration.SECOND * 2)),  # max 2 requests per 2 seconds
+    limiter=Limiter(RequestRate(5, Duration.SECOND * 2)),  # max 2 requests per 2 seconds
     backend=SQLiteCache("yfinance.cache"),
 )
 

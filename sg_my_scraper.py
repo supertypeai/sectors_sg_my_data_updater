@@ -147,14 +147,14 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                         curr_close = curr_close * rate
                     temp = {
                         "date": curr_date,
-                        "close": curr_close
+                        "close": curr_close if np.isfinite(curr_close) else None
                     }
                     close_data.append(temp)
             close_data = [close for close in close_data if close["date"] > last_date]
             new_close.append(close_data)
         except Exception as e:
             print(f"error in symbol {symbol} : ", e)
-            new_close.append(np.nan)
+            new_close.append(None)
     try:
         data_prep = data_prep.assign(close=new_close).drop("ocf", axis="columns")
     except:
