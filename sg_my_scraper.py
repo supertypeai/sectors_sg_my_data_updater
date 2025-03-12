@@ -3,28 +3,15 @@ import datetime
 import json
 import logging
 import os
-import ssl
+import urllib.request
 from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
 import requests
-from dotenv import load_dotenv
 from supabase import create_client
 
 import yf_custom as yf
-
-load_dotenv()
-
-ssl._create_default_https_context = ssl._create_unverified_context
-import urllib.request
-
-proxy = os.environ.get("PROXY")
-
-
-# proxy_support = urllib.request.ProxyHandler({'http': proxy,'https': proxy})
-# opener = urllib.request.build_opener(proxy_support)
-# urllib.request.install_opener(opener)
 
 
 def safe_relative_diff(num1: float, num2: float):

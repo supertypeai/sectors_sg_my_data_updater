@@ -1,8 +1,13 @@
 import yfinance as yf
+from dotenv import load_dotenv
+from pyrate_limiter import Duration, RequestRate, Limiter
 from requests import Session
 from requests_cache import CacheMixin, SQLiteCache
 from requests_ratelimiter import LimiterMixin, MemoryQueueBucket
-from pyrate_limiter import Duration, RequestRate, Limiter
+
+load_dotenv()
+
+_proxy = None
 
 
 class YFSession(CacheMixin, LimiterMixin, Session):
@@ -10,7 +15,7 @@ class YFSession(CacheMixin, LimiterMixin, Session):
 
 
 _session = YFSession(
-    limiter=Limiter(RequestRate(10, Duration.SECOND * 2)),  # max 2 requests per 5 seconds
+    limiter=Limiter(RequestRate(500, Duration.SECOND * 2)),  # max 500 requests per 2 seconds
     bucket_class=MemoryQueueBucket,
     backend=SQLiteCache("yfinance.cache"),
 )
@@ -18,4 +23,4 @@ _session = YFSession(
 
 class Ticker(yf.Ticker):
     def __init__(self, ticker):
-        super().__init__(ticker, session=_session)
+        super().__init__(ticker, session=_session, proxy=_proxy)
