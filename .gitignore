@@ -1,4 +1,8 @@
 *.csv
 venv
+.venv
 .env
 *.ipynb
+
+# YFinance cache
+yfinance.cache

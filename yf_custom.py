@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from pyrate_limiter import Duration, RequestRate, Limiter
 from requests import Session
 from requests_cache import CacheMixin, SQLiteCache
-from requests_ratelimiter import LimiterMixin, MemoryQueueBucket
+from requests_ratelimiter import LimiterMixin
 
 load_dotenv()
 
@@ -15,8 +15,7 @@ class YFSession(CacheMixin, LimiterMixin, Session):
 
 
 _session = YFSession(
-    limiter=Limiter(RequestRate(500, Duration.SECOND * 2)),  # max 500 requests per 2 seconds
-    bucket_class=MemoryQueueBucket,
+    limiter=Limiter(RequestRate(2, Duration.SECOND * 2)),  # max 2 requests per 2 seconds
     backend=SQLiteCache("yfinance.cache"),
 )
 
