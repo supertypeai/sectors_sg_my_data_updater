@@ -12,6 +12,8 @@ import argparse
 from dotenv import load_dotenv
 import warnings
 warnings.filterwarnings('ignore')
+import time
+from random import uniform
 
 resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
 resp = resp.json()
@@ -83,6 +85,9 @@ def fetch_div_ttm(stock, currency, symbol,curr):
 
 def update_div_ttm(country,country_data,supabase):
     div_ttm = pd.DataFrame()
+    base_delay = 2  # Base delay in seconds
+    max_delay = 60  # Maximum delay in seconds
+    current_delay = base_delay
 
     if country == "SG":
         curr = "SGD"
@@ -92,14 +97,35 @@ def update_div_ttm(country,country_data,supabase):
         symbol = "KL"
 
     for stock in country_data.symbol.unique():
+        retry_count = 0
+        max_retries = 3
+        success = False
         
-        print(f"start fetching data {stock}")
-        data = fetch_div_ttm(stock,curr,symbol,curr)
-
-        div_ttm = pd.concat([div_ttm,data])
-
-        print(f"Succes get data for {stock}")
-
+        while not success and retry_count < max_retries:
+            try:
+                print(f"start fetching data {stock}")
+                data = fetch_div_ttm(stock,curr,symbol,curr)
+                div_ttm = pd.concat([div_ttm,data])
+                print(f"Success get data for {stock}")
+                success = True
+                current_delay = base_delay  # Reset delay on success
+                
+                # Add a small random delay between successful requests
+                time.sleep(uniform(1, 3))
+                
+            except Exception as e:
+                retry_count += 1
+                if "rate limit" in str(e).lower():
+                    print(f"Rate limit hit for {stock}, attempt {retry_count} of {max_retries}")
+                    if retry_count < max_retries:
+                        print(f"Waiting {current_delay} seconds before retrying...")
+                        time.sleep(current_delay)
+                        current_delay = min(current_delay * 2, max_delay)  # Exponential backoff
+                    continue
+                else:
+                    print(f"Error fetching {stock}: {e}")
+                    break
+                    
         print(f"---------------------------------------------------------")
 
     upsert_db(div_ttm,supabase,country)
@@ -341,5 +367,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
