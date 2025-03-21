@@ -27,9 +27,9 @@ def safe_relative_diff(num1: float, num2: float):
 
 def GetGeneralData(country):
     if country == "sg":
-        url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceDay%2CperformanceWeek%2CperformanceMonth%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=36&filter-domain=&page=0&page-size=1000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
+        url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=36&filter-domain=&page=0&page-size=1000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
     elif country == "my":
-        url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceDay%2CperformanceWeek%2CperformanceMonth%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=42&filter-domain=&page=0&page-size=2000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
+        url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=42&filter-domain=&page=0&page-size=2000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
     data_from_api = None
@@ -285,9 +285,6 @@ def rename_and_convert(data, period):
             'TechnicalDay': 'daily_signal',
             'TechnicalWeek': 'weekly_signal',
             'TechnicalMonth': 'monthly_signal',
-            'PerformanceDay': 'daily_percentage_change',
-            'PerformanceWeek': 'weekly_percentage_change',
-            'PerformanceMonth': 'monthly_percentage_change',
             'PerformanceYtd': 'ytd_percentage_change',
             'PerformanceYear': 'one_year_percentage_change',
             'Performance3Year': 'three_year_percentage_change',
@@ -332,9 +329,6 @@ def rename_and_convert(data, period):
             'TechnicalDay': 'daily_signal',
             'TechnicalWeek': 'weekly_signal',
             'TechnicalMonth': 'monthly_signal',
-            'PerformanceDay': 'daily_percentage_change',
-            'PerformanceWeek': 'weekly_percentage_change',
-            'PerformanceMonth': 'monthly_percentage_change',
             'PerformanceYtd': 'ytd_percentage_change',
             'PerformanceYear': 'one_year_percentage_change',
             'Performance3Year': 'three_year_percentage_change',
@@ -366,9 +360,7 @@ def clean_daily_foreign_data(foreign_daily_data):
         foreign_daily_data[f"{i}_percentage_change"] = foreign_daily_data[f"{i}_percentage_change"] / 100
 
         # Rename columns
-    foreign_daily_data.rename(columns={"daily_percentage_change": "change_1d", "weekly_percentage_change": 'change_7d',
-                                       "monthly_percentage_change": "change_1m",
-                                       "ytd_percentage_change": "change_ytd",
+    foreign_daily_data.rename(columns={"ytd_percentage_change": "change_ytd",
                                        "one_year_percentage_change": "change_1y",
                                        "three_year_percentage_change": "change_3y"}, inplace=True)
 
@@ -376,8 +368,7 @@ def clean_daily_foreign_data(foreign_daily_data):
     foreign_daily_data.drop(["percentage_change", "close"], axis=1, inplace=True)
 
     # Change data type to float
-    float_columns = ['market_cap', 'volume', 'pe', 'revenue', 'beta', 'change_1d',
-                     'change_7d', 'change_1m', 'change_ytd', 'change_1y', 'change_3y', ]
+    float_columns = ['market_cap', 'volume', 'pe', 'revenue', 'beta', 'change_ytd', 'change_1y', 'change_3y', ]
 
     foreign_daily_data[float_columns] = foreign_daily_data[float_columns].applymap(
         lambda x: float(str(x).replace(',', '')))
@@ -472,7 +463,7 @@ if __name__ == "__main__":
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
-                     'monthly_signal', 'change_1d', 'change_7d', 'change_1m',
+                     'monthly_signal',
                      'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis=1, inplace=True)
         data_final = pd.merge(data_general, data_db, on="investing_symbol", how="inner")
@@ -486,7 +477,7 @@ if __name__ == "__main__":
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
-                     'monthly_signal', 'change_1d', 'change_7d', 'change_1m',
+                     'monthly_signal',
                      'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis=1, inplace=True)
         data_final = yf_data_updater(data_db, country)
