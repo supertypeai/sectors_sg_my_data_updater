@@ -52,41 +52,35 @@ def GetGeneralData(country):
 
 def yf_data_updater(data_prep: pd.DataFrame, country):
     date_format = "%Y-%m-%d"
-    # Set the start date as 31 days ago and then format it
     last_date = (datetime.now() - timedelta(days=31)).strftime(date_format)
-    # print(f"[DEBUG] last_date: {last_date}")
 
-    # Generate a list of dates for the next 31 days
-    list_dates = [(datetime.strptime(last_date, date_format) + timedelta(days=i)).strftime(date_format)
-                  for i in range(1, 32)]
-    # print(f"[DEBUG] list_dates: {list_dates}")
+    # get the list of dates within 1 latest month
+    list_dates = []
+    for i in range(1, 32):
+        temp_date = (datetime.strptime(last_date, date_format) + timedelta(days=i)).strftime(date_format)
+        list_dates.append(temp_date)
 
     new_close = []
     for index, row in data_prep.iterrows():
         symbol = row["symbol"]
-        # print(f"[DEBUG] Processing symbol: {symbol}")
         try:
-            # Get ticker with proper extension
-            ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(row["symbol"] + ticker_extension)
-            currency = ticker.info.get("currency", None)
-            country_currency = "MYR" if country == "my" else "SGD"
-            if currency is None:
-                raise AttributeError(f"Currency information not available for {symbol}")
-            # print(f"[DEBUG] {symbol} ticker_extension: {ticker_extension}")
-            # print(f"[DEBUG] {symbol} currency: {currency}, country_currency: {country_currency}")
-
-            # Update dividend growth rate
+            try:
+                ticker_extension = ".KL" if country == "my" else ".SI"
+                ticker = yf.Ticker(row["symbol"] + ticker_extension)
+                currency = ticker.info["currency"]
+                country_currency = "MYR" if country == "my" else "SGD"
+            except Exception as e:
+                raise AttributeError(f"no data available for {symbol}, possibly delisted: {e}")
+            # update dividend_growth_rate
             current_year = datetime.now().year
-            dividend_last_1_year = ticker.history(start=f"{current_year - 1}-01-01", 
-                                                    end=f"{current_year - 1}-12-31")["Dividends"].sum()
-            dividend_current = ticker.history(start=f"{current_year}-01-01", 
-                                              end=f"{current_year}-12-31")["Dividends"].sum()
+            dividend_last_1_year = ticker.history(start=f"{current_year - 1}-01-01", end=f"{current_year - 1}-12-31")[
+                "Dividends"].sum()
+            dividend_current = ticker.history(start=f"{current_year}-01-01", end=f"{current_year}-12-31")[
+                "Dividends"].sum()
             dividend_growth_rate = safe_relative_diff(dividend_current, dividend_last_1_year)
             data_prep.loc[index, "dividend_growth_rate"] = dividend_growth_rate
-            # print(f"[DEBUG] {symbol} dividend_growth_rate: {dividend_growth_rate}")
 
-            # Update data from yfinance info
+            # update data from info yfinance
             data_json = ticker.info
             desired_values = {
                 "marketCap": "market_cap",
@@ -98,39 +92,28 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                 "operatingCashflow": "ocf",
                 "totalRevenue": "revenue"
             }
-            for key_dv, val_dv in desired_values.items():
+            for key_dv, val_dv in zip(desired_values.keys(), desired_values.values()):
                 try:
                     if val_dv == "market_cap":
-                        # Adjust for currency differences if necessary
                         if currency != country_currency:
                             rate = float(data[currency][country_currency])
                             temp_val = data_json[key_dv] * rate
                         else:
                             temp_val = data_json[key_dv]
                         data_prep.loc[index, val_dv] = temp_val
-                        # print(f"[DEBUG] {symbol} {val_dv} - market_cap set to: {temp_val}")
                     elif val_dv == "revenue":
-                        financial_currency = data_json.get("financialCurrency", country_currency)
+                        financial_currency = ticker.info["financialCurrency"]
                         if financial_currency != country_currency:
                             rate = float(data[financial_currency][country_currency])
                             temp_val = data_json[key_dv] * rate
                         else:
                             temp_val = data_json[key_dv]
                         data_prep.loc[index, val_dv] = temp_val
-                        # print(f"[DEBUG] {symbol} {val_dv} - revenue set to: {temp_val}")
                     elif val_dv == "ocf":
-                        # Calculate pcf using marketCap / ocf
-                        if data_json.get(key_dv, None):
-                            temp_val = data_json["marketCap"] / data_json[key_dv]
-                            data_prep.loc[index, "pcf"] = temp_val
-                            # print(f"[DEBUG] {symbol} ocf retrieved: {data_json[key_dv]}")
-                            # print(f"[DEBUG] {symbol} pcf (from marketCap / ocf) set to: {temp_val}")
-                        else:
-                            data_prep.loc[index, "pcf"] = np.nan
-                            # print(f"[DEBUG] {symbol} ocf data missing; pcf set to NaN")
+                        temp_val = data_json["marketCap"] / data_json[key_dv]
+                        data_prep.loc[index, "pcf"] = temp_val
                     else:
-                        data_prep.loc[index, val_dv] = data_json.get(key_dv, np.nan)
-                        # print(f"[DEBUG] {symbol} {val_dv} set to: {data_json.get(key_dv, np.nan)}")
+                        data_prep.loc[index, val_dv] = data_json[key_dv]
                 except KeyError as e:
                     """
                     if this appear, that means yf don't have the data of the metrics
@@ -139,59 +122,43 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                     """
                     # print(f"data unavailable from YF for {symbol}, trying to use data from other source: {e}")
                     if val_dv == "pe":
-                        # Ensure that row["close"] is a valid list and has elements
-                        close_series = row.get("close", None)
-                        if isinstance(close_series, list) and close_series:
-                            last_close = close_series[-1].get("close", None)
-                        else:
-                            last_close = None
-                        temp_pe = (last_close / row["eps"]) if (last_close is not None and row["eps"] != 0) else np.nan
+                        temp_pe = (row["close"][-1]["close"] / row["eps"]) if row["eps"] != 0 else np.nan
                         data_prep.loc[index, "pe"] = temp_pe
-                        # print(f"[DEBUG] {symbol} fallback pe set to: {temp_pe}")
                     else:
                         data_prep.loc[index, val_dv] = np.nan
-                        # print(f"[DEBUG] {symbol} {val_dv} - keyerror, set to: NaN due to KeyError: {e}")
 
-            # Update history close data
+            # update data from history yfinance
             try:
                 yf_data = ticker.history(period="1mo").reset_index()
-                # print(f"[DEBUG] {symbol} yf_data retrieved with period '1mo': {len(yf_data)} records")
-            except Exception as e:
+            except:
+                """
+                New stock that doesn't have 30 days history data, will go to this section instead
+                and retrieved all the data
+                """
                 yf_data = ticker.history(period="max").reset_index()
-                # print(f"[DEBUG] {symbol} yf_data retrieved with period 'max': {len(yf_data)} records; error: {e}")
-
             close_data = []
             for i in range(len(yf_data)):
                 curr = yf_data.iloc[i]
                 curr_date = curr["Date"].strftime(date_format)
                 if curr_date in list_dates:
                     curr_close = float(curr["Close"])
-                    # Convert currency if necessary
                     if currency != country_currency:
                         rate = float(data[currency][country_currency])
                         curr_close = curr_close * rate
-                    close_data.append({
+                    temp = {
                         "date": curr_date,
                         "close": curr_close if np.isfinite(curr_close) else None
-                    })
-            # Filter close data to only dates later than last_date
+                    }
+                    close_data.append(temp)
             close_data = [close for close in close_data if close["date"] > last_date]
-            # print(f"[DEBUG] {symbol} final close_data after filtering: {close_data}")
             new_close.append(close_data)
         except Exception as e:
             print(f"error in symbol {symbol} : ", e)
             new_close.append(None)
-    
-    # Try to update the DataFrame and drop the 'ocf' column if it exists
     try:
+        data_prep = data_prep.assign(close=new_close).drop("ocf", axis="columns")
+    except:
         data_prep = data_prep.assign(close=new_close)
-        if "ocf" in data_prep.columns:
-            data_prep = data_prep.drop("ocf", axis="columns")
-        print(f"[DEBUG] data_prep after assigning close and dropping 'ocf':\n{data_prep}")
-    except Exception as e:
-        print(f"[DEBUG] Error assigning close data: {e}")
-        data_prep = data_prep.assign(close=new_close)
-        print(f"[DEBUG] data_prep after assigning close (unable to drop 'ocf'):\n{data_prep}")
     return data_prep
 
 
@@ -496,7 +463,7 @@ if __name__ == "__main__":
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
-                     'monthly_signal',
+                     'monthly_signal', 'change_1d', 'change_7d', 'change_1m',
                      'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis=1, inplace=True)
         data_final = pd.merge(data_general, data_db, on="investing_symbol", how="inner")
@@ -506,13 +473,11 @@ if __name__ == "__main__":
              "eps"], axis=1)
     elif args.daily:
         db = "klse_companies" if args.malaysia else "sgx_companies"
-        symbols_to_fetch = ['40W', 'U11', 'O39']  # List of symbols to filter
-        # data_db = supabase.table(db).select("*").in_("symbol", symbols_to_fetch).execute()
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
-                     'monthly_signal',
+                     'monthly_signal', 'change_1d', 'change_7d', 'change_1m',
                      'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis=1, inplace=True)
         data_final = yf_data_updater(data_db, country)
@@ -521,7 +486,6 @@ if __name__ == "__main__":
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]
     data_final.to_csv("data_my.csv", index=False) if args.malaysia else data_final.to_csv("data_sg.csv", index=False)
     records = data_final.replace({np.nan: None}).to_dict("records")
-    # print(records)
 
     supabase.table(db).upsert(records, returning='minimal').execute()
     print("Upsert operation successful.")
