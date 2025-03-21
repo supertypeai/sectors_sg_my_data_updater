@@ -83,6 +83,7 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             # update data from info yfinance
             data_json = ticker.info
             desired_values = {
+                "shortName": "short_name",
                 "marketCap": "market_cap",
                 "volume": "volume",
                 "trailingPE": "pe",
@@ -479,6 +480,8 @@ if __name__ == "__main__":
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
                      'monthly_signal', 'change_1d', 'change_7d', 'change_1m',
                      'change_ytd', 'change_1y', 'change_3y']
+        if args.malaysia:
+            drop_cols += ["short_name"]
         data_db.drop(drop_cols, axis=1, inplace=True)
         data_final = yf_data_updater(data_db, country)
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR',
