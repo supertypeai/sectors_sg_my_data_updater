@@ -464,8 +464,7 @@ if __name__ == "__main__":
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
-                     'monthly_signal', 'change_1d', 'change_7d', 'change_1m',
-                     'change_ytd', 'change_1y', 'change_3y']
+                     'monthly_signal', 'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis=1, inplace=True)
         data_final = pd.merge(data_general, data_db, on="investing_symbol", how="inner")
         data_final = data_final.drop(
