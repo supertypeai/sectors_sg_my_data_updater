@@ -357,7 +357,7 @@ def clean_daily_foreign_data(foreign_daily_data):
     foreign_daily_data = foreign_daily_data.replace('-', np.nan)
 
     # Remove percentage and change data to decimal
-    for i in ["daily", 'weekly', 'monthly', 'ytd', 'one_year', 'three_year']:
+    for i in ['ytd', 'one_year', 'three_year']:
         foreign_daily_data[f"{i}_percentage_change"] = foreign_daily_data[f"{i}_percentage_change"] / 100
 
         # Rename columns
