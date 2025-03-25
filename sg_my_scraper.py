@@ -27,7 +27,8 @@ def safe_relative_diff(num1: float, num2: float):
 
 def GetGeneralData(country):
     if country == "sg":
-        url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=36&filter-domain=&page=0&page-size=1000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
+        # url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=36&filter-domain=&page=0&page-size=1000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
+        url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=36&filter-domain=&page=0&page-size=1000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
     elif country == "my":
         url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=42&filter-domain=&page=0&page-size=2000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
     headers = {
@@ -152,14 +153,11 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                         data_prep.loc[index, val_dv] = np.nan
                         # print(f"[DEBUG] {symbol} {val_dv} - keyerror, set to: NaN due to KeyError: {e}")
 
-            # Update history close data
+            # Update history close data (for near-future values)
             try:
                 yf_data = ticker.history(period="1mo").reset_index()
-                # print(f"[DEBUG] {symbol} yf_data retrieved with period '1mo': {len(yf_data)} records")
             except Exception as e:
                 yf_data = ticker.history(period="max").reset_index()
-                # print(f"[DEBUG] {symbol} yf_data retrieved with period 'max': {len(yf_data)} records; error: {e}")
-
             close_data = []
             for i in range(len(yf_data)):
                 curr = yf_data.iloc[i]
@@ -174,20 +172,86 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                         "date": curr_date,
                         "close": curr_close if np.isfinite(curr_close) else None
                     })
+                    
             # Filter close data to only dates later than last_date
             close_data = [close for close in close_data if close["date"] > last_date]
-            # print(f"[DEBUG] {symbol} final close_data after filtering: {close_data}")
             new_close.append(close_data)
+            
+            # --- Calculate additional change metrics using full historical data ---
+            try:
+                # print(f"[DEBUG] Fetching full historical data for symbol: {symbol}")
+                full_history = ticker.history(period="max").reset_index()
+                
+                # Ensure Date column is datetime and sort in ascending order
+                # print(f"[DEBUG] Processing full history data for symbol: {symbol}")
+                full_history["Date"] = pd.to_datetime(full_history["Date"])
+                full_history.sort_values("Date", inplace=True)
+                
+                if full_history.empty:
+                    raise ValueError("No historical data available")
+                
+                latest_date = full_history.iloc[-1]["Date"]
+                latest_close = full_history.iloc[-1]["Close"]
+                # print(f"[DEBUG] Latest date: {latest_date}, Latest close: {latest_close}")
+                
+                # Helper to find the close price on or before a given target date.
+                def get_close_on_or_before(target_dt):
+                    subset = full_history[full_history["Date"] <= target_dt]
+                    result = subset.iloc[-1]["Close"] if not subset.empty else None
+                    # print(f"[DEBUG] Close price on or before {target_dt}: {result}")
+                    return result
+
+                # YTD: use the first available close in the current year
+                current_year = datetime.now().year
+                current_year_data = full_history[full_history["Date"].dt.year == current_year]
+                ytd_close = current_year_data.iloc[0]["Close"] if not current_year_data.empty else None
+                # print(f"[DEBUG] YTD close for {current_year}: {ytd_close}")
+
+                # 1Y: target = latest_date - 365 days
+                one_year_target = latest_date - timedelta(days=365)
+                close_1y = get_close_on_or_before(one_year_target)
+                # print(f"[DEBUG] 1Y close (target date: {one_year_target}): {close_1y}")
+
+                # 3Y: target = latest_date - 3*365 days
+                three_year_target = latest_date - timedelta(days=3 * 365)
+                close_3y = get_close_on_or_before(three_year_target)
+                # print(f"[DEBUG] 3Y close (target date: {three_year_target}): {close_3y}")
+                
+                # Compute changes safely (if denominator is valid and not zero)
+                def compute_change(latest, past):
+                    if past is None or past == 0:
+                        # print(f"[DEBUG] Invalid past value ({past}) for change calculation.")
+                        return np.nan
+                    change = (latest - past) / past
+                    # print(f"[DEBUG] Change calculated: latest={latest}, past={past}, change={change}")
+                    return change
+
+                change_ytd = compute_change(latest_close, ytd_close)
+                change_1y = compute_change(latest_close, close_1y)
+                change_3y = compute_change(latest_close, close_3y)
+                
+                data_prep.loc[index, "change_ytd"] = change_ytd
+                data_prep.loc[index, "change_1y"] = change_1y
+                data_prep.loc[index, "change_3y"] = change_3y
+            except Exception as e:
+                print(f"[DEBUG] Error calculating change metrics for {symbol}: {e}")
+                data_prep.loc[index, "change_ytd"] = np.nan
+                data_prep.loc[index, "change_1y"] = np.nan
+                data_prep.loc[index, "change_3y"] = np.nan
+
         except Exception as e:
             print(f"error in symbol {symbol} : ", e)
             new_close.append(None)
+            data_prep.loc[index, "change_ytd"] = np.nan
+            data_prep.loc[index, "change_1y"] = np.nan
+            data_prep.loc[index, "change_3y"] = np.nan
     
     # Try to update the DataFrame and drop the 'ocf' column if it exists
     try:
         data_prep = data_prep.assign(close=new_close)
         if "ocf" in data_prep.columns:
             data_prep = data_prep.drop("ocf", axis="columns")
-        print(f"[DEBUG] data_prep after assigning close and dropping 'ocf':\n{data_prep}")
+        # print(f"[DEBUG] data_prep after assigning close and dropping 'ocf':\n{data_prep}")
     except Exception as e:
         print(f"[DEBUG] Error assigning close data: {e}")
         data_prep = data_prep.assign(close=new_close)
@@ -361,10 +425,7 @@ def rename_and_convert(data, period):
             'FundamentalBeta': 'beta',
             'TechnicalDay': 'daily_signal',
             'TechnicalWeek': 'weekly_signal',
-            'TechnicalMonth': 'monthly_signal',
-            'PerformanceYtd': 'ytd_percentage_change',
-            'PerformanceYear': 'one_year_percentage_change',
-            'Performance3Year': 'three_year_percentage_change',
+            'TechnicalMonth': 'monthly_signal'
         }
         cleaned_data = data[rename_cols.keys()].rename(rename_cols, axis=1)
 
@@ -389,19 +450,19 @@ def clean_daily_foreign_data(foreign_daily_data):
     foreign_daily_data = foreign_daily_data.replace('-', np.nan)
 
     # Remove percentage and change data to decimal
-    for i in ['ytd', 'one_year', 'three_year']:
-        foreign_daily_data[f"{i}_percentage_change"] = foreign_daily_data[f"{i}_percentage_change"] / 100
+    # for i in ['ytd', 'one_year', 'three_year']:
+    #     foreign_daily_data[f"{i}_percentage_change"] = foreign_daily_data[f"{i}_percentage_change"] / 100
 
-        # Rename columns
-    foreign_daily_data.rename(columns={"ytd_percentage_change": "change_ytd",
-                                       "one_year_percentage_change": "change_1y",
-                                       "three_year_percentage_change": "change_3y"}, inplace=True)
+    #     # Rename columns
+    # foreign_daily_data.rename(columns={"ytd_percentage_change": "change_ytd",
+    #                                    "one_year_percentage_change": "change_1y",
+    #                                    "three_year_percentage_change": "change_3y"}, inplace=True)
 
     # Delete redundant percentage change columns
     foreign_daily_data.drop(["percentage_change", "close"], axis=1, inplace=True)
 
     # Change data type to float
-    float_columns = ['market_cap', 'volume', 'pe', 'revenue', 'beta', 'change_ytd', 'change_1y', 'change_3y', ]
+    float_columns = ['market_cap', 'volume', 'pe', 'revenue', 'beta']
 
     foreign_daily_data[float_columns] = foreign_daily_data[float_columns].applymap(
         lambda x: float(str(x).replace(',', '')))
@@ -491,6 +552,9 @@ if __name__ == "__main__":
         data_general = GetGeneralData(country)
         data_general = rename_and_convert(data_general, "daily")
         data_general = clean_daily_foreign_data(data_general)
+        # print("\nStep 3: After clean_daily_foreign_data:")
+        # print(data_general.head())
+        # print("Columns in data_general after clean_daily_foreign_data:", data_general.columns.tolist())
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
@@ -503,14 +567,17 @@ if __name__ == "__main__":
             ["revenue", 'dividend_ttm', 'forward_dividend', 'forward_dividend_yield', 'net_profit_margin',
              "operating_margin", "gross_margin", "quick_ratio", "current_ratio", "debt_to_equity", "payout_ratio",
              "eps"], axis=1)
+        # print("\nStep 10: data_final after dropping additional columns:")
+        # print(data_final.head())
+        # print("Columns in data_final after final drop:", data_final.columns.tolist())
     elif args.daily:
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
+        # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "U11", "Z74"]).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
-                     'monthly_signal',
-                     'change_ytd', 'change_1y', 'change_3y']
+                     'monthly_signal']
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
 
