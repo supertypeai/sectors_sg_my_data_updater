@@ -479,10 +479,11 @@ if __name__ == "__main__":
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
                      'monthly_signal',
                      'change_ytd', 'change_1y', 'change_3y']
-        if args.malaysia:
-            drop_cols += ["short_name"]
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
+
+    if args.malaysia:
+        data_final.drop("short_name", axis=1, inplace=True)
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR',
                          'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]
