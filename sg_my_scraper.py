@@ -333,6 +333,135 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
             
     return data_prep
 
+from datetime import datetime, timedelta
+import numpy as np
+import pandas as pd
+import yfinance as yf
+
+def update_all_time_price(data_prep: pd.DataFrame, country: str):
+    """
+    Update the DataFrame by adding/updating the 'all_time_price' column.
+    For each ticker, the function fetches historical close prices and computes:
+      - YTD low/high: extremes within the current year.
+      - 52-week low/high: extremes within the last 365 days.
+      - 90-day low/high: extremes within the last 90 days.
+      - All-time low/high: extremes over the full available history.
+    
+    Debug print statements are included to show computed values.
+    
+    Parameters:
+      data_prep (pd.DataFrame): DataFrame containing at least a 'symbol' column.
+      country (str): Country code (e.g., "my" or "sg") to determine ticker extension.
+    
+    Returns:
+      pd.DataFrame: The updated DataFrame with a new column 'all_time_price'.
+    """
+    date_format = "%Y-%m-%d"
+    
+    for index, row in data_prep.iterrows():
+        symbol = row["symbol"]
+        # Determine ticker extension based on country
+        ticker_extension = ".KL" if country.lower() == "my" else ".SI"
+        ticker_full = symbol + ticker_extension
+        # print(f"[DEBUG] Processing symbol: {ticker_full}")
+        
+        try:
+            # Create ticker object
+            ticker = yf.Ticker(ticker_full)
+            
+            # === Fetch full historical data ===
+            full_history = ticker.history(period="max").reset_index()
+            full_history["Date"] = pd.to_datetime(full_history["Date"])
+            full_history.sort_values("Date", inplace=True)
+            
+            if full_history.empty:
+                raise ValueError("No historical data available")
+            
+            latest_date = full_history.iloc[-1]["Date"]
+            latest_close = full_history.iloc[-1]["Close"]
+            # print(f"[DEBUG] Latest date for {ticker_full}: {latest_date.strftime(date_format)}, Latest close: {latest_close}")
+            
+            # === Compute All-time extremes using .loc with idxmin/idxmax ===
+            all_time_low_index = full_history["Close"].idxmin()
+            all_time_high_index = full_history["Close"].idxmax()
+            all_time_low_row = full_history.loc[all_time_low_index]
+            all_time_high_row = full_history.loc[all_time_high_index]
+            all_time_low = {"date": all_time_low_row["Date"].strftime(date_format), "price": all_time_low_row["Close"]}
+            all_time_high = {"date": all_time_high_row["Date"].strftime(date_format), "price": all_time_high_row["Close"]}
+            # print(f"[DEBUG] All-time low for {ticker_full}: {all_time_low}")
+            # print(f"[DEBUG] All-time high for {ticker_full}: {all_time_high}")
+            
+            # === Compute YTD extremes ===
+            current_year = datetime.now().year
+            current_year_data = full_history[full_history["Date"].dt.year == current_year]
+            if not current_year_data.empty:
+                ytd_low_index = current_year_data["Close"].idxmin()
+                ytd_high_index = current_year_data["Close"].idxmax()
+                ytd_low_row = full_history.loc[ytd_low_index]
+                ytd_high_row = full_history.loc[ytd_high_index]
+                ytd_low = {"date": ytd_low_row["Date"].strftime(date_format), "price": ytd_low_row["Close"]}
+                ytd_high = {"date": ytd_high_row["Date"].strftime(date_format), "price": ytd_high_row["Close"]}
+                # print(f"[DEBUG] YTD low for {ticker_full} ({current_year}): {ytd_low}")
+                # print(f"[DEBUG] YTD high for {ticker_full} ({current_year}): {ytd_high}")
+            else:
+                ytd_low = ytd_high = None
+                # print(f"[DEBUG] No YTD data available for {ticker_full} in {current_year}")
+            
+            # === Compute 52-week extremes ===
+            start_52w = latest_date - timedelta(days=365)
+            data_52w = full_history[full_history["Date"] >= start_52w]
+            if not data_52w.empty:
+                w52_low_index = data_52w["Close"].idxmin()
+                w52_high_index = data_52w["Close"].idxmax()
+                w52_low_row = full_history.loc[w52_low_index]
+                w52_high_row = full_history.loc[w52_high_index]
+                w52_low = {"date": w52_low_row["Date"].strftime(date_format), "price": w52_low_row["Close"]}
+                w52_high = {"date": w52_high_row["Date"].strftime(date_format), "price": w52_high_row["Close"]}
+                # print(f"[DEBUG] 52-week low for {ticker_full}: {w52_low}")
+                # print(f"[DEBUG] 52-week high for {ticker_full}: {w52_high}")
+            else:
+                w52_low = w52_high = None
+                # print(f"[DEBUG] No 52-week data available for {ticker_full}")
+            
+            # === Compute 90-day extremes ===
+            start_90d = latest_date - timedelta(days=90)
+            data_90d = full_history[full_history["Date"] >= start_90d]
+            if not data_90d.empty:
+                d90_low_index = data_90d["Close"].idxmin()
+                d90_high_index = data_90d["Close"].idxmax()
+                d90_low_row = full_history.loc[d90_low_index]
+                d90_high_row = full_history.loc[d90_high_index]
+                d90_low = {"date": d90_low_row["Date"].strftime(date_format), "price": d90_low_row["Close"]}
+                d90_high = {"date": d90_high_row["Date"].strftime(date_format), "price": d90_high_row["Close"]}
+                # print(f"[DEBUG] 90-day low for {ticker_full}: {d90_low}")
+                # print(f"[DEBUG] 90-day high for {ticker_full}: {d90_high}")
+            else:
+                d90_low = d90_high = None
+                # print(f"[DEBUG] No 90-day data available for {ticker_full}")
+            
+            # === Assemble the price extremes dictionary ===
+            price_extremes = {
+                "ytd_low": ytd_low,
+                "ytd_high": ytd_high,
+                "52_w_low": w52_low,
+                "52_w_high": w52_high,
+                "90_d_low": d90_low,
+                "90_d_high": d90_high,
+                "all_time_low": all_time_low,
+                "all_time_high": all_time_high
+            }
+            
+            # json_str = json.dumps(price_extremes)
+            # print(f"[DEBUG] Final all_time_price for {ticker_full}: {json_str}")
+            data_prep.at[index, "all_time_price"] = price_extremes
+            
+        except Exception as e:
+            print(f"[DEBUG] Error processing all_time_price for {ticker_full}: {e}")
+            data_prep.at[index, "all_time_price"] = None
+            
+    return data_prep
+
+
 def employee_updater(data_final, country):
     # getting the employee_num from sgx web
     headers = {
@@ -648,7 +777,7 @@ if __name__ == "__main__":
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "U11", "Z74"]).execute()
-        # data_db = supabase.table(db).select("*").limit(1).execute()
+        # data_db = supabase.table(db).select("*").limit(5).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
@@ -656,7 +785,8 @@ if __name__ == "__main__":
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
         if args.singapore:
-            data_final = update_historical_dividends(data_db, country)        
+            data_final = update_historical_dividends(data_db, country)
+            data_final = update_all_time_price(data_db, country)        
 
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR',
                          'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
