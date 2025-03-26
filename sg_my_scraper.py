@@ -88,7 +88,14 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             # print(f"[DEBUG] {symbol} dividend_growth_rate: {dividend_growth_rate}")
 
             # Update data from yfinance info
+            # historys = ticker.get_cashflow(freq='quarterly')
+            # print("ticker: ticker")
+            # print(historys)
+            # ocf_ttm = history.loc["operatingCashflow"].head(4).sum()
+            # print(f"Operating Cash Flow (TTM): {ocf_ttm}")
+            
             data_json = ticker.info
+
             desired_values = {
                 "marketCap": "market_cap",
                 "volume": "volume",
@@ -261,6 +268,78 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
         print(f"[DEBUG] data_prep after assigning close (unable to drop 'ocf'):\n{data_prep}")
     return data_prep
 
+def update_historical_dividends(data_prep: pd.DataFrame, country):
+    """
+    Update the DataFrame by adding/updating the 'historical_dividends' column.
+    The function iterates over each row, retrieves the ticker's full historical data
+    to determine the latest close price, and then computes dividend breakdowns by year.
+    
+    Parameters:
+      data_prep (pd.DataFrame): DataFrame containing at least a 'symbol' column.
+      country (str): Country code (e.g. "my" or "sg") to determine the ticker extension.
+      
+    Returns:
+      pd.DataFrame: The updated DataFrame with a new column 'historical_dividends'.
+    """
+    date_format = "%Y-%m-%d"
+    # Ensure the 'historical_dividends' column exists and is of type object
+    data_prep["historical_dividends"] = None
+
+    for index, row in data_prep.iterrows():
+        symbol = row["symbol"]
+        try:
+            # Get ticker with proper extension
+            ticker_extension = ".KL" if country == "my" else ".SI"
+            ticker = yf.Ticker(row["symbol"] + ticker_extension)
+            
+            # Fetch full historical data to determine the latest close price
+            full_history = ticker.history(period="max").reset_index()
+            if full_history.empty:
+                raise ValueError("No historical data available")
+            full_history["Date"] = pd.to_datetime(full_history["Date"])
+            full_history.sort_values("Date", inplace=True)
+            latest_close = full_history.iloc[-1]["Close"]
+            # print(f"[DEBUG] Latest close for {symbol}: {latest_close}")
+            
+            # --- Calculate historical_dividends ---
+            # print(f"[DEBUG] Processing historical_dividends for symbol: {symbol}")
+            dividends_series = ticker.dividends
+            if not dividends_series.empty:
+                dividends_df = dividends_series.reset_index()
+                dividends_df.columns = ["Date", "Dividend"]
+                dividends_df["year"] = dividends_df["Date"].dt.year
+                # Calculate yield per dividend event using latest_close as the reference price
+                dividends_df["yield"] = dividends_df["Dividend"] / latest_close if latest_close else np.nan
+                # print(f"[DEBUG] Dividend DataFrame for {symbol}:\n", dividends_df)
+                historical_dividends = []
+                for year, group in dividends_df.groupby("year"):
+                    breakdown = []
+                    total_dividend = group["Dividend"].sum()
+                    total_yield = total_dividend / latest_close if latest_close else np.nan
+                    for _, row_div in group.iterrows():
+                        breakdown.append({
+                            "date": row_div["Date"].strftime(date_format),
+                            "total": row_div["Dividend"],
+                            "yield": row_div["yield"]
+                        })
+                    # print(f"[DEBUG] Year {year}: total_dividend={total_dividend}, total_yield={total_yield}, breakdown={breakdown}")
+                    historical_dividends.append({
+                        "year": int(year),
+                        "breakdown": breakdown,
+                        "total_yield": total_yield,
+                        "total_dividend": total_dividend
+                    })
+                # print(f"[DEBUG] Final historical_dividends for {symbol}: {historical_dividends}")
+                data_prep.at[index, "historical_dividends"] = historical_dividends
+            else:
+                # print(f"[DEBUG] No dividend data available for {symbol}")
+                data_prep.at[index, "historical_dividends"] = None
+                
+        except Exception as e:
+            print(f"[DEBUG] Error processing historical_dividends for {symbol}: {e}")
+            data_prep.at[index, "historical_dividends"] = None
+            
+    return data_prep
 
 def employee_updater(data_final, country):
     # getting the employee_num from sgx web
@@ -575,20 +654,23 @@ if __name__ == "__main__":
         # print("Columns in data_final after final drop:", data_final.columns.tolist())
     elif args.daily:
         db = "klse_companies" if args.malaysia else "sgx_companies"
-        data_db = supabase.table(db).select("*").execute()
+        # data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "U11", "Z74"]).execute()
+        data_db = supabase.table(db).select("*").limit(1).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
                      'monthly_signal']
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
+        data_final = update_historical_dividends(data_db, country)
 
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR',
                          'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]
     data_final.to_csv("data_my.csv", index=False) if args.malaysia else data_final.to_csv("data_sg.csv", index=False)
     records = data_final.replace({np.nan: None}).to_dict("records")
+    # print(f"[DEBUG] First 5 records after replacing NaN with None:\n{records[:5]}")
 
-    supabase.table(db).upsert(records, returning='minimal').execute()
-    print("Upsert operation successful.")
+    # supabase.table(db).upsert(records, returning='minimal').execute()
+    # print("Upsert operation successful.")
