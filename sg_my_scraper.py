@@ -655,7 +655,8 @@ if __name__ == "__main__":
                      'monthly_signal']
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
-        data_final = update_historical_dividends(data_db, country)
+        if args.singapore:
+            data_final = update_historical_dividends(data_db, country)        
 
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR',
                          'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
