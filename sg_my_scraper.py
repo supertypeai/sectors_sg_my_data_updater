@@ -99,6 +99,9 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                 "operatingCashflow": "ocf",
                 "totalRevenue": "revenue"
             }
+            # Add the company's short name in SGX for the SGX short sell pipeline
+            if country == "sg":
+                desired_values["shortName"] = "short_name"
             for key_dv, val_dv in desired_values.items():
                 try:
                     if val_dv == "market_cap":
@@ -581,8 +584,6 @@ if __name__ == "__main__":
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
 
-    if args.malaysia:
-        data_final.drop("short_name", axis=1, inplace=True)
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR',
                          'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]
