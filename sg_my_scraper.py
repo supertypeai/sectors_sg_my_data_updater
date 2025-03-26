@@ -74,8 +74,6 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             country_currency = "MYR" if country == "my" else "SGD"
             if currency is None:
                 raise AttributeError(f"Currency information not available for {symbol}")
-            # print(f"[DEBUG] {symbol} ticker_extension: {ticker_extension}")
-            # print(f"[DEBUG] {symbol} currency: {currency}, country_currency: {country_currency}")
 
             # Update dividend growth rate
             current_year = datetime.now().year
@@ -87,13 +85,7 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             data_prep.loc[index, "dividend_growth_rate"] = dividend_growth_rate
             # print(f"[DEBUG] {symbol} dividend_growth_rate: {dividend_growth_rate}")
 
-            # Update data from yfinance info
-            # historys = ticker.get_cashflow(freq='quarterly')
-            # print("ticker: ticker")
-            # print(historys)
-            # ocf_ttm = history.loc["operatingCashflow"].head(4).sum()
-            # print(f"Operating Cash Flow (TTM): {ocf_ttm}")
-            
+            # Update data from yfinance info            
             data_json = ticker.info
 
             desired_values = {
@@ -654,9 +646,9 @@ if __name__ == "__main__":
         # print("Columns in data_final after final drop:", data_final.columns.tolist())
     elif args.daily:
         db = "klse_companies" if args.malaysia else "sgx_companies"
-        # data_db = supabase.table(db).select("*").execute()
+        data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "U11", "Z74"]).execute()
-        data_db = supabase.table(db).select("*").limit(1).execute()
+        # data_db = supabase.table(db).select("*").limit(1).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
@@ -672,5 +664,5 @@ if __name__ == "__main__":
     records = data_final.replace({np.nan: None}).to_dict("records")
     # print(f"[DEBUG] First 5 records after replacing NaN with None:\n{records[:5]}")
 
-    # supabase.table(db).upsert(records, returning='minimal').execute()
-    # print("Upsert operation successful.")
+    supabase.table(db).upsert(records, returning='minimal').execute()
+    print("Upsert operation successful.")
