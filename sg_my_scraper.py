@@ -325,18 +325,15 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
                 data_prep.at[index, "historical_dividends"] = historical_dividends
             else:
                 # print(f"[DEBUG] No dividend data available for {symbol}")
-                data_prep.at[index, "historical_dividends"] = None
+                # data_prep.at[index, "historical_dividends"] = None
+                continue
                 
         except Exception as e:
             print(f"[DEBUG] Error processing historical_dividends for {symbol}: {e}")
-            data_prep.at[index, "historical_dividends"] = None
+            # data_prep.at[index, "historical_dividends"] = None
+            continue
             
     return data_prep
-
-from datetime import datetime, timedelta
-import numpy as np
-import pandas as pd
-import yfinance as yf
 
 def update_all_time_price(data_prep: pd.DataFrame, country: str):
     """
@@ -457,7 +454,8 @@ def update_all_time_price(data_prep: pd.DataFrame, country: str):
             
         except Exception as e:
             print(f"[DEBUG] Error processing all_time_price for {ticker_full}: {e}")
-            data_prep.at[index, "all_time_price"] = None
+            # data_prep.at[index, "all_time_price"] = None
+            continue
             
     return data_prep
 
@@ -777,7 +775,7 @@ if __name__ == "__main__":
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "U11", "Z74"]).execute()
-        # data_db = supabase.table(db).select("*").limit(5).execute()
+        # data_db = supabase.table(db).select("*").limit(50).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'daily_signal', 'weekly_signal',
