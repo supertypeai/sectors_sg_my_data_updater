@@ -11,3 +11,4 @@ venv
 
 # YFinance cache
 yfinance.cache
+logs.log

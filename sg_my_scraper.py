@@ -178,75 +178,10 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             # Filter close data to only dates later than last_date
             close_data = [close for close in close_data if close["date"] > last_date]
             new_close.append(close_data)
-            
-            # --- Calculate additional change metrics using full historical data ---
-            try:
-                # print(f"[DEBUG] Fetching full historical data for symbol: {symbol}")
-                full_history = ticker.history(period="max").reset_index()
-                
-                # Ensure Date column is datetime and sort in ascending order
-                # print(f"[DEBUG] Processing full history data for symbol: {symbol}")
-                full_history["Date"] = pd.to_datetime(full_history["Date"])
-                full_history.sort_values("Date", inplace=True)
-                
-                if full_history.empty:
-                    raise ValueError("No historical data available")
-                
-                latest_date = full_history.iloc[-1]["Date"]
-                latest_close = full_history.iloc[-1]["Close"]
-                # print(f"[DEBUG] Latest date: {latest_date}, Latest close: {latest_close}")
-                
-                # Helper to find the close price on or before a given target date.
-                def get_close_on_or_before(target_dt):
-                    subset = full_history[full_history["Date"] <= target_dt]
-                    result = subset.iloc[-1]["Close"] if not subset.empty else None
-                    # print(f"[DEBUG] Close price on or before {target_dt}: {result}")
-                    return result
-
-                # YTD: use the first available close in the current year
-                current_year = datetime.now().year
-                current_year_data = full_history[full_history["Date"].dt.year == current_year]
-                ytd_close = current_year_data.iloc[0]["Close"] if not current_year_data.empty else None
-                # print(f"[DEBUG] YTD close for {current_year}: {ytd_close}")
-
-                # 1Y: target = latest_date - 365 days
-                one_year_target = latest_date - timedelta(days=365)
-                close_1y = get_close_on_or_before(one_year_target)
-                # print(f"[DEBUG] 1Y close (target date: {one_year_target}): {close_1y}")
-
-                # 3Y: target = latest_date - 3*365 days
-                three_year_target = latest_date - timedelta(days=3 * 365)
-                close_3y = get_close_on_or_before(three_year_target)
-                # print(f"[DEBUG] 3Y close (target date: {three_year_target}): {close_3y}")
-                
-                # Compute changes safely (if denominator is valid and not zero)
-                def compute_change(latest, past):
-                    if past is None or past == 0:
-                        # print(f"[DEBUG] Invalid past value ({past}) for change calculation.")
-                        return np.nan
-                    change = (latest - past) / past
-                    # print(f"[DEBUG] Change calculated: latest={latest}, past={past}, change={change}")
-                    return change
-
-                change_ytd = compute_change(latest_close, ytd_close)
-                change_1y = compute_change(latest_close, close_1y)
-                change_3y = compute_change(latest_close, close_3y)
-                
-                data_prep.loc[index, "change_ytd"] = change_ytd
-                data_prep.loc[index, "change_1y"] = change_1y
-                data_prep.loc[index, "change_3y"] = change_3y
-            except Exception as e:
-                print(f"[DEBUG] Error calculating change metrics for {symbol}: {e}")
-                data_prep.loc[index, "change_ytd"] = np.nan
-                data_prep.loc[index, "change_1y"] = np.nan
-                data_prep.loc[index, "change_3y"] = np.nan
 
         except Exception as e:
             print(f"error in symbol {symbol} : ", e)
             new_close.append(None)
-            data_prep.loc[index, "change_ytd"] = np.nan
-            data_prep.loc[index, "change_1y"] = np.nan
-            data_prep.loc[index, "change_3y"] = np.nan
     
     # Try to update the DataFrame and drop the 'ocf' column if it exists
     try:
@@ -459,6 +394,69 @@ def update_all_time_price(data_prep: pd.DataFrame, country: str):
             
     return data_prep
 
+def update_change_data(data_prep: pd.DataFrame, country):
+    """
+    Update the DataFrame by computing change metrics for each symbol/ticker.
+    This function retrieves full historical price data and calculates several changes:
+      - change_ytd: Change from the first close of the current year.
+      - change_1y: Change from the close ~1 year ago.
+      - change_3y: Change from the close ~3 years ago.
+    
+    Parameters:
+      data_prep (pd.DataFrame): DataFrame containing at least a 'symbol' column.
+      country (str): Country code (e.g., "my" or "sg") to determine the ticker extension.
+      
+    Returns:
+      pd.DataFrame: The updated DataFrame with new columns for each change metric.
+    """
+    for index, row in data_prep.iterrows():
+        symbol = row["symbol"]
+        try:
+            # Get ticker with proper extension.
+            ticker_extension = ".KL" if country == "my" else ".SI"
+            ticker = yf.Ticker(row["symbol"] + ticker_extension)
+            
+            # Fetch full historical data.
+            full_history = ticker.history(period="max").reset_index()
+            if full_history.empty:
+                raise ValueError("No historical data available")
+            full_history["Date"] = pd.to_datetime(full_history["Date"])
+            full_history.sort_values("Date", inplace=True)
+            
+            latest_date = full_history.iloc[-1]["Date"]
+            latest_close = full_history.iloc[-1]["Close"]
+            
+            def get_close_on_or_before(target_dt):
+                subset = full_history[full_history["Date"] <= target_dt]
+                return subset.iloc[-1]["Close"] if not subset.empty else None
+            
+            # Calculate target dates.
+            # YTD: first available close in current year.
+            current_year = latest_date.year
+            current_year_data = full_history[full_history["Date"].dt.year == current_year]
+            ytd_close = current_year_data.iloc[0]["Close"] if not current_year_data.empty else None
+            one_year_target = latest_date - timedelta(days=365)
+            three_year_target = latest_date - timedelta(days=3 * 365)
+            
+            close_1y = get_close_on_or_before(one_year_target)
+            close_3y = get_close_on_or_before(three_year_target)
+
+            # Helper for computing percentage change safely.
+            def compute_change(latest, past):
+                if past is None or past == 0:
+                    return np.nan
+                return (latest - past) / past
+            
+            data_prep.loc[index, "change_ytd"]   = compute_change(latest_close, ytd_close)
+            data_prep.loc[index, "change_1y"]    = compute_change(latest_close, close_1y)
+            data_prep.loc[index, "change_3y"]    = compute_change(latest_close, close_3y)
+            
+        except Exception as e:
+            print(f"[DEBUG] Error calculating change metrics for {symbol}: {e}")
+            for metric in ["change_ytd", "change_1y", "change_3y"]:
+                data_prep.loc[index, metric] = np.nan
+                
+    return data_prep
 
 def employee_updater(data_final, country):
     # getting the employee_num from sgx web
@@ -776,16 +774,18 @@ if __name__ == "__main__":
         data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "U11", "Z74"]).execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["Z74"]).execute()
-        # data_db = supabase.table(db).select("*").limit(2).execute()
+        # data_db = supabase.table(db).select("*").limit(5).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'weekly_signal',
                      'monthly_signal']
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
+        data_final = update_change_data(data_db, country)             
+
         if args.singapore:
             data_final = update_historical_dividends(data_db, country)
-            data_final = update_all_time_price(data_db, country)        
+            data_final = update_all_time_price(data_db, country)   
 
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR',
                          'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
