@@ -760,7 +760,7 @@ if __name__ == "__main__":
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
-                     'revenue', 'beta', 'daily_signal', 'weekly_signal',
+                     'revenue', 'beta', 'weekly_signal',
                      'monthly_signal', 'change_ytd', 'change_1y', 'change_3y']
         data_db.drop(drop_cols, axis=1, inplace=True)
         data_final = pd.merge(data_general, data_db, on="investing_symbol", how="inner")
@@ -775,10 +775,11 @@ if __name__ == "__main__":
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "U11", "Z74"]).execute()
-        # data_db = supabase.table(db).select("*").limit(50).execute()
+        # data_db = supabase.table(db).select("*").in_("symbol", ["Z74"]).execute()
+        # data_db = supabase.table(db).select("*").limit(2).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
-                     'revenue', 'beta', 'daily_signal', 'weekly_signal',
+                     'revenue', 'beta', 'weekly_signal',
                      'monthly_signal']
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
