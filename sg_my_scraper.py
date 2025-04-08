@@ -774,11 +774,11 @@ if __name__ == "__main__":
         data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "U11", "Z74"]).execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["Z74"]).execute()
-        # data_db = supabase.table(db).select("*").limit(5).execute()
+        # data_db = supabase.table(db).select("*").limit(50).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'weekly_signal',
-                     'monthly_signal']
+                     'monthly_signal', 'ocf']
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
         data_final = update_change_data(data_db, country)             
