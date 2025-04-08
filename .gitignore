@@ -8,7 +8,7 @@ venv
 .venv
 .env
 *.ipynb
+*.log
 
 # YFinance cache
 yfinance.cache
-logs.log
