@@ -773,19 +773,18 @@ if __name__ == "__main__":
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "U11", "Z74"]).execute()
-        # data_db = supabase.table(db).select("*").in_("symbol", ["Z74"]).execute()
-        # data_db = supabase.table(db).select("*").limit(50).execute()
+        # data_db = supabase.table(db).select("*").limit(5).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'weekly_signal',
-                     'monthly_signal', 'ocf']
+                     'monthly_signal']
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
-        data_final = update_change_data(data_db, country)             
+        data_final = update_change_data(data_final, country)             
 
         if args.singapore:
-            data_final = update_historical_dividends(data_db, country)
-            data_final = update_all_time_price(data_db, country)   
+            data_final = update_historical_dividends(data_final, country)
+            data_final = update_all_time_price(data_final, country)   
 
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR',
                          'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
