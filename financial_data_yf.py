@@ -164,6 +164,7 @@ def update_div_ttm(country, country_data, supabase):
                         # print(f"Waiting {current_delay} seconds before retrying...")
                         time.sleep(current_delay)
                         current_delay = min(current_delay * 2, max_delay)  # Exponential backoff
+                    continue
                 else:
                     print(f"Error fetching {stock}: {e}")
                     break
