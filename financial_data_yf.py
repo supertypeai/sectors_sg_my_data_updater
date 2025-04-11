@@ -17,11 +17,12 @@ from random import uniform
 
 resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
 resp = resp.json()
-print("resp: ", resp)
+# print("resp: ", resp)
 
 def fetch_existing_symbol(country,supabase):
     if country == "SG":
         data = supabase.table("sgx_companies").select("symbol").execute()
+        # data = supabase.table("sgx_companies").select("*").limit(20).execute()
     elif country == "MY":
         data = supabase.table("klse_companies").select("symbol").execute()
 
@@ -58,32 +59,58 @@ def upsert_db(update_data, supabase, country):
         print(f"Finish updating data for column {i}")
 
 # Dividend TTM Function
-def fetch_div_ttm(stock, currency, symbol,curr):
+def fetch_div_ttm(stock, currency, symbol, curr):
     try:
+        # print(f"Processing stock: {stock}")
+        
+        # Fetch ticker data
         ticker = yf.Ticker(f"{stock}.{symbol}")
+        # print(f"Successfully fetched ticker data for {stock}.{symbol}")
 
+        # Extract dividends data
         div = pd.DataFrame(ticker.dividends).reset_index()
         div.columns = div.columns.str.lower()
 
+        # Convert 'date' column to datetime
         div['date'] = pd.to_datetime(div['date'])
+        # print(f"Converted 'date' column to datetime for {stock}")
 
-        div_rate = div[div.date >= datetime.now(pytz.timezone('Asia/Singapore')) - timedelta(days = 365)].dividends.sum()
+        # Calculate dividends over the last 365 days
+        one_year_ago = datetime.now(pytz.timezone('Asia/Singapore')) - timedelta(days=365)
+        # print(f"Filtering dividends for the last 365 days starting from {one_year_ago}")
+        
+        recent_dividends = div[div.date >= one_year_ago]
+        # print(f"Filtered dividends:\n{recent_dividends}")
+        
+        div_rate = recent_dividends['dividends'].sum()
+        # print(f"Sum of dividends (TTM) for {stock}: {div_rate}")
 
-        data_currency = ticker.info['currency']
+        # Check currency conversion
+        data_currency = ticker.info.get('currency', None)
+        # print(f"Currency of dividend data for {stock}: {data_currency}")
 
         if data_currency != curr:
-            curr_value = resp[data_currency][currency]
+            # print(f"Currency mismatch detected. Converting from {data_currency} to {curr}")
+            
+            # Assuming `resp` is a predefined dictionary with exchange rates
+            if data_currency in resp and currency in resp[data_currency]:
+                curr_value = resp[data_currency][currency]
+                # print(f"Exchange rate from {data_currency} to {currency}: {curr_value}")
+                
+                div_rate = div_rate * curr_value
+                # print(f"Converted dividend rate: {div_rate}")
 
-            div_rate = div_rate * curr_value
     except Exception as e:
-        print(f"{stock} failed to retrieve and will be filled by 0 the error message:", e)
+        # print(f"{stock} failed to retrieve and will be filled by 0. Error message: {e}")
         div_rate = 0
 
-    div_ttm = pd.DataFrame(data={'symbol':stock, 'dividend_ttm':div_rate}, index=[0])
+    # Create DataFrame for result
+    div_ttm = pd.DataFrame(data={'symbol': stock, 'dividend_ttm': div_rate}, index=[0])
+    # print(f"Returning dividend TTM for {stock}: {div_ttm}")
 
     return div_ttm
 
-def update_div_ttm(country,country_data,supabase):
+def update_div_ttm(country, country_data, supabase):
     div_ttm = pd.DataFrame()
     base_delay = 2  # Base delay in seconds
     max_delay = 60  # Maximum delay in seconds
@@ -92,43 +119,63 @@ def update_div_ttm(country,country_data,supabase):
     if country == "SG":
         curr = "SGD"
         symbol = "SI"
+        # print(f"Processing data for Singapore (SG). Currency: {curr}, Symbol: {symbol}")
     elif country == "MY":
         curr = "MYR"
         symbol = "KL"
+        # print(f"Processing data for Malaysia (MY). Currency: {curr}, Symbol: {symbol}")
 
-    for stock in country_data.symbol.unique():
+    # Get unique stock symbols from the dataset
+    stocks = country_data.symbol.unique()
+    # print(f"Total number of stocks to process: {len(stocks)}")
+
+    for stock in stocks:
         retry_count = 0
         max_retries = 3
         success = False
-        
+
+        # print(f"Starting processing for stock: {stock}")
+
         while not success and retry_count < max_retries:
             try:
-                print(f"start fetching data {stock}")
-                data = fetch_div_ttm(stock,curr,symbol,curr)
-                div_ttm = pd.concat([div_ttm,data])
-                print(f"Success get data for {stock}")
+                # print(f"Attempt {retry_count + 1} for fetching data for {stock}")
+                data = fetch_div_ttm(stock, curr, symbol, curr)
+                # print(f"Fetched data for {stock}: {data}")
+
+                # Append the fetched data to the main DataFrame
+                div_ttm = pd.concat([div_ttm, data], ignore_index=True)
+                # print(f"Successfully appended data for {stock} to div_ttm DataFrame")
+
                 success = True
                 current_delay = base_delay  # Reset delay on success
-                
+
                 # Add a small random delay between successful requests
-                time.sleep(uniform(1, 3))
-                
+                sleep_time = uniform(1, 3)
+                # print(f"Sleeping for {sleep_time:.2f} seconds before next request...")
+                time.sleep(sleep_time)
+
             except Exception as e:
                 retry_count += 1
-                if "rate limit" in str(e).lower():
-                    print(f"Rate limit hit for {stock}, attempt {retry_count} of {max_retries}")
+                error_message = str(e).lower()
+
+                if "rate limit" in error_message:
+                    # print(f"Rate limit hit for {stock}, attempt {retry_count} of {max_retries}")
                     if retry_count < max_retries:
-                        print(f"Waiting {current_delay} seconds before retrying...")
+                        # print(f"Waiting {current_delay} seconds before retrying...")
                         time.sleep(current_delay)
                         current_delay = min(current_delay * 2, max_delay)  # Exponential backoff
-                    continue
                 else:
                     print(f"Error fetching {stock}: {e}")
                     break
-                    
-        print(f"---------------------------------------------------------")
 
-    upsert_db(div_ttm,supabase,country)
+        # print(f"---------------------------------------------------------")
+
+    # print(f"All stocks processed. Final div_ttm DataFrame:\n{div_ttm}")
+
+    # Upsert data into the database
+    # print("Upserting data into the database...")
+    upsert_db(div_ttm, supabase, country)
+    # print("Data upsert completed.")
 
 def earnings_fetcher(ticker,currency,stock, country):
    try:
@@ -244,96 +291,147 @@ def update_historical_data(country, country_data, supabase):
     upsert_db(df_earnings,supabase,country)
 
 
-# Monthly Financial Data Function
 def fetch_highlight_data(stock, currency, country_code):
     row_list = [stock]
 
     ticker = yf.Ticker(f"{stock}.{country_code}")
+    # print(f"Fetching data for stock: {stock}.{country_code}")
 
     try:
         data_currency = ticker.info['currency']
+        # print(f"Currency of data for {stock}: {data_currency}")
 
         try:
-            dividend = ticker.info['dividendRate']    
+            dividend = ticker.info['dividendRate']
+            # print(f"Initial dividend rate for {stock}: {dividend}")
 
             if data_currency != currency:
                 # resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
                 # resp = resp.json()
                 curr_value = resp[data_currency][currency]
+                # print(f"Exchange rate from {data_currency} to {currency}: {curr_value}")
 
                 dividend = dividend * curr_value
-        except:
+                # print(f"Converted dividend rate for {stock}: {dividend}")
+        except Exception as e:
+            # print(f"{stock} failed to retrieve 'dividendRate'. Error: {e}")
 
             try:
                 last_dividend_date = datetime.utcfromtimestamp(ticker.info['lastDividendDate']).year
-            except:
+                # print(f"Last dividend date for {stock}: {last_dividend_date}")
+            except Exception as le:
                 last_dividend_date = np.nan
+                # print(f"{stock} failed to retrieve 'lastDividendDate'. Error: {le}")
 
             if np.isnan(last_dividend_date):
                 dividend = np.nan
-            elif last_dividend_date < datetime.now().year:  
+                # print(f"No valid last dividend date for {stock}. Setting dividend to NaN.")
+            elif last_dividend_date < datetime.now().year:
                 dividend = 0
+                # print(f"Last dividend date for {stock} is older than the current year. Setting dividend to 0.")
             else:
                 dividend = np.nan
-                
-            print(f"{stock} doesn't have any data for forward dividend")
-        
+                # print(f"Setting dividend to NaN for {stock} due to missing or invalid data.")
+
+            # print(f"{stock} doesn't have any data for forward dividend")
+
         row_list.append(dividend)
+        # print(f"Forward dividend for {stock}: {dividend}")
 
         try:
-            dividend_yield = ticker.info['dividendYield']
-        except:
+            dividend_yield = ticker.info['dividendYield'] / 100
+            # print(f"Dividend yield for {stock}: {dividend_yield}")
+        except Exception as de:
+            # print(f"{stock} failed to retrieve 'dividendYield'. Error: {de}")
+
             if np.isnan(dividend):
                 dividend_yield = np.nan
-            elif dividend == 0:    
+                # print(f"Setting dividend yield to NaN for {stock} due to missing dividend data.")
+            elif dividend == 0:
                 dividend_yield = 0
-            
-            print(f"{stock} doesn't have any data for forward dividend_yield")
-        
+                # print(f"Setting dividend yield to 0 for {stock} since dividend is 0.")
+            else:
+                dividend_yield = np.nan
+                # print(f"Setting dividend yield to NaN for {stock} due to missing or invalid data.")
+
+            # print(f"{stock} doesn't have any data for forward dividend yield")
+
         row_list.append(dividend_yield)
-        
-        for metrics in ['profitMargins',"operatingMargins","grossMargins","quickRatio","currentRatio","debtToEquity","payoutRatio","trailingEps"]:
+        # print(f"Forward dividend yield for {stock}: {dividend_yield}")
+
+        for metrics in ['profitMargins', "operatingMargins", "grossMargins", "quickRatio", "currentRatio", "debtToEquity", "payoutRatio", "trailingEps"]:
             try:
                 metrics_value = ticker.info[metrics]
-            except:
+                # print(f"Retrieved {metrics} for {stock}: {metrics_value}")
+            except Exception as me:
                 metrics_value = np.nan
-                print(f"{stock} doesn't have any data for {metrics}")
-            
+                # print(f"{stock} doesn't have any data for {metrics}. Error: {me}")
+
             if metrics == "debtToEquity":
-                metrics_value = metrics_value/100
-                
+                metrics_value = metrics_value / 100
+                # print(f"Adjusted debtToEquity for {stock}: {metrics_value}")
+
             row_list.append(metrics_value)
 
-        data = pd.DataFrame(row_list).T
-        data.columns = ['symbol','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"]
-    except:
-        data = pd.DataFrame([stock,None,None,None,None,None,None,None,None,None,None]).T
-        data.columns = ['symbol','forward_dividend','forward_dividend_yield','net_profit_margin',"operating_margin","gross_margin","quick_ratio","current_ratio","debt_to_equity","payout_ratio","eps"]
+        # print(f"Row list for {stock}: {row_list}")
+
+        data = pd.DataFrame([row_list])
+        data.columns = ['symbol', 'forward_dividend', 'forward_dividend_yield', 'net_profit_margin',
+                        "operating_margin", "gross_margin", "quick_ratio", "current_ratio",
+                        "debt_to_equity", "payout_ratio", "eps"]
+        # print(f"Final DataFrame for {stock}:\n{data}")
+    except Exception as main_e:
+        # print(f"Failed to process {stock}. Error: {main_e}")
+        data = pd.DataFrame([[stock, None, None, None, None, None, None, None, None, None, None]])
+        data.columns = ['symbol', 'forward_dividend', 'forward_dividend_yield', 'net_profit_margin',
+                        "operating_margin", "gross_margin", "quick_ratio", "current_ratio",
+                        "debt_to_equity", "payout_ratio", "eps"]
+        # print(f"Returning default DataFrame for {stock}:\n{data}")
 
     return data
 
-def update_financial_data(country,country_data,supabase):
+def update_financial_data(country, country_data, supabase):
     highlight_data = pd.DataFrame()
+    # print("Initializing empty DataFrame for financial data.")
 
     if country == "SG":
         curr = "SGD"
         symbol = "SI"
+        # print(f"Processing data for Singapore (SG). Currency: {curr}, Symbol: {symbol}")
     elif country == "MY":
         curr = "MYR"
         symbol = "KL"
+        # print(f"Processing data for Malaysia (MY). Currency: {curr}, Symbol: {symbol}")
+    else:
+        # print(f"Unsupported country: {country}. Exiting...")
+        return
 
-    for stock in country_data.symbol.unique():
+    # Get unique stock symbols from the dataset
+    stocks = country_data.symbol.unique()
+    # print(f"Total number of stocks to process: {len(stocks)}")
+
+    for stock in stocks:
+        # print(f"Start fetching data for stock: {stock}")
         
-        print(f"start fetching data {stock}")
-        data = fetch_highlight_data(stock,curr,symbol)
+        try:
+            data = fetch_highlight_data(stock, curr, symbol)
+            # print(f"Fetched data for {stock}:\n{data}")
+        except Exception as e:
+            # print(f"Error fetching data for {stock}: {e}")
+            continue
 
-        highlight_data = pd.concat([highlight_data,data])
+        highlight_data = pd.concat([highlight_data, data], ignore_index=True)
+        # print(f"Successfully appended data for {stock} to highlight_data DataFrame.")
+        # print(f"Current state of highlight_data:\n{highlight_data}")
 
-        print(f"Succes get data for {stock}")
+        # print(f"---------------------------------------------------------")
 
-        print(f"---------------------------------------------------------")
-    
-    upsert_db(highlight_data,supabase,country)
+    # print("All stocks processed. Final highlight_data DataFrame:")
+    # print(highlight_data)
+
+    # print("Upserting data into the database...")
+    upsert_db(highlight_data, supabase, country)
+    # print("Data upsert completed.")
     
 
 def main():
