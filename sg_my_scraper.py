@@ -52,32 +52,20 @@ def GetGeneralData(country):
 
 
 def yf_data_updater(data_prep: pd.DataFrame, country):
-    date_format = "%Y-%m-%d"
-    # Set the start date as 31 days ago and then format it
-    last_date = (datetime.now() - timedelta(days=31)).strftime(date_format)
-    # print(f"[DEBUG] last_date: {last_date}")
+    """
+    Updates financial fundamentals (market cap, volume, PE, etc.) for each symbol.
+    """
 
     for index, row in data_prep.iterrows():
         symbol = row["symbol"]
-        # print(f"[DEBUG] Processing symbol: {symbol}")
         try:
             # Get ticker with proper extension
             ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(row["symbol"] + ticker_extension)
+            ticker = yf.Ticker(symbol + ticker_extension)
             currency = ticker.info.get("currency", None)
             country_currency = "MYR" if country == "my" else "SGD"
             if currency is None:
                 raise AttributeError(f"Currency information not available for {symbol}")
-
-            # Update dividend growth rate
-            current_year = datetime.now().year
-            dividend_last_1_year = ticker.history(start=f"{current_year - 1}-01-01", 
-                                                    end=f"{current_year - 1}-12-31")["Dividends"].sum()
-            dividend_current = ticker.history(start=f"{current_year}-01-01", 
-                                              end=f"{current_year}-12-31")["Dividends"].sum()
-            dividend_growth_rate = safe_relative_diff(dividend_current, dividend_last_1_year)
-            data_prep.loc[index, "dividend_growth_rate"] = dividend_growth_rate
-            # print(f"[DEBUG] {symbol} dividend_growth_rate: {dividend_growth_rate}")
 
             # Update data from yfinance info            
             data_json = ticker.info
@@ -95,7 +83,7 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             # Add the company's short name in SGX for the SGX short sell pipeline
             if country == "sg":
                 desired_values["shortName"] = "short_name"
-                
+
             for key_dv, val_dv in desired_values.items():
                 try:
                     if val_dv == "market_cap":
@@ -106,7 +94,6 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                         else:
                             temp_val = data_json[key_dv]
                         data_prep.loc[index, val_dv] = temp_val
-                        # print(f"[DEBUG] {symbol} {val_dv} - market_cap set to: {temp_val}")
                     
                     elif val_dv == "revenue":
                         financial_currency = data_json.get("financialCurrency", country_currency)
@@ -116,18 +103,14 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                         else:
                             temp_val = data_json[key_dv]
                         data_prep.loc[index, val_dv] = temp_val
-                        # print(f"[DEBUG] {symbol} {val_dv} - revenue set to: {temp_val}")
                     
                     elif val_dv == "ocf":
                         # Calculate pcf using marketCap / ocf
                         if data_json.get(key_dv, None):
                             temp_val = data_json["marketCap"] / data_json[key_dv]
                             data_prep.loc[index, "pcf"] = temp_val
-                            # print(f"[DEBUG] {symbol} ocf retrieved: {data_json[key_dv]}")
-                            # print(f"[DEBUG] {symbol} pcf (from marketCap / ocf) set to: {temp_val}")
                         else:
                             data_prep.loc[index, "pcf"] = np.nan
-                            # print(f"[DEBUG] {symbol} ocf data missing; pcf set to NaN")
                     
                     elif val_dv == "pe":
                         # Retrieve the YF trailingPE value
@@ -148,7 +131,6 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                         # Use trailingPE only if it is a valid finite number.
                         if not pd.isna(yf_pe) and np.isfinite(yf_pe):
                             chosen_pe = yf_pe
-                            # print(f"[DEBUG] {symbol} - YF trailingPE available: {yf_pe}, used directly.")
                         else:
                             # Retrieve the last close value from the existing row only if needed.
                             close_series = row.get("close", None)
@@ -157,17 +139,14 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                             else:
                                 last_close = None
                             # Calculate PE using last close divided by EPS.
-                            calc_pe = (last_close / row["eps"]) if (last_close is not None and row["eps"] != 0) else np.nan
-                            chosen_pe = calc_pe
-                            # print(f"[DEBUG] {symbol} - YF trailingPE anomaly ({yf_pe}), calculated pe: {calc_pe}")
+                            chosen_pe = (last_close / row["eps"]) if (last_close is not None and row["eps"] != 0) else np.nan
                         data_prep.loc[index, "pe"] = chosen_pe
 
                     else:
                         data_prep.loc[index, val_dv] = data_json.get(key_dv, np.nan)
-                        # print(f"[DEBUG] {symbol} {val_dv} set to: {data_json.get(key_dv, np.nan)}")
                         
                 except KeyError as e:
-                    # This block is kept in case data are missing, but for PE we already calculate beforehand.
+                    # Fallback for missing keys; recalculate PE if needed.
                     if val_dv == "pe":
                         close_series = row.get("close", None)
                         if isinstance(close_series, list) and close_series:
@@ -176,18 +155,44 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                             last_close = None
                         temp_pe = (last_close / row["eps"]) if (last_close is not None and row["eps"] != 0) else np.nan
                         data_prep.loc[index, "pe"] = temp_pe
-                        # print(f"[DEBUG] {symbol} - fallback pe set to: {temp_pe}")
                     else:
                         data_prep.loc[index, val_dv] = np.nan
-                        # print(f"[DEBUG] {symbol} {val_dv} - keyerror, set to: NaN due to KeyError: {e}")
 
         except Exception as e:
             print(f"error in symbol {symbol} : ", e)
     
-    # Try to update the DataFrame and drop the 'ocf' column if it exists
+    # Optionally, drop the 'ocf' column if it exists
     if "ocf" in data_prep.columns:
         data_prep = data_prep.drop("ocf", axis="columns")
+    
+    return data_prep
 
+def update_dividend_growth_rate(data_prep: pd.DataFrame, country):
+    """
+    Updates dividend growth rate for each symbol and assigns it to the DataFrame.
+    """
+
+    for index, row in data_prep.iterrows():
+        symbol = row["symbol"]
+        try:
+            ticker_extension = ".KL" if country == "my" else ".SI"
+            ticker = yf.Ticker(symbol + ticker_extension)
+            
+            current_year = datetime.now().year
+            dividend_last_1_year = ticker.history(
+                start=f"{current_year - 1}-01-01", 
+                end=f"{current_year - 1}-12-31"
+            )["Dividends"].sum()
+            dividend_current = ticker.history(
+                start=f"{current_year}-01-01", 
+                end=f"{current_year}-12-31"
+            )["Dividends"].sum()
+            dividend_growth_rate = safe_relative_diff(dividend_current, dividend_last_1_year)
+            data_prep.loc[index, "dividend_growth_rate"] = dividend_growth_rate
+
+        except Exception as e:
+            print(f"error updating dividend growth rate for symbol {symbol} : ", e)
+    
     return data_prep
 
 def update_close_history_data(data_prep: pd.DataFrame, country):
@@ -846,6 +851,7 @@ if __name__ == "__main__":
         data_final = yf_data_updater(data_db, country)
         data_final = update_change_data(data_final, country)
         data_final = update_close_history_data(data_final, country)
+        data_final = update_dividend_growth_rate(data_final, country)
 
         if args.singapore:
             data_final = update_historical_dividends(data_final, country)
