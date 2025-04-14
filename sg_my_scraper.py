@@ -57,12 +57,6 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
     last_date = (datetime.now() - timedelta(days=31)).strftime(date_format)
     # print(f"[DEBUG] last_date: {last_date}")
 
-    # Generate a list of dates for the next 31 days
-    list_dates = [(datetime.strptime(last_date, date_format) + timedelta(days=i)).strftime(date_format)
-                  for i in range(1, 32)]
-    # print(f"[DEBUG] list_dates: {list_dates}")
-
-    new_close = []
     for index, row in data_prep.iterrows():
         symbol = row["symbol"]
         # print(f"[DEBUG] Processing symbol: {symbol}")
@@ -187,11 +181,49 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                         data_prep.loc[index, val_dv] = np.nan
                         # print(f"[DEBUG] {symbol} {val_dv} - keyerror, set to: NaN due to KeyError: {e}")
 
-            # Update history close data (for near-future values)
+        except Exception as e:
+            print(f"error in symbol {symbol} : ", e)
+    
+    # Try to update the DataFrame and drop the 'ocf' column if it exists
+    if "ocf" in data_prep.columns:
+        data_prep = data_prep.drop("ocf", axis="columns")
+
+    return data_prep
+
+def update_close_history_data(data_prep: pd.DataFrame, country):
+    """
+    This function updates the history close data for near-future values and assigns 
+    it to the 'close' column of the data_prep DataFrame.
+    """
+    date_format = "%Y-%m-%d"
+    # Set the start date as 31 days ago and then format it
+    last_date = (datetime.now() - timedelta(days=31)).strftime(date_format)
+
+    # Generate a list of dates for the next 31 days
+    list_dates = [
+        (datetime.strptime(last_date, date_format) + timedelta(days=i)).strftime(date_format)
+        for i in range(1, 32)
+    ]
+    
+    new_close = []
+    
+    for index, row in data_prep.iterrows():
+        symbol = row["symbol"]
+        try:
+            # Get ticker with proper extension
+            ticker_extension = ".KL" if country == "my" else ".SI"
+            ticker = yf.Ticker(row["symbol"] + ticker_extension)
+            currency = ticker.info.get("currency", None)
+            country_currency = "MYR" if country == "my" else "SGD"
+            if currency is None:
+                raise AttributeError(f"Currency information not available for {symbol}")
+
+            # Retrieve ticker history
             try:
                 yf_data = ticker.history(period="1mo").reset_index()
             except Exception as e:
                 yf_data = ticker.history(period="max").reset_index()
+            
             close_data = []
             for i in range(len(yf_data)):
                 curr = yf_data.iloc[i]
@@ -210,21 +242,20 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             # Filter close data to only dates later than last_date
             close_data = [close for close in close_data if close["date"] > last_date]
             new_close.append(close_data)
-
         except Exception as e:
             print(f"error in symbol {symbol} : ", e)
             new_close.append(None)
     
-    # Try to update the DataFrame and drop the 'ocf' column if it exists
+    # Update the DataFrame with the newly fetched close data
     try:
         data_prep = data_prep.assign(close=new_close)
         if "ocf" in data_prep.columns:
             data_prep = data_prep.drop("ocf", axis="columns")
-        # print(f"[DEBUG] data_prep after assigning close and dropping 'ocf':\n{data_prep}")
     except Exception as e:
         print(f"[DEBUG] Error assigning close data: {e}")
         data_prep = data_prep.assign(close=new_close)
         print(f"[DEBUG] data_prep after assigning close (unable to drop 'ocf'):\n{data_prep}")
+    
     return data_prep
 
 def update_historical_dividends(data_prep: pd.DataFrame, country):
@@ -805,14 +836,16 @@ if __name__ == "__main__":
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "Z74", "U11", "K6S", "TATD", "S63", "F34", "C6L", "TCPD", "Q0F", "TPED", "C38U", "J36", "S68", "VC2", "C07", "G92", "E5H", "Y92", "NIO"]).execute()
-        # data_db = supabase.table(db).select("*").limit(100).execute()
+        # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "Z74", "U11", "K6S"]).execute()
+        # data_db = supabase.table(db).select("*").limit(5).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'weekly_signal',
                      'monthly_signal']
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
-        data_final = update_change_data(data_final, country)             
+        data_final = update_change_data(data_final, country)
+        data_final = update_close_history_data(data_db, country)
 
         if args.singapore:
             data_final = update_historical_dividends(data_final, country)
