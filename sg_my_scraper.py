@@ -836,7 +836,7 @@ if __name__ == "__main__":
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'weekly_signal',
-                     'monthly_signal']
+                     'monthly_signal', 'earnings']
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
         data_final = update_change_data(data_final, country)
