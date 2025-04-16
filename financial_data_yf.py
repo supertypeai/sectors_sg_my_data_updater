@@ -22,7 +22,9 @@ resp = resp.json()
 def fetch_existing_symbol(country,supabase):
     if country == "SG":
         data = supabase.table("sgx_companies").select("symbol").execute()
-        # data = supabase.table("sgx_companies").select("*").limit(20).execute()
+        # data = supabase.table("sgx_companies").select("symbol").in_("symbol", ["1R6"]).execute()
+        # data = supabase.table("sgx_companies").select("symbol").in_("symbol", ["1AZ", "1B0", "1B1", "1B6", "1D0"]).execute()
+        # data = supabase.table("sgx_companies").select("symbol").limit(20).execute()
     elif country == "MY":
         data = supabase.table("klse_companies").select("symbol").execute()
 
@@ -178,89 +180,114 @@ def update_div_ttm(country, country_data, supabase):
     upsert_db(div_ttm, supabase, country)
     # print("Data upsert completed.")
 
-def earnings_fetcher(ticker,currency,stock, country):
-   try:
-      data_currency = ticker.info["financialCurrency"]
-   except:
-      if stock in ['TCPD','TPED','TATD']:
-         data_currency = "THB"
-      else:
-         try:
-            data_currency = ticker.info["currency"]
-         except:
-            print(stock, " don't have any currency and will use SGD for sgx and MYR for KLSE as the default")
-            data_currency = "SGD" if country == "SG" else "MYR"
-      
-   if data_currency == currency:
-      # Take the yearly net income value
-      try:
-         yearly_financials = ticker.financials.loc[["Total Revenue","Net Income"]]
-         yearly_financials = yearly_financials.T
-         yearly_financials.index = pd.to_datetime(yearly_financials.index).year
-         yearly_financials = pd.DataFrame(yearly_financials).reset_index()
-         yearly_financials.columns = ['period', 'revenue','earnings']
+def earnings_fetcher(ticker, currency, stock, country):
 
-         yearly_financials['period'] = yearly_financials['period'].astype('int')
+    # --- Helper: get currency from ticker info ---
+    def get_data_currency(ticker, stock, country):
+        try:
+            data_currency = ticker.info["financialCurrency"]
+            # print(f"Fetched financialCurrency: {data_currency}")
+        except Exception as e:
+            print(f"Error fetching financialCurrency: {e}. Trying secondary method.")
+            if stock in ['TCPD', 'TPED', 'TATD']:
+                data_currency = "THB"
+                # print("Stock is in specific list; using THB as data_currency.")
+            else:
+                try:
+                    data_currency = ticker.info["currency"]
+                    # print(f"Fetched currency: {data_currency}")
+                except Exception as e2:
+                    print(f"Error fetching currency: {e2}. Using default currency based on country.")
+                    data_currency = "SGD" if country == "SG" else "MYR"
+                    print(f"Defaulting to {data_currency} for country {country}.")
+        return data_currency
 
-         last_financial = yearly_financials[yearly_financials.period >= datetime.now().year-2].iloc[0:1,:]
+    # --- Helper: extract financial data ---
+    def extract_financials(ticker):
+        try:
+            # Extract yearly financials
+            yearly_financials = ticker.financials.loc[["Total Revenue", "Net Income"]]
+            yearly_financials = yearly_financials.T
+            yearly_financials.index = pd.to_datetime(yearly_financials.index).year
+            yearly_financials = yearly_financials.reset_index()
+            yearly_financials.columns = ['period', 'revenue', 'earnings']
+            yearly_financials['period'] = yearly_financials['period'].astype(int)
+            # print("Yearly financials extracted:")
+            # print(yearly_financials)
 
-         # TTM Net Income
-         try:
-            ttm_net_income = pd.DataFrame(data={'period':'TTM', 'revenue':ticker.quarterly_financials.loc["Total Revenue"][0:4].sum(),'earnings':ticker.quarterly_financials.loc["Net Income"][0:4].sum()}, index=[0])
-         except:
-            ttm_net_income = pd.DataFrame(data={'period':'TTM', 'revenue':np.nan, 'earnings':np.nan}, index=[0])
-         
-         financial_all = pd.concat([ttm_net_income,yearly_financials])
-         
-         # Convert to JSON
-         net_income = financial_all[["period",'earnings']].to_json(orient='records')
-         revenue = financial_all[["period",'revenue']].to_json(orient='records')
+            # Last financial data within last 2 years
+            last_financial = yearly_financials[yearly_financials.period >= datetime.now().year-2].iloc[0:1, :]
+            # print("Last financial period selected:")
+            # print(last_financial)
 
-      except:
-         net_income = np.nan
-         revenue = np.nan
-         last_financial = np.nan
-         print(f"No Net Income and Revenue data for ticker {ticker}.SI")
+            # Extract TTM data from quarterly financials if available
+            try:
+                quarterly_rev = ticker.quarterly_financials.loc["Total Revenue"][0:4]
+                quarterly_net = ticker.quarterly_financials.loc["Net Income"][0:4]
+                # print(f"Quarterly Revenue (first 4 quarters) for stock {stock}: {quarterly_rev}")
+                # print(f"Quarterly Net Income (first 4 quarters) for stock {stock}: {quarterly_net}")
 
-   else:
-    #   resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
-    #   resp = resp.json()
-      curr_value = resp[data_currency][currency]
+                ttm_net_income = pd.DataFrame(data={
+                    'period': 'TTM', 
+                    'revenue': quarterly_rev.sum(), 
+                    'earnings': quarterly_net.sum()
+                }, index=[0])
+                # print("TTM financials computed from quarterly data:")
+                # print(ttm_net_income)
+            except Exception as e:
+                print(f"Error computing TTM financials from quarterly data for stock {stock}: {e}. Using latest yearly data as TTM.")
+                # Use the last yearly financial data as TTM fallback
+                ttm_net_income = last_financial.copy()
+                ttm_net_income['period'] = 'TTM'
+                # print("TTM financials set to last yearly data:")
+                # print(ttm_net_income)
+                
+            # Concatenate TTM and yearly results
+            financial_all = pd.concat([ttm_net_income, yearly_financials], ignore_index=True)
+            # print("Combined financial data:")
+            # print(financial_all)
+            
+            return financial_all, last_financial
+        except Exception as e:
+            print(f"No Net Income and Revenue data for ticker {ticker}: {e}")
+            return np.nan, np.nan
 
-      try:
-         yearly_financials = ticker.financials.loc[["Total Revenue","Net Income"]]
-         yearly_financials = yearly_financials.T
-         yearly_financials.index = pd.to_datetime(yearly_financials.index).year
-         yearly_financials = pd.DataFrame(yearly_financials).reset_index()
-         yearly_financials.columns = ['period', 'revenue','earnings']
+    # --- Main processing ---
+    data_currency = get_data_currency(ticker, stock, country)
+    # print(f"Data currency: {data_currency} vs requested currency: {currency}")
 
-         last_financial = yearly_financials[yearly_financials.period >= datetime.now().year-2].iloc[0:1,:]
-         last_financial["earnings"] = last_financial["earnings"] * curr_value
-         last_financial["revenue"] = last_financial["revenue"] * curr_value
+    conversion_rate = 1.0
+    if data_currency != currency:
+        try:
+            conversion_rate = resp[data_currency][currency]
+            # print(f"Conversion rate from {data_currency} to {currency}: {conversion_rate}")
+        except Exception as e:
+            print(f"Error finding conversion rate: {e}. Using default conversion rate of 1.0")
 
-         # TTM Net Income
-         try:
-            ttm_net_income = pd.DataFrame(data={'period':'TTM', 'revenue':ticker.quarterly_financials.loc["Total Revenue"][0:4].sum(),'earnings':ticker.quarterly_financials.loc["Net Income"][0:4].sum()}, index=[0])
-         except:
-            ttm_net_income = pd.DataFrame(data={'period':'TTM', 'revenue':np.nan, 'earnings':np.nan}, index=[0])
-         
-         financial_all = pd.concat([ttm_net_income,yearly_financials])
+    # Extract the financial data
+    financial_all, last_financial = extract_financials(ticker)
+    if isinstance(financial_all, pd.DataFrame):
+        if conversion_rate != 1.0:
+            # Apply conversion factor if needed to all relevant fields
+            financial_all['earnings'] = financial_all['earnings'] * conversion_rate
+            financial_all['revenue'] = financial_all['revenue'] * conversion_rate
+            last_financial["earnings"] = last_financial["earnings"] * conversion_rate
+            last_financial["revenue"] = last_financial["revenue"] * conversion_rate
+            # print("Financial data after applying currency conversion:")
+            # print(financial_all)
 
-         financial_all['earnings'] = financial_all['earnings'] * curr_value
-         financial_all['revenue'] = financial_all['revenue'] * curr_value
-         
-         # Convert to JSON
-         net_income = financial_all[["period",'earnings']].to_json(orient='records')
-         revenue = financial_all[["period",'revenue']].to_json(orient='records')
-         
-      except:
-         net_income = np.nan
-         revenue = np.nan
-         last_financial = np.nan
-         print(f"No Net Income and Revenue data for ticker {ticker}.SI")
+        # Convert to JSON for output
+        net_income_json = financial_all[["period", 'earnings']].to_json(orient='records')
+        revenue_json = financial_all[["period", 'revenue']].to_json(orient='records')
+        # print("Net Income JSON:")
+        # print(net_income_json)
+        # print("Revenue JSON:")
+        # print(revenue_json)
+    else:
+        net_income_json = revenue_json = np.nan
+        # print("Financial data extraction failed; returning NaN for financials.")
 
-   
-   return net_income, revenue, last_financial
+    return net_income_json, revenue_json, last_financial
 
 def update_historical_data(country, country_data, supabase):
     df_earnings = pd.DataFrame()
@@ -286,8 +313,9 @@ def update_historical_data(country, country_data, supabase):
         data = data.merge(last_data,on="symbol").drop('period',axis=1)
 
         df_earnings = pd.concat([df_earnings,data])
+        # print(f"Updated df_earnings:\n{df_earnings}")  # Print the value of df_earnings
 
-        print(f"success get {ticker} earnings")
+        # print(f"success get {ticker} earnings")
 
     upsert_db(df_earnings,supabase,country)
 
