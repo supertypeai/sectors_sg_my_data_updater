@@ -77,8 +77,7 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                 "priceToSalesTrailing12Months": "ps_ttm",
                 "priceToBook": "pb",
                 "beta": "beta",
-                "operatingCashflow": "ocf",
-                "totalRevenue": "revenue"
+                "operatingCashflow": "ocf"
             }
             # Add the company's short name in SGX for the SGX short sell pipeline
             if country == "sg":
@@ -94,16 +93,7 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                         else:
                             temp_val = data_json[key_dv]
                         data_prep.loc[index, val_dv] = temp_val
-                    
-                    elif val_dv == "revenue":
-                        financial_currency = data_json.get("financialCurrency", country_currency)
-                        if financial_currency != country_currency:
-                            rate = float(data[financial_currency][country_currency])
-                            temp_val = data_json[key_dv] * rate
-                        else:
-                            temp_val = data_json[key_dv]
-                        data_prep.loc[index, val_dv] = temp_val
-                    
+                                        
                     elif val_dv == "ocf":
                         # Calculate pcf using marketCap / ocf
                         if data_json.get(key_dv, None):
