@@ -69,7 +69,7 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
 
             # Update data from yfinance info            
             data_json = ticker.info
-
+            
             desired_values = {
                 "marketCap": "market_cap",
                 "volume": "volume",
@@ -77,7 +77,8 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                 "priceToSalesTrailing12Months": "ps_ttm",
                 "priceToBook": "pb",
                 "beta": "beta",
-                "operatingCashflow": "ocf"
+                "operatingCashflow": "ocf",
+                "fiveYearAvgDividendYield": "dividend_yield_5y_avg"
             }
             # Add the company's short name in SGX for the SGX short sell pipeline
             if country == "sg":
@@ -832,7 +833,7 @@ if __name__ == "__main__":
         data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "Z74", "U11", "K6S", "TATD", "S63", "F34", "C6L", "TCPD", "Q0F", "TPED", "C38U", "J36", "S68", "VC2", "C07", "G92", "E5H", "Y92", "NIO"]).execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "Z74", "U11", "K6S"]).execute()
-        # data_db = supabase.table(db).select("*").limit(5).execute()
+        # data_db = supabase.table(db).select("*").limit(10).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'weekly_signal',
