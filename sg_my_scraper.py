@@ -770,6 +770,44 @@ def clean_periodic_foreign_data(foreign_periodic_data, foreign_sectors):
 
     return foreign_periodic_data
 
+def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.DataFrame:
+    """
+    Update the DataFrame by fetching next‑year EPS and sales growth estimates for each symbol.
+    
+    New columns added:
+      - one_year_eps_growth   : Next‑year EPS growth (decimal, e.g. 0.0225 for +2.25%)
+      - one_year_sales_growth : Next‑year sales growth (decimal, e.g. 0.0285 for +2.85%)
+    
+    Parameters:
+      data_prep (pd.DataFrame): Must contain at least a 'symbol' column.
+      country (str): Country code ("my" → ".KL", otherwise ".SI").
+      
+    Returns:
+      pd.DataFrame: The input DataFrame with two new columns.
+    """
+    for idx, row in data_prep.iterrows():
+        symbol = row["symbol"]
+        ext = ".KL" if country.lower() == "my" else ".SI"
+        try:
+            ticker = yf.Ticker(symbol + ext)
+            
+            # Fetch the two tables
+            ge = ticker.growth_estimates      # DataFrame indexed by period: ['0q','+1q','0y','+1y',...]
+            re = ticker.revenue_estimate      # DataFrame indexed by period with a 'growth' column
+            
+            # Extract the +1y entries (EPS = stockTrend, sales = growth)
+            eps_1y = ge.at["+1y", "stockTrend"] if "+1y" in ge.index else np.nan
+            sales_1y = re.at["+1y", "growth"] if "+1y" in re.index else np.nan
+            
+            data_prep.loc[idx, "one_year_eps_growth"] = eps_1y
+            data_prep.loc[idx, "one_year_sales_growth"] = sales_1y
+            
+        except Exception as e:
+            # on any failure, set NaN
+            print(f"[DEBUG] Failed to fetch estimates for {symbol}: {e}")
+            # data_prep.loc[idx, ["one_year_eps_growth", "one_year_sales_growth"]] = np.nan
+
+    return data_prep
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -843,6 +881,7 @@ if __name__ == "__main__":
         data_final = update_change_data(data_final, country)
         data_final = update_close_history_data(data_final, country)
         data_final = update_dividend_growth_rate(data_final, country)
+        data_final = update_estimate_growth_data(data_final, country)
 
         if args.singapore:
             data_final = update_historical_dividends(data_final, country)
@@ -854,7 +893,7 @@ if __name__ == "__main__":
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]
     data_final.to_csv("data_my.csv", index=False) if args.malaysia else data_final.to_csv("data_sg.csv", index=False)
     records = data_final.replace({np.nan: None}).to_dict("records")
-    # print(f"[DEBUG] First 5 records after replacing NaN with None:\n{records[:5]}")
+    # print(f"[DEBUG] First 5 records after replacing NaN with None:\n{records[:21]}")
 
     supabase.table(db).upsert(records, returning='minimal').execute()
     print("Upsert operation successful.")
