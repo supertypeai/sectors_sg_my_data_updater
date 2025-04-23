@@ -881,11 +881,11 @@ if __name__ == "__main__":
         data_final = update_change_data(data_final, country)
         data_final = update_close_history_data(data_final, country)
         data_final = update_dividend_growth_rate(data_final, country)
-        data_final = update_estimate_growth_data(data_final, country)
-
+        
         if args.singapore:
             data_final = update_historical_dividends(data_final, country)
             data_final = update_all_time_price(data_final, country) 
+            data_final = update_estimate_growth_data(data_final, country)
             # print("")  
 
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR',
