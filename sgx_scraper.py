@@ -107,7 +107,7 @@ try:
     print(f"[DEBUG] Found {len(csv_codes)} unique codes in CSV.")
 
     # Fetch existing symbols
-    resp = supabase.table("sgx_companies_test").select("symbol").execute()
+    resp = supabase.table("sgx_companies").select("symbol").execute()
     existing = {r['symbol'] for r in getattr(resp, 'data', resp)}
     print(f"[DEBUG] Retrieved {len(existing)} existing symbols from DB.")
 
@@ -118,12 +118,12 @@ try:
 
     # Activate existing
     if to_activate:
-        supabase.table("sgx_companies_test").update({"is_active": True}) \
+        supabase.table("sgx_companies").update({"is_active": True}) \
                  .in_("symbol", to_activate).execute()
 
     # Deactivate missing
     if to_deactivate:
-        supabase.table("sgx_companies_test").update({"is_active": False}) \
+        supabase.table("sgx_companies").update({"is_active": False}) \
                  .in_("symbol", to_deactivate).execute()
 
     # NOTE: Upsert logic removed per requirements
