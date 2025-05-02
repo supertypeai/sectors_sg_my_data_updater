@@ -1,0 +1,51 @@
+name: Daily SGX Sector & Subsector Data Update
+
+on:
+  schedule:
+    # runs every day at 00:00 UTC
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  trigger_workflow:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout repo content
+        uses: actions/checkout@v2
+
+      - name: setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: install python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r sector_requirements.txt
+
+      - name: execute scraper and upsert scripts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          PROXY: ${{ secrets.PROXY }}
+        run: |
+          python new_sector_scraper_sgx.py
+          python upsert_data_sgx.py
+
+      - name: Pull changes
+        run: |
+          git pull origin main
+
+      - name: Commit files
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add sector_data/data_sgx.json
+          git diff-index --quiet HEAD || git commit -a -m "ci: daily update of SGX data" --allow-empty
+
+      - name: Push changes
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
