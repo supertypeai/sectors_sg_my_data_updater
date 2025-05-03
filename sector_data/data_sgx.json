@@ -7,10 +7,10 @@
     "currency": "USD"
   },
   {
-    "symbol": "BKV",
-    "name": "China Shenshan Orchard Holdings Co Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Farm Products",
+    "symbol": "BKK",
+    "name": "Luxking Group Holdings Ltd",
+    "sector": "Basic Materials",
+    "sub_sector": "Specialty Chemicals",
     "currency": "CNY"
   },
   {
@@ -21,10 +21,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "BKK",
-    "name": "Luxking Group Holdings Ltd",
-    "sector": "Basic Materials",
-    "sub_sector": "Specialty Chemicals",
+    "symbol": "BKV",
+    "name": "China Shenshan Orchard Holdings Co Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Farm Products",
     "currency": "CNY"
   },
   {
@@ -49,13 +49,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5RF",
-    "name": "Mercurius Capital Investments Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Diversified",
-    "currency": "SGD"
-  },
-  {
     "symbol": "5RE",
     "name": "Asia Vets Holdings Ltd",
     "sector": "Healthcare",
@@ -63,11 +56,18 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5SO",
-    "name": "Duty Free International Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Specialty Retail",
-    "currency": "MYR"
+    "symbol": "5RF",
+    "name": "Mercurius Capital Investments Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Diversified",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "BKZ",
+    "name": "Suntar Eco-City Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Packaged Foods",
+    "currency": "CNY"
   },
   {
     "symbol": "5SR",
@@ -77,11 +77,11 @@
     "currency": "CNY"
   },
   {
-    "symbol": "BKZ",
-    "name": "Suntar Eco-City Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Packaged Foods",
-    "currency": "CNY"
+    "symbol": "5SO",
+    "name": "Duty Free International Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Specialty Retail",
+    "currency": "MYR"
   },
   {
     "symbol": "F03",
@@ -105,17 +105,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "F13",
-    "name": "Fu Yu Corp Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Specialty Industrial Machinery",
-    "currency": "SGD"
-  },
-  {
     "symbol": "F10",
     "name": "F J Benjamin Holdings Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Apparel Retail",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "F13",
+    "name": "Fu Yu Corp Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Specialty Industrial Machinery",
     "currency": "SGD"
   },
   {
@@ -140,6 +140,13 @@
     "currency": "USD"
   },
   {
+    "symbol": "F83",
+    "name": "COSCO Shipping International (Singapore) Co Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Integrated Freight & Logistics",
+    "currency": "SGD"
+  },
+  {
     "symbol": "F86",
     "name": "MYP Ltd",
     "sector": "Real Estate",
@@ -151,13 +158,6 @@
     "name": "Hotel Properties Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Lodging",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "F83",
-    "name": "COSCO Shipping International (Singapore) Co Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Integrated Freight & Logistics",
     "currency": "SGD"
   },
   {
@@ -189,13 +189,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "H18",
-    "name": "Hotel Grand Central Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Lodging",
-    "currency": "SGD"
-  },
-  {
     "symbol": "H20",
     "name": "Hoe Leong Corp Ltd",
     "sector": "Industrials",
@@ -203,10 +196,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "41F",
-    "name": "GSS Energy Ltd",
-    "sector": "Technology",
-    "sub_sector": "Electronic Components",
+    "symbol": "H18",
+    "name": "Hotel Grand Central Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Lodging",
     "currency": "SGD"
   },
   {
@@ -217,18 +210,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "41O",
-    "name": "LHN Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate Services",
+    "symbol": "41F",
+    "name": "GSS Energy Ltd",
+    "sector": "Technology",
+    "sub_sector": "Electronic Components",
     "currency": "SGD"
-  },
-  {
-    "symbol": "41T",
-    "name": "GCCP Resources Ltd",
-    "sector": "Basic Materials",
-    "sub_sector": "Building Materials",
-    "currency": "MYR"
   },
   {
     "symbol": "41H",
@@ -238,17 +224,17 @@
     "currency": "USD"
   },
   {
+    "symbol": "41T",
+    "name": "GCCP Resources Ltd",
+    "sector": "Basic Materials",
+    "sub_sector": "Building Materials",
+    "currency": "MYR"
+  },
+  {
     "symbol": "42C",
     "name": "iX Biopharma Ltd",
     "sector": "Healthcare",
     "sub_sector": "Drug Manufacturers - Specialty & Generic",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "42E",
-    "name": "Choo Chiang Holdings Ltd",
-    "sector": "Technology",
-    "sub_sector": "Electronics & Computer Distribution",
     "currency": "SGD"
   },
   {
@@ -259,10 +245,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "BLU",
-    "name": "GRP Ltd",
+    "symbol": "42E",
+    "name": "Choo Chiang Holdings Ltd",
     "sector": "Technology",
-    "sub_sector": "Scientific & Technical Instruments",
+    "sub_sector": "Electronics & Computer Distribution",
     "currency": "SGD"
   },
   {
@@ -273,6 +259,13 @@
     "currency": "TWD"
   },
   {
+    "symbol": "BLU",
+    "name": "GRP Ltd",
+    "sector": "Technology",
+    "sub_sector": "Scientific & Technical Instruments",
+    "currency": "SGD"
+  },
+  {
     "symbol": "RCU",
     "name": "Assurance Healthcare Ltd",
     "sector": "Technology",
@@ -280,17 +273,24 @@
     "currency": "SGD"
   },
   {
-    "symbol": "H22",
-    "name": "Hong Leong Asia Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Auto Manufacturers",
-    "currency": "SGD"
-  },
-  {
     "symbol": "BLZ",
     "name": "Advanced Holdings Ltd",
     "sector": "Energy",
     "sub_sector": "Oil & Gas Equipment & Services",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "41O",
+    "name": "LHN Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate Services",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "H22",
+    "name": "Hong Leong Asia Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Auto Manufacturers",
     "currency": "SGD"
   },
   {
@@ -315,13 +315,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "BMT",
-    "name": "Coolan Group Ltd",
-    "sector": "Energy",
-    "sub_sector": "Oil & Gas Refining & Marketing",
-    "currency": "SGD"
-  },
-  {
     "symbol": "RE4",
     "name": "Geo Energy Resources Ltd",
     "sector": "Energy",
@@ -329,10 +322,10 @@
     "currency": "USD"
   },
   {
-    "symbol": "RQ1",
-    "name": "Overseas Education Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Education & Training Services",
+    "symbol": "BMT",
+    "name": "Coolan Group Ltd",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Refining & Marketing",
     "currency": "SGD"
   },
   {
@@ -343,13 +336,6 @@
     "currency": "HKD"
   },
   {
-    "symbol": "5TJ",
-    "name": "Far East Group Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Specialty Industrial Machinery",
-    "currency": "SGD"
-  },
-  {
     "symbol": "RXS",
     "name": "Pacific Radiance Ltd",
     "sector": "Industrials",
@@ -357,11 +343,32 @@
     "currency": "USD"
   },
   {
+    "symbol": "RQ1",
+    "name": "Overseas Education Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Education & Training Services",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "5TJ",
+    "name": "Far East Group Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Specialty Industrial Machinery",
+    "currency": "SGD"
+  },
+  {
     "symbol": "5TP",
     "name": "CNMC Goldmine Holdings Ltd",
     "sector": "Basic Materials",
     "sub_sector": "Gold",
     "currency": "USD"
+  },
+  {
+    "symbol": "5TT",
+    "name": "Keong Hong Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
+    "currency": "SGD"
   },
   {
     "symbol": "BN4",
@@ -378,13 +385,6 @@
     "currency": "USD"
   },
   {
-    "symbol": "5TT",
-    "name": "Keong Hong Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
-    "currency": "SGD"
-  },
-  {
     "symbol": "5UA",
     "name": "Luminor Financial Holdings Ltd",
     "sector": "Financial Services",
@@ -399,11 +399,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "HKB",
-    "name": "AMTD IDEA Group",
-    "sector": "Financial Services",
-    "sub_sector": "Asset Management",
-    "currency": "USD"
+    "symbol": "H30",
+    "name": "Hong Fok Corp Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate Services",
+    "currency": "SGD"
   },
   {
     "symbol": "H78",
@@ -413,11 +413,11 @@
     "currency": "USD"
   },
   {
-    "symbol": "H30",
-    "name": "Hong Fok Corp Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate Services",
-    "currency": "SGD"
+    "symbol": "HKB",
+    "name": "AMTD IDEA Group",
+    "sector": "Financial Services",
+    "sub_sector": "Asset Management",
+    "currency": "USD"
   },
   {
     "symbol": "HLS",
@@ -434,17 +434,17 @@
     "currency": "MYR"
   },
   {
-    "symbol": "I06",
-    "name": "Intraco Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Industrial Distribution",
-    "currency": "SGD"
-  },
-  {
     "symbol": "HMN",
     "name": "CapitaLand Ascott Trust",
     "sector": "Real Estate",
     "sub_sector": "REIT - Diversified",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "I06",
+    "name": "Intraco Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Industrial Distribution",
     "currency": "SGD"
   },
   {
@@ -497,6 +497,13 @@
     "currency": "SGD"
   },
   {
+    "symbol": "42R",
+    "name": "Jumbo Group Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Restaurants",
+    "currency": "SGD"
+  },
+  {
     "symbol": "42S",
     "name": "Astaka Holdings Ltd",
     "sector": "Real Estate",
@@ -504,10 +511,17 @@
     "currency": "MYR"
   },
   {
-    "symbol": "42R",
-    "name": "Jumbo Group Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Restaurants",
+    "symbol": "42T",
+    "name": "The Trendlines Group Ltd",
+    "sector": "Financial Services",
+    "sub_sector": "Asset Management",
+    "currency": "USD"
+  },
+  {
+    "symbol": "42Z",
+    "name": "Eindec Corp Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Specialty Industrial Machinery",
     "currency": "SGD"
   },
   {
@@ -518,25 +532,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "42T",
-    "name": "The Trendlines Group Ltd",
-    "sector": "Financial Services",
-    "sub_sector": "Asset Management",
-    "currency": "USD"
-  },
-  {
     "symbol": "42W",
     "name": "Zixin Group Holdings Ltd",
     "sector": "Consumer Defensive",
     "sub_sector": "Packaged Foods",
     "currency": "CNY"
-  },
-  {
-    "symbol": "42Z",
-    "name": "Eindec Corp Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Specialty Industrial Machinery",
-    "currency": "SGD"
   },
   {
     "symbol": "BQD",
@@ -546,10 +546,10 @@
     "currency": "MYR"
   },
   {
-    "symbol": "BQN",
-    "name": "BH Global Corp Ltd",
+    "symbol": "BQM",
+    "name": "Tiong Woon Corp Holding Ltd",
     "sector": "Industrials",
-    "sub_sector": "Industrial Distribution",
+    "sub_sector": "Rental & Leasing Services",
     "currency": "SGD"
   },
   {
@@ -560,10 +560,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "BQM",
-    "name": "Tiong Woon Corp Holding Ltd",
+    "symbol": "BQN",
+    "name": "BH Global Corp Ltd",
     "sector": "Industrials",
-    "sub_sector": "Rental & Leasing Services",
+    "sub_sector": "Industrial Distribution",
     "currency": "SGD"
   },
   {
@@ -574,13 +574,6 @@
     "currency": "CNY"
   },
   {
-    "symbol": "IX2",
-    "name": "PEC Ltd",
-    "sector": "Energy",
-    "sub_sector": "Oil & Gas Equipment & Services",
-    "currency": "SGD"
-  },
-  {
     "symbol": "I49",
     "name": "IFS Capital Ltd",
     "sector": "Financial Services",
@@ -588,10 +581,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "J2T",
-    "name": "Hock Lian Seng Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
+    "symbol": "IX2",
+    "name": "PEC Ltd",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Equipment & Services",
     "currency": "SGD"
   },
   {
@@ -602,13 +595,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "J36",
-    "name": "Jardine Matheson Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Conglomerates",
-    "currency": "USD"
-  },
-  {
     "symbol": "S08",
     "name": "Singapore Post Ltd",
     "sector": "Industrials",
@@ -616,10 +602,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "S23",
-    "name": "Singapura Finance Ltd",
-    "sector": "Financial Services",
-    "sub_sector": "Credit Services",
+    "symbol": "J36",
+    "name": "Jardine Matheson Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Conglomerates",
+    "currency": "USD"
+  },
+  {
+    "symbol": "J2T",
+    "name": "Hock Lian Seng Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
     "currency": "SGD"
   },
   {
@@ -637,6 +630,13 @@
     "currency": "SGD"
   },
   {
+    "symbol": "S23",
+    "name": "Singapura Finance Ltd",
+    "sector": "Financial Services",
+    "sub_sector": "Credit Services",
+    "currency": "SGD"
+  },
+  {
     "symbol": "S29",
     "name": "Stamford Tyres Corp Ltd",
     "sector": "Consumer Cyclical",
@@ -651,18 +651,18 @@
     "currency": "JPY"
   },
   {
-    "symbol": "5VC",
-    "name": "Kori Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
-    "currency": "SGD"
-  },
-  {
     "symbol": "BRD",
     "name": "Sapphire Corp Ltd",
     "sector": "Industrials",
     "sub_sector": "Engineering & Construction",
     "currency": "CNY"
+  },
+  {
+    "symbol": "5VC",
+    "name": "Kori Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
+    "currency": "SGD"
   },
   {
     "symbol": "J69U",
@@ -686,17 +686,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "JLB",
-    "name": "Grand Venture Technology Ltd",
-    "sector": "Technology",
-    "sub_sector": "Semiconductors",
-    "currency": "SGD"
-  },
-  {
     "symbol": "5VI",
     "name": "Boldtek Holdings Ltd",
     "sector": "Industrials",
     "sub_sector": "Engineering & Construction",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "JLB",
+    "name": "Grand Venture Technology Ltd",
+    "sector": "Technology",
+    "sub_sector": "Semiconductors",
     "currency": "SGD"
   },
   {
@@ -721,13 +721,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "BRS",
-    "name": "USP Group Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Conglomerates",
-    "currency": "SGD"
-  },
-  {
     "symbol": "42D",
     "name": "NauticAWT Ltd",
     "sector": "Industrials",
@@ -740,6 +733,13 @@
     "sector": "Industrials",
     "sub_sector": "Aerospace & Defense",
     "currency": "CNY"
+  },
+  {
+    "symbol": "BRS",
+    "name": "USP Group Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Conglomerates",
+    "currency": "SGD"
   },
   {
     "symbol": "S35",
@@ -777,6 +777,13 @@
     "currency": "SGD"
   },
   {
+    "symbol": "5VP",
+    "name": "GDS Global Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Building Products & Equipment",
+    "currency": "SGD"
+  },
+  {
     "symbol": "5VJ",
     "name": "Halcyon Agri Corp Ltd",
     "sector": "Basic Materials",
@@ -791,24 +798,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5VP",
-    "name": "GDS Global Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Building Products & Equipment",
-    "currency": "SGD"
-  },
-  {
     "symbol": "5WA",
     "name": "OUE Healthcare Ltd",
     "sector": "Healthcare",
     "sub_sector": "Medical Care Facilities",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "5WF",
-    "name": "ISOTeam Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
     "currency": "SGD"
   },
   {
@@ -819,6 +812,13 @@
     "currency": "SGD"
   },
   {
+    "symbol": "5WF",
+    "name": "ISOTeam Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
+    "currency": "SGD"
+  },
+  {
     "symbol": "5WH",
     "name": "Rex International Holding Ltd",
     "sector": "Energy",
@@ -826,17 +826,17 @@
     "currency": "USD"
   },
   {
-    "symbol": "BTE",
-    "name": "Bund Center Investment Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate Services",
-    "currency": "SGD"
-  },
-  {
     "symbol": "5WJ",
     "name": "Moneymax Financial Services Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Specialty Retail",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "BTE",
+    "name": "Bund Center Investment Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate Services",
     "currency": "SGD"
   },
   {
@@ -896,6 +896,13 @@
     "currency": "SGD"
   },
   {
+    "symbol": "S68",
+    "name": "Singapore Exchange Ltd",
+    "sector": "Financial Services",
+    "sub_sector": "Financial Data & Stock Exchanges",
+    "currency": "SGD"
+  },
+  {
     "symbol": "8A1",
     "name": "Forise International Ltd",
     "sector": "Financial Services",
@@ -910,18 +917,18 @@
     "currency": "USD"
   },
   {
-    "symbol": "S68",
-    "name": "Singapore Exchange Ltd",
-    "sector": "Financial Services",
-    "sub_sector": "Financial Data & Stock Exchanges",
-    "currency": "SGD"
-  },
-  {
     "symbol": "S71",
     "name": "Sunright Ltd",
     "sector": "Technology",
     "sub_sector": "Semiconductors",
     "currency": "SGD"
+  },
+  {
+    "symbol": "BTF",
+    "name": "Debao Property Development Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Diversified",
+    "currency": "CNY"
   },
   {
     "symbol": "8AZ",
@@ -945,13 +952,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "BTF",
-    "name": "Debao Property Development Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Diversified",
-    "currency": "CNY"
-  },
-  {
     "symbol": "S85",
     "name": "Straco Corp Ltd",
     "sector": "Consumer Cyclical",
@@ -973,6 +973,13 @@
     "currency": "SGD"
   },
   {
+    "symbol": "500",
+    "name": "Tai Sin Electric Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Electrical Equipment & Parts",
+    "currency": "SGD"
+  },
+  {
     "symbol": "SES",
     "name": "Shanaya Ltd",
     "sector": "Industrials",
@@ -991,13 +998,6 @@
     "name": "HS Optimus Holdings Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Furnishings, Fixtures & Appliances",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "500",
-    "name": "Tai Sin Electric Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Electrical Equipment & Parts",
     "currency": "SGD"
   },
   {
@@ -1029,11 +1029,25 @@
     "currency": "SGD"
   },
   {
+    "symbol": "53W",
+    "name": "Attika Group Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
+    "currency": "SGD"
+  },
+  {
     "symbol": "533",
     "name": "ABR Holdings Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Restaurants",
     "currency": "SGD"
+  },
+  {
+    "symbol": "BTJ",
+    "name": "A-Sonic Aerospace Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Integrated Freight & Logistics",
+    "currency": "USD"
   },
   {
     "symbol": "8K7",
@@ -1043,18 +1057,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "53W",
-    "name": "Attika Group Ltd",
+    "symbol": "BTM",
+    "name": "Penguin International Ltd",
     "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
+    "sub_sector": "Aerospace & Defense",
     "currency": "SGD"
-  },
-  {
-    "symbol": "BTJ",
-    "name": "A-Sonic Aerospace Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Integrated Freight & Logistics",
-    "currency": "USD"
   },
   {
     "symbol": "540",
@@ -1069,13 +1076,6 @@
     "sector": "Basic Materials",
     "sub_sector": "Chemicals",
     "currency": "USD"
-  },
-  {
-    "symbol": "BTM",
-    "name": "Penguin International Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Aerospace & Defense",
-    "currency": "SGD"
   },
   {
     "symbol": "BTOU",
@@ -1099,6 +1099,13 @@
     "currency": "CNY"
   },
   {
+    "symbol": "BUOU",
+    "name": "Frasers Logistics & Commercial Trust",
+    "sector": "Real Estate",
+    "sub_sector": "REIT - Industrial",
+    "currency": "SGD"
+  },
+  {
     "symbol": "BVA",
     "name": "Top Glove Corp Bhd",
     "sector": "Healthcare",
@@ -1106,8 +1113,8 @@
     "currency": "MYR"
   },
   {
-    "symbol": "BUOU",
-    "name": "Frasers Logistics & Commercial Trust",
+    "symbol": "BWCU",
+    "name": "EC World Real Estate Investment Trust",
     "sector": "Real Estate",
     "sub_sector": "REIT - Industrial",
     "currency": "SGD"
@@ -1120,25 +1127,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "BWCU",
-    "name": "EC World Real Estate Investment Trust",
-    "sector": "Real Estate",
-    "sub_sector": "REIT - Industrial",
-    "currency": "SGD"
-  },
-  {
     "symbol": "BWM",
     "name": "Zheneng Jinjiang Environment Holding Co Ltd",
     "sector": "Utilities",
     "sub_sector": "Utilities - Renewable",
     "currency": "CNY"
-  },
-  {
-    "symbol": "K29",
-    "name": "Karin Technology Holdings Ltd",
-    "sector": "Technology",
-    "sub_sector": "Information Technology Services",
-    "currency": "HKD"
   },
   {
     "symbol": "BXE",
@@ -1155,17 +1148,24 @@
     "currency": "USD"
   },
   {
-    "symbol": "K71U",
-    "name": "Keppel REIT",
-    "sector": "Real Estate",
-    "sub_sector": "REIT - Office",
-    "currency": "SGD"
+    "symbol": "K29",
+    "name": "Karin Technology Holdings Ltd",
+    "sector": "Technology",
+    "sub_sector": "Information Technology Services",
+    "currency": "HKD"
   },
   {
     "symbol": "K75",
     "name": "Koh Brothers Group Ltd",
     "sector": "Industrials",
     "sub_sector": "Engineering & Construction",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "K71U",
+    "name": "Keppel REIT",
+    "sector": "Real Estate",
+    "sub_sector": "REIT - Office",
     "currency": "SGD"
   },
   {
@@ -1239,13 +1239,6 @@
     "currency": "USD"
   },
   {
-    "symbol": "C13",
-    "name": "CH Offshore Ltd",
-    "sector": "Energy",
-    "sub_sector": "Oil & Gas Equipment & Services",
-    "currency": "USD"
-  },
-  {
     "symbol": "C09",
     "name": "City Developments Ltd",
     "sector": "Real Estate",
@@ -1253,11 +1246,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "SK6U",
-    "name": "Paragon REIT",
-    "sector": "Real Estate",
-    "sub_sector": "REIT - Retail",
-    "currency": "SGD"
+    "symbol": "C13",
+    "name": "CH Offshore Ltd",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Equipment & Services",
+    "currency": "USD"
   },
   {
     "symbol": "C2PU",
@@ -1267,8 +1260,8 @@
     "currency": "SGD"
   },
   {
-    "symbol": "C38U",
-    "name": "CapitaLand Integrated Commercial Trust",
+    "symbol": "SK6U",
+    "name": "Paragon REIT",
     "sector": "Real Estate",
     "sub_sector": "REIT - Retail",
     "currency": "SGD"
@@ -1281,10 +1274,10 @@
     "currency": "USD"
   },
   {
-    "symbol": "F99",
-    "name": "Fraser and Neave Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Packaged Foods",
+    "symbol": "C38U",
+    "name": "CapitaLand Integrated Commercial Trust",
+    "sector": "Real Estate",
+    "sub_sector": "REIT - Retail",
     "currency": "SGD"
   },
   {
@@ -1295,10 +1288,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "FRQ",
-    "name": "Singapore Paincare Holdings Ltd",
-    "sector": "Healthcare",
-    "sub_sector": "Medical Care Facilities",
+    "symbol": "F99",
+    "name": "Fraser and Neave Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Packaged Foods",
     "currency": "SGD"
   },
   {
@@ -1309,10 +1302,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "G07",
-    "name": "Great Eastern Holdings Ltd",
-    "sector": "Financial Services",
-    "sub_sector": "Insurance - Life",
+    "symbol": "FRQ",
+    "name": "Singapore Paincare Holdings Ltd",
+    "sector": "Healthcare",
+    "sub_sector": "Medical Care Facilities",
     "currency": "SGD"
   },
   {
@@ -1320,6 +1313,13 @@
     "name": "Nam Lee Pressed Metal Industries Ltd",
     "sector": "Industrials",
     "sub_sector": "Metal Fabrication",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "G07",
+    "name": "Great Eastern Holdings Ltd",
+    "sector": "Financial Services",
+    "sub_sector": "Insurance - Life",
     "currency": "SGD"
   },
   {
@@ -1344,18 +1344,18 @@
     "currency": "SGD"
   },
   {
-    "symbol": "STC",
-    "name": "Comba Telecom Systems Holdings Ltd",
-    "sector": "Technology",
-    "sub_sector": "Communication Equipment",
-    "currency": "HKD"
-  },
-  {
     "symbol": "SO7",
     "name": "Yangzijiang Shipbuilding (Holdings) Ltd",
     "sector": "Industrials",
     "sub_sector": "Aerospace & Defense",
     "currency": "CNY"
+  },
+  {
+    "symbol": "STC",
+    "name": "Comba Telecom Systems Holdings Ltd",
+    "sector": "Technology",
+    "sub_sector": "Communication Equipment",
+    "currency": "HKD"
   },
   {
     "symbol": "STG",
@@ -1386,17 +1386,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "C41",
-    "name": "Cortina Holdings Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Luxury Goods",
-    "currency": "SGD"
-  },
-  {
     "symbol": "C52",
     "name": "ComfortDelGro Corp Ltd",
     "sector": "Industrials",
     "sub_sector": "Railroads",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "C41",
+    "name": "Cortina Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Luxury Goods",
     "currency": "SGD"
   },
   {
@@ -1456,13 +1456,6 @@
     "currency": "USD"
   },
   {
-    "symbol": "A17U",
-    "name": "CapitaLand Ascendas REIT",
-    "sector": "Real Estate",
-    "sub_sector": "REIT - Industrial",
-    "currency": "SGD"
-  },
-  {
     "symbol": "T13",
     "name": "RH Petrogas Ltd",
     "sector": "Energy",
@@ -1470,11 +1463,11 @@
     "currency": "USD"
   },
   {
-    "symbol": "C8R",
-    "name": "Jiutian Chemical Group Ltd",
-    "sector": "Basic Materials",
-    "sub_sector": "Chemicals",
-    "currency": "CNY"
+    "symbol": "A17U",
+    "name": "CapitaLand Ascendas REIT",
+    "sector": "Real Estate",
+    "sub_sector": "REIT - Industrial",
+    "currency": "SGD"
   },
   {
     "symbol": "KUH",
@@ -1482,6 +1475,13 @@
     "sector": "Consumer Cyclical",
     "sub_sector": "Specialty Retail",
     "currency": "SGD"
+  },
+  {
+    "symbol": "C8R",
+    "name": "Jiutian Chemical Group Ltd",
+    "sector": "Basic Materials",
+    "sub_sector": "Chemicals",
+    "currency": "CNY"
   },
   {
     "symbol": "KUO",
@@ -1498,18 +1498,18 @@
     "currency": "CNY"
   },
   {
-    "symbol": "KUX",
-    "name": "OIO Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
-    "currency": "SGD"
-  },
-  {
     "symbol": "T15",
     "name": "Tan Chong International Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Auto & Truck Dealerships",
     "currency": "HKD"
+  },
+  {
+    "symbol": "KUX",
+    "name": "OIO Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
+    "currency": "SGD"
   },
   {
     "symbol": "558",
@@ -1533,10 +1533,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "A30",
-    "name": "Aspial Corp Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate Services",
+    "symbol": "566",
+    "name": "SHS Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Metal Fabrication",
     "currency": "SGD"
   },
   {
@@ -1547,10 +1547,10 @@
     "currency": "CNY"
   },
   {
-    "symbol": "566",
-    "name": "SHS Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Metal Fabrication",
+    "symbol": "A30",
+    "name": "Aspial Corp Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate Services",
     "currency": "SGD"
   },
   {
@@ -1561,13 +1561,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "KYB",
-    "name": "Food Innovators Holdings Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Restaurants",
-    "currency": "SGD"
-  },
-  {
     "symbol": "A31",
     "name": "Addvalue Technologies Ltd",
     "sector": "Technology",
@@ -1575,17 +1568,17 @@
     "currency": "USD"
   },
   {
+    "symbol": "KYB",
+    "name": "Food Innovators Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Restaurants",
+    "currency": "SGD"
+  },
+  {
     "symbol": "A33",
     "name": "Southern Archipelago Ltd",
     "sector": "Industrials",
     "sub_sector": "Specialty Business Services",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "CEDU",
-    "name": "Dasin Retail Trust",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Development",
     "currency": "SGD"
   },
   {
@@ -1610,11 +1603,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "T43",
-    "name": "Yunnan Energy International Co Ltd",
-    "sector": "Technology",
-    "sub_sector": "Scientific & Technical Instruments",
-    "currency": "HKD"
+    "symbol": "CEDU",
+    "name": "Dasin Retail Trust",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Development",
+    "currency": "SGD"
   },
   {
     "symbol": "T41",
@@ -1629,6 +1622,13 @@
     "sector": "Industrials",
     "sub_sector": "Staffing & Employment Services",
     "currency": "SGD"
+  },
+  {
+    "symbol": "T43",
+    "name": "Yunnan Energy International Co Ltd",
+    "sector": "Technology",
+    "sub_sector": "Scientific & Technical Instruments",
+    "currency": "HKD"
   },
   {
     "symbol": "CHJ",
@@ -1694,13 +1694,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "CTO",
-    "name": "Hong Lai Huat Group Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Development",
-    "currency": "SGD"
-  },
-  {
     "symbol": "CRPU",
     "name": "Sasseur REIT",
     "sector": "Real Estate",
@@ -1708,10 +1701,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "575",
-    "name": "Asti Holdings Ltd",
-    "sector": "Technology",
-    "sub_sector": "Semiconductor Equipment & Materials",
+    "symbol": "CTO",
+    "name": "Hong Lai Huat Group Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Development",
     "currency": "SGD"
   },
   {
@@ -1722,10 +1715,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "1A0",
-    "name": "Katrina Group Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Restaurants",
+    "symbol": "575",
+    "name": "Asti Holdings Ltd",
+    "sector": "Technology",
+    "sub_sector": "Semiconductor Equipment & Materials",
     "currency": "SGD"
   },
   {
@@ -1736,10 +1729,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "A52",
-    "name": "AnnAik Ltd",
-    "sector": "Basic Materials",
-    "sub_sector": "Steel",
+    "symbol": "1A0",
+    "name": "Katrina Group Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Restaurants",
     "currency": "SGD"
   },
   {
@@ -1750,17 +1743,17 @@
     "currency": "SGD"
   },
   {
+    "symbol": "A52",
+    "name": "AnnAik Ltd",
+    "sector": "Basic Materials",
+    "sub_sector": "Steel",
+    "currency": "SGD"
+  },
+  {
     "symbol": "T55",
     "name": "TIH Ltd",
     "sector": "Financial Services",
     "sub_sector": "Asset Management",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "A55",
-    "name": "Asia Enterprises Holding Ltd",
-    "sector": "Basic Materials",
-    "sub_sector": "Steel",
     "currency": "SGD"
   },
   {
@@ -1771,10 +1764,10 @@
     "currency": "EUR"
   },
   {
-    "symbol": "T6I",
-    "name": "ValueMax Group Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Luxury Goods",
+    "symbol": "A55",
+    "name": "Asia Enterprises Holding Ltd",
+    "sector": "Basic Materials",
+    "sub_sector": "Steel",
     "currency": "SGD"
   },
   {
@@ -1785,17 +1778,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "1A1",
-    "name": "Wong Fong Industries Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Farm & Heavy Construction Machinery",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "A78",
-    "name": "Shen Yao Holdings Ltd",
-    "sector": "Basic Materials",
-    "sub_sector": "Gold",
+    "symbol": "T6I",
+    "name": "ValueMax Group Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Luxury Goods",
     "currency": "SGD"
   },
   {
@@ -1806,10 +1792,24 @@
     "currency": "EUR"
   },
   {
+    "symbol": "1A1",
+    "name": "Wong Fong Industries Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Farm & Heavy Construction Machinery",
+    "currency": "SGD"
+  },
+  {
     "symbol": "A7RU",
     "name": "Keppel Infrastructure Trust",
     "sector": "Basic Materials",
     "sub_sector": "Specialty Chemicals",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "A78",
+    "name": "Shen Yao Holdings Ltd",
+    "sector": "Basic Materials",
+    "sub_sector": "Gold",
     "currency": "SGD"
   },
   {
@@ -1827,10 +1827,24 @@
     "currency": "SGD"
   },
   {
+    "symbol": "D01",
+    "name": "DFI Retail Group Holdings Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Grocery Stores",
+    "currency": "USD"
+  },
+  {
     "symbol": "CYW",
     "name": "TrickleStar Ltd",
     "sector": "Technology",
     "sub_sector": "Electronic Components",
+    "currency": "USD"
+  },
+  {
+    "symbol": "D03",
+    "name": "Del Monte Pacific Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Packaged Foods",
     "currency": "USD"
   },
   {
@@ -1841,17 +1855,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "D03",
-    "name": "Del Monte Pacific Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Packaged Foods",
+    "symbol": "D8DU",
+    "name": "First Ship Lease Trust",
+    "sector": "Industrials",
+    "sub_sector": "Rental & Leasing Services",
     "currency": "USD"
   },
   {
-    "symbol": "D01",
-    "name": "DFI Retail Group Holdings Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Grocery Stores",
+    "symbol": "DCRU",
+    "name": "Digital Core REIT",
+    "sector": "Real Estate",
+    "sub_sector": "REIT - Specialty",
     "currency": "USD"
   },
   {
@@ -1862,13 +1876,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "D8DU",
-    "name": "First Ship Lease Trust",
-    "sector": "Industrials",
-    "sub_sector": "Rental & Leasing Services",
-    "currency": "USD"
-  },
-  {
     "symbol": "DHLU",
     "name": "Daiwa House Logistics Trust",
     "sector": "Real Estate",
@@ -1876,24 +1883,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "DCRU",
-    "name": "Digital Core REIT",
-    "sector": "Real Estate",
-    "sub_sector": "REIT - Specialty",
-    "currency": "USD"
-  },
-  {
     "symbol": "DM0",
     "name": "PSC Corp Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Packaging & Containers",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "G13",
-    "name": "Genting Singapore Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Resorts & Casinos",
     "currency": "SGD"
   },
   {
@@ -1904,17 +1897,17 @@
     "currency": "SGD"
   },
   {
+    "symbol": "G13",
+    "name": "Genting Singapore Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Resorts & Casinos",
+    "currency": "SGD"
+  },
+  {
     "symbol": "TCU",
     "name": "Credit Bureau Asia Ltd",
     "sector": "Financial Services",
     "sub_sector": "Financial Data & Stock Exchanges",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "G20",
-    "name": "GP Industries Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Electrical Equipment & Parts",
     "currency": "SGD"
   },
   {
@@ -1925,17 +1918,24 @@
     "currency": "SGD"
   },
   {
-    "symbol": "1B1",
-    "name": "HC Surgical Specialists Ltd",
-    "sector": "Healthcare",
-    "sub_sector": "Diagnostics & Research",
-    "currency": "SGD"
-  },
-  {
     "symbol": "G50",
     "name": "Grand Banks Yachts Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Leisure",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "G20",
+    "name": "GP Industries Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Electrical Equipment & Parts",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "1B1",
+    "name": "HC Surgical Specialists Ltd",
+    "sector": "Healthcare",
+    "sub_sector": "Diagnostics & Research",
     "currency": "SGD"
   },
   {
@@ -1946,24 +1946,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "TQ5",
-    "name": "Frasers Property Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Diversified",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "AIY",
-    "name": "iFAST Corp Ltd",
-    "sector": "Technology",
-    "sub_sector": "Software - Application",
-    "currency": "SGD"
-  },
-  {
     "symbol": "ADN",
     "name": "First Sponsor Group Ltd",
     "sector": "Real Estate",
     "sub_sector": "Real Estate - Development",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "TQ5",
+    "name": "Frasers Property Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Diversified",
     "currency": "SGD"
   },
   {
@@ -1974,13 +1967,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "AJ2",
-    "name": "Ouhua Energy Holdings Ltd",
-    "sector": "Utilities",
-    "sub_sector": "Utilities - Regulated Gas",
-    "currency": "CNY"
-  },
-  {
     "symbol": "AJBU",
     "name": "Keppel DC REIT",
     "sector": "Real Estate",
@@ -1988,18 +1974,18 @@
     "currency": "SGD"
   },
   {
-    "symbol": "DU4",
-    "name": "Mermaid Maritime PCL",
-    "sector": "Energy",
-    "sub_sector": "Oil & Gas Equipment & Services",
-    "currency": "USD"
+    "symbol": "AIY",
+    "name": "iFAST Corp Ltd",
+    "sector": "Technology",
+    "sub_sector": "Software - Application",
+    "currency": "SGD"
   },
   {
-    "symbol": "DRX",
-    "name": "ST Group Food Industries Holdings Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Restaurants",
-    "currency": "AUD"
+    "symbol": "AJ2",
+    "name": "Ouhua Energy Holdings Ltd",
+    "sector": "Utilities",
+    "sub_sector": "Utilities - Regulated Gas",
+    "currency": "CNY"
   },
   {
     "symbol": "L19",
@@ -2009,18 +1995,25 @@
     "currency": "SGD"
   },
   {
+    "symbol": "DRX",
+    "name": "ST Group Food Industries Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Restaurants",
+    "currency": "AUD"
+  },
+  {
+    "symbol": "DU4",
+    "name": "Mermaid Maritime PCL",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Equipment & Services",
+    "currency": "USD"
+  },
+  {
     "symbol": "L23",
     "name": "Enviro-Hub Holdings Ltd",
     "sector": "Industrials",
     "sub_sector": "Waste Management",
     "currency": "SGD"
-  },
-  {
-    "symbol": "TSH",
-    "name": "TSH Resources Bhd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Farm Products",
-    "currency": "MYR"
   },
   {
     "symbol": "TS0U",
@@ -2037,6 +2030,13 @@
     "currency": "SGD"
   },
   {
+    "symbol": "TSH",
+    "name": "TSH Resources Bhd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Farm Products",
+    "currency": "MYR"
+  },
+  {
     "symbol": "TWL",
     "name": "Memiontec Holdings Ltd",
     "sector": "Utilities",
@@ -2044,17 +2044,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "U09",
-    "name": "Avarga Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Industrial Distribution",
-    "currency": "SGD"
-  },
-  {
     "symbol": "U06",
     "name": "Singapore Land Group Ltd",
     "sector": "Real Estate",
     "sub_sector": "Real Estate - Diversified",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "U09",
+    "name": "Avarga Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Industrial Distribution",
     "currency": "SGD"
   },
   {
@@ -2093,17 +2093,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "584",
-    "name": "AJJ Medtech Holdings Ltd",
-    "sector": "Healthcare",
-    "sub_sector": "Medical Devices",
-    "currency": "SGD"
-  },
-  {
     "symbol": "585",
     "name": "Asian Micro Holdings Ltd",
     "sector": "Energy",
     "sub_sector": "Oil & Gas Midstream",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "584",
+    "name": "AJJ Medtech Holdings Ltd",
+    "sector": "Healthcare",
+    "sub_sector": "Medical Devices",
     "currency": "SGD"
   },
   {
@@ -2114,17 +2114,17 @@
     "currency": "USD"
   },
   {
-    "symbol": "595",
-    "name": "GKE Corp Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Integrated Freight & Logistics",
-    "currency": "SGD"
-  },
-  {
     "symbol": "596",
     "name": "Pavillon Holdings Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Restaurants",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "595",
+    "name": "GKE Corp Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Integrated Freight & Logistics",
     "currency": "SGD"
   },
   {
@@ -2184,10 +2184,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "LJ3",
-    "name": "OUE Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Diversified",
+    "symbol": "5AL",
+    "name": "Annica Holdings Ltd",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Equipment & Services",
     "currency": "SGD"
   },
   {
@@ -2198,10 +2198,10 @@
     "currency": "MYR"
   },
   {
-    "symbol": "5AL",
-    "name": "Annica Holdings Ltd",
-    "sector": "Energy",
-    "sub_sector": "Oil & Gas Equipment & Services",
+    "symbol": "LJ3",
+    "name": "OUE Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Diversified",
     "currency": "SGD"
   },
   {
@@ -2219,11 +2219,11 @@
     "currency": "CNY"
   },
   {
-    "symbol": "M01",
-    "name": "Metro Holdings Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Department Stores",
-    "currency": "SGD"
+    "symbol": "LVR",
+    "name": "17LIVE Group Ltd",
+    "sector": "Technology",
+    "sub_sector": "Software - Application",
+    "currency": "USD"
   },
   {
     "symbol": "LYY",
@@ -2233,24 +2233,17 @@
     "currency": "HKD"
   },
   {
-    "symbol": "LVR",
-    "name": "17LIVE Group Ltd",
-    "sector": "Technology",
-    "sub_sector": "Software - Application",
-    "currency": "USD"
+    "symbol": "M01",
+    "name": "Metro Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Department Stores",
+    "currency": "SGD"
   },
   {
     "symbol": "M03",
     "name": "Miyoshi Ltd",
     "sector": "Industrials",
     "sub_sector": "Metal Fabrication",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "M11",
-    "name": "Manufacturing Integration Technology Ltd",
-    "sector": "Technology",
-    "sub_sector": "Semiconductor Equipment & Materials",
     "currency": "SGD"
   },
   {
@@ -2268,18 +2261,18 @@
     "currency": "SGD"
   },
   {
+    "symbol": "M11",
+    "name": "Manufacturing Integration Technology Ltd",
+    "sector": "Technology",
+    "sub_sector": "Semiconductor Equipment & Materials",
+    "currency": "SGD"
+  },
+  {
     "symbol": "M12",
     "name": "Maruwa Co Ltd",
     "sector": "Technology",
     "sub_sector": "Electronic Components",
     "currency": "JPY"
-  },
-  {
-    "symbol": "U14",
-    "name": "UOL Group Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Development",
-    "currency": "SGD"
   },
   {
     "symbol": "U13",
@@ -2296,6 +2289,20 @@
     "currency": "USD"
   },
   {
+    "symbol": "U14",
+    "name": "UOL Group Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Development",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "U9E",
+    "name": "China Everbright Water Ltd",
+    "sector": "Utilities",
+    "sub_sector": "Utilities - Regulated Water",
+    "currency": "HKD"
+  },
+  {
     "symbol": "U96",
     "name": "Sembcorp Industries Ltd",
     "sector": "Industrials",
@@ -2310,13 +2317,6 @@
     "currency": "EUR"
   },
   {
-    "symbol": "U9E",
-    "name": "China Everbright Water Ltd",
-    "sector": "Utilities",
-    "sub_sector": "Utilities - Regulated Water",
-    "currency": "HKD"
-  },
-  {
     "symbol": "UD2",
     "name": "Japfa Ltd",
     "sector": "Consumer Defensive",
@@ -2324,25 +2324,18 @@
     "currency": "USD"
   },
   {
-    "symbol": "5AU",
-    "name": "AP Oil International Ltd",
-    "sector": "Energy",
-    "sub_sector": "Oil & Gas Refining & Marketing",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "5BI",
-    "name": "Polaris Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Specialty Retail",
-    "currency": "SGD"
-  },
-  {
     "symbol": "UIX",
     "name": "China Environmental Resources Group Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Auto & Truck Dealerships",
     "currency": "HKD"
+  },
+  {
+    "symbol": "5AU",
+    "name": "AP Oil International Ltd",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Refining & Marketing",
+    "currency": "SGD"
   },
   {
     "symbol": "5BS",
@@ -2359,10 +2352,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5CR",
-    "name": "Asiatic Group (Holdings) Ltd",
-    "sector": "Utilities",
-    "sub_sector": "Utilities - Independent Power Producers",
+    "symbol": "5BI",
+    "name": "Polaris Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Specialty Retail",
     "currency": "SGD"
   },
   {
@@ -2373,10 +2366,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5CT",
-    "name": "ecoWise Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Waste Management",
+    "symbol": "5CR",
+    "name": "Asiatic Group (Holdings) Ltd",
+    "sector": "Utilities",
+    "sub_sector": "Utilities - Independent Power Producers",
     "currency": "SGD"
   },
   {
@@ -2384,6 +2377,13 @@
     "name": "Micro-Mechanics (Holdings) Ltd",
     "sector": "Technology",
     "sub_sector": "Semiconductor Equipment & Materials",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "5CT",
+    "name": "ecoWise Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Waste Management",
     "currency": "SGD"
   },
   {
@@ -2401,17 +2401,17 @@
     "currency": "MYR"
   },
   {
-    "symbol": "AU8U",
-    "name": "CapitaLand China Trust",
-    "sector": "Real Estate",
-    "sub_sector": "REIT - Retail",
-    "currency": "SGD"
-  },
-  {
     "symbol": "AVX",
     "name": "HL Global Enterprises Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Lodging",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "AU8U",
+    "name": "CapitaLand China Trust",
+    "sector": "Real Estate",
+    "sub_sector": "REIT - Retail",
     "currency": "SGD"
   },
   {
@@ -2429,13 +2429,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "M15",
-    "name": "Matex International Ltd",
-    "sector": "Basic Materials",
-    "sub_sector": "Specialty Chemicals",
-    "currency": "SGD"
-  },
-  {
     "symbol": "AWG",
     "name": "Ascent Bridge Ltd",
     "sector": "Basic Materials",
@@ -2443,15 +2436,15 @@
     "currency": "SGD"
   },
   {
-    "symbol": "M1GU",
-    "name": "Sabana Industrial REIT",
-    "sector": "Real Estate",
-    "sub_sector": "REIT - Industrial",
+    "symbol": "M15",
+    "name": "Matex International Ltd",
+    "sector": "Basic Materials",
+    "sub_sector": "Specialty Chemicals",
     "currency": "SGD"
   },
   {
-    "symbol": "M44U",
-    "name": "Mapletree Logistics Trust",
+    "symbol": "M1GU",
+    "name": "Sabana Industrial REIT",
     "sector": "Real Estate",
     "sub_sector": "REIT - Industrial",
     "currency": "SGD"
@@ -2464,10 +2457,10 @@
     "currency": "MYR"
   },
   {
-    "symbol": "AWI",
-    "name": "Thakral Corp Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Specialty Retail",
+    "symbol": "M44U",
+    "name": "Mapletree Logistics Trust",
+    "sector": "Real Estate",
+    "sub_sector": "REIT - Industrial",
     "currency": "SGD"
   },
   {
@@ -2485,6 +2478,13 @@
     "currency": "CNY"
   },
   {
+    "symbol": "AWI",
+    "name": "Thakral Corp Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Specialty Retail",
+    "currency": "SGD"
+  },
+  {
     "symbol": "AWM",
     "name": "Shanghai Turbo Enterprises Ltd",
     "sector": "Industrials",
@@ -2492,10 +2492,10 @@
     "currency": "CNY"
   },
   {
-    "symbol": "AWX",
-    "name": "AEM Holdings Ltd",
-    "sector": "Technology",
-    "sub_sector": "Semiconductor Equipment & Materials",
+    "symbol": "AWV",
+    "name": "Captii Ltd",
+    "sector": "Communication Services",
+    "sub_sector": "Telecom Services",
     "currency": "SGD"
   },
   {
@@ -2506,10 +2506,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "AWV",
-    "name": "Captii Ltd",
-    "sector": "Communication Services",
-    "sub_sector": "Telecom Services",
+    "symbol": "AWX",
+    "name": "AEM Holdings Ltd",
+    "sector": "Technology",
+    "sub_sector": "Semiconductor Equipment & Materials",
     "currency": "SGD"
   },
   {
@@ -2534,18 +2534,18 @@
     "currency": "SGD"
   },
   {
-    "symbol": "E5H",
-    "name": "Golden Agri-Resources Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Farm Products",
-    "currency": "USD"
-  },
-  {
     "symbol": "AZR",
     "name": "United Food Holdings Ltd",
     "sector": "Consumer Defensive",
     "sub_sector": "Packaged Foods",
     "currency": "CNY"
+  },
+  {
+    "symbol": "E5H",
+    "name": "Golden Agri-Resources Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Farm Products",
+    "currency": "USD"
   },
   {
     "symbol": "B26",
@@ -2562,13 +2562,6 @@
     "currency": "USD"
   },
   {
-    "symbol": "5DP",
-    "name": "Heeton Holdings Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Lodging",
-    "currency": "SGD"
-  },
-  {
     "symbol": "ME8U",
     "name": "Mapletree Industrial Trust",
     "sector": "Real Estate",
@@ -2576,10 +2569,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5DX",
-    "name": "Meta Health Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Metal Fabrication",
+    "symbol": "5DP",
+    "name": "Heeton Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Lodging",
     "currency": "SGD"
   },
   {
@@ -2590,10 +2583,24 @@
     "currency": "SGD"
   },
   {
+    "symbol": "5DX",
+    "name": "Meta Health Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Metal Fabrication",
+    "currency": "SGD"
+  },
+  {
     "symbol": "5E2",
     "name": "Seatrium Ltd",
     "sector": "Energy",
     "sub_sector": "Oil & Gas Equipment & Services",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "5EF",
+    "name": "Adventus Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Conglomerates",
     "currency": "SGD"
   },
   {
@@ -2611,34 +2618,6 @@
     "currency": "CNY"
   },
   {
-    "symbol": "B28",
-    "name": "Bonvests Holdings Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Lodging",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "5EF",
-    "name": "Adventus Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Conglomerates",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "MF6",
-    "name": "Mun Siong Engineering Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "MV4",
-    "name": "Mewah International Inc",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Packaged Foods",
-    "currency": "USD"
-  },
-  {
     "symbol": "MIJ",
     "name": "Alliance Healthcare Group Ltd",
     "sector": "Healthcare",
@@ -2646,8 +2625,22 @@
     "currency": "SGD"
   },
   {
+    "symbol": "B28",
+    "name": "Bonvests Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Lodging",
+    "currency": "SGD"
+  },
+  {
     "symbol": "MR7",
     "name": "Nordic Group Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "MF6",
+    "name": "Mun Siong Engineering Ltd",
     "sector": "Industrials",
     "sub_sector": "Engineering & Construction",
     "currency": "SGD"
@@ -2667,24 +2660,17 @@
     "currency": "SGD"
   },
   {
+    "symbol": "MV4",
+    "name": "Mewah International Inc",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Packaged Foods",
+    "currency": "USD"
+  },
+  {
     "symbol": "N01",
     "name": "NeraTelecommunications Ltd",
     "sector": "Technology",
     "sub_sector": "Communication Equipment",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "V5Q",
-    "name": "Soilbuild Construction Group Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "V03",
-    "name": "Venture Corp Ltd",
-    "sector": "Technology",
-    "sub_sector": "Electronic Components",
     "currency": "SGD"
   },
   {
@@ -2695,10 +2681,24 @@
     "currency": "SGD"
   },
   {
+    "symbol": "V03",
+    "name": "Venture Corp Ltd",
+    "sector": "Technology",
+    "sub_sector": "Electronic Components",
+    "currency": "SGD"
+  },
+  {
     "symbol": "V3M",
     "name": "Metech International Ltd",
     "sector": "Industrials",
     "sub_sector": "Specialty Business Services",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "V5Q",
+    "name": "Soilbuild Construction Group Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
     "currency": "SGD"
   },
   {
@@ -2709,31 +2709,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5EW",
-    "name": "Sevens Atelier Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
-    "currency": "SGD"
-  },
-  {
     "symbol": "V7R",
     "name": "Resources Global Development Ltd",
     "sector": "Industrials",
     "sub_sector": "Marine Shipping",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "5EV",
-    "name": "Hosen Group Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Food Distribution",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "N02",
-    "name": "NSL Ltd",
-    "sector": "Basic Materials",
-    "sub_sector": "Building Materials",
     "currency": "SGD"
   },
   {
@@ -2744,10 +2723,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "N08",
-    "name": "New Toyo International Holdings Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Packaging & Containers",
+    "symbol": "5EV",
+    "name": "Hosen Group Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Food Distribution",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "5EW",
+    "name": "Sevens Atelier Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
     "currency": "SGD"
   },
   {
@@ -2758,25 +2744,25 @@
     "currency": "CNY"
   },
   {
+    "symbol": "N02",
+    "name": "NSL Ltd",
+    "sector": "Basic Materials",
+    "sub_sector": "Building Materials",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "N08",
+    "name": "New Toyo International Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Packaging & Containers",
+    "currency": "SGD"
+  },
+  {
     "symbol": "N0Z",
     "name": "Combine Will International Holdings Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Leisure",
     "currency": "HKD"
-  },
-  {
-    "symbol": "N32",
-    "name": "Nippecraft Ltd",
-    "sector": "Basic Materials",
-    "sub_sector": "Paper & Paper Products",
-    "currency": "USD"
-  },
-  {
-    "symbol": "N33",
-    "name": "Nomura Holdings Inc",
-    "sector": "Financial Services",
-    "sub_sector": "Capital Markets",
-    "currency": "JPY"
   },
   {
     "symbol": "N2IU",
@@ -2786,6 +2772,13 @@
     "currency": "SGD"
   },
   {
+    "symbol": "N33",
+    "name": "Nomura Holdings Inc",
+    "sector": "Financial Services",
+    "sub_sector": "Capital Markets",
+    "currency": "JPY"
+  },
+  {
     "symbol": "NC2",
     "name": "Sri Trang Agro-Industry PLC",
     "sector": "Basic Materials",
@@ -2793,17 +2786,24 @@
     "currency": "THB"
   },
   {
-    "symbol": "NHD",
-    "name": "Jubilee Industries Holdings Ltd",
-    "sector": "Technology",
-    "sub_sector": "Electronics & Computer Distribution",
-    "currency": "SGD"
-  },
-  {
     "symbol": "NEX",
     "name": "Reclaims Global Ltd",
     "sector": "Industrials",
     "sub_sector": "Waste Management",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "N32",
+    "name": "Nippecraft Ltd",
+    "sector": "Basic Materials",
+    "sub_sector": "Paper & Paper Products",
+    "currency": "USD"
+  },
+  {
+    "symbol": "NHD",
+    "name": "Jubilee Industries Holdings Ltd",
+    "sector": "Technology",
+    "sub_sector": "Electronics & Computer Distribution",
     "currency": "SGD"
   },
   {
@@ -2828,13 +2828,6 @@
     "currency": "MYR"
   },
   {
-    "symbol": "NS8U",
-    "name": "Hutchison Port Holdings Trust",
-    "sector": "Industrials",
-    "sub_sector": "Marine Shipping",
-    "currency": "HKD"
-  },
-  {
     "symbol": "NR7",
     "name": "Raffles Education Ltd",
     "sector": "Consumer Defensive",
@@ -2849,6 +2842,13 @@
     "currency": "SGD"
   },
   {
+    "symbol": "NS8U",
+    "name": "Hutchison Port Holdings Trust",
+    "sector": "Industrials",
+    "sub_sector": "Marine Shipping",
+    "currency": "HKD"
+  },
+  {
     "symbol": "O08",
     "name": "Ossia International Ltd",
     "sector": "Consumer Cyclical",
@@ -2860,6 +2860,13 @@
     "name": "Far East Orchard Ltd",
     "sector": "Real Estate",
     "sub_sector": "Real Estate Services",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "O5RU",
+    "name": "AIMS APAC REIT",
+    "sector": "Real Estate",
+    "sub_sector": "REIT - Industrial",
     "currency": "SGD"
   },
   {
@@ -2877,13 +2884,6 @@
     "currency": "CHF"
   },
   {
-    "symbol": "O5RU",
-    "name": "AIMS APAC REIT",
-    "sector": "Real Estate",
-    "sub_sector": "REIT - Industrial",
-    "currency": "SGD"
-  },
-  {
     "symbol": "O9E",
     "name": "Parkson retail Asia Ltd",
     "sector": "Consumer Cyclical",
@@ -2898,18 +2898,18 @@
     "currency": "USD"
   },
   {
-    "symbol": "OMK",
-    "name": "Vividthree Holdings Ltd",
-    "sector": "Communication Services",
-    "sub_sector": "Entertainment",
-    "currency": "SGD"
-  },
-  {
     "symbol": "ODBU",
     "name": "United Hampshire US REIT",
     "sector": "Real Estate",
     "sub_sector": "REIT - Retail",
     "currency": "USD"
+  },
+  {
+    "symbol": "OMK",
+    "name": "Vividthree Holdings Ltd",
+    "sector": "Communication Services",
+    "sub_sector": "Entertainment",
+    "currency": "SGD"
   },
   {
     "symbol": "OTS",
@@ -2926,6 +2926,13 @@
     "currency": "SGD"
   },
   {
+    "symbol": "OU8",
+    "name": "Centurion Corp Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Lodging",
+    "currency": "SGD"
+  },
+  {
     "symbol": "OV8",
     "name": "Sheng Siong Group Ltd",
     "sector": "Consumer Defensive",
@@ -2938,13 +2945,6 @@
     "sector": "Real Estate",
     "sub_sector": "REIT - Office",
     "currency": "USD"
-  },
-  {
-    "symbol": "OU8",
-    "name": "Centurion Corp Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Lodging",
-    "currency": "SGD"
   },
   {
     "symbol": "OYY",
@@ -2975,6 +2975,13 @@
     "currency": "CNY"
   },
   {
+    "symbol": "P40U",
+    "name": "Starhill Global Real Estate Investment Trust",
+    "sector": "Real Estate",
+    "sub_sector": "REIT - Retail",
+    "currency": "SGD"
+  },
+  {
     "symbol": "P52",
     "name": "Pan-United Corp Ltd",
     "sector": "Basic Materials",
@@ -2989,25 +2996,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "P40U",
-    "name": "Starhill Global Real Estate Investment Trust",
-    "sector": "Real Estate",
-    "sub_sector": "REIT - Retail",
-    "currency": "SGD"
-  },
-  {
     "symbol": "VI2",
     "name": "Trans-China Automotive Holdings Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Auto & Truck Dealerships",
     "currency": "CNY"
-  },
-  {
-    "symbol": "1C0",
-    "name": "Emerging Towns & Cities Singapore Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Development",
-    "currency": "SGD"
   },
   {
     "symbol": "1B6",
@@ -3017,10 +3010,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "1D0",
-    "name": "Kimly Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Restaurants",
+    "symbol": "1C0",
+    "name": "Emerging Towns & Cities Singapore Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Development",
     "currency": "SGD"
   },
   {
@@ -3031,11 +3024,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "P7VU",
-    "name": "Hutchison Port Holdings Trust",
-    "sector": "Industrials",
-    "sub_sector": "Marine Shipping",
-    "currency": "HKD"
+    "symbol": "1D0",
+    "name": "Kimly Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Restaurants",
+    "currency": "SGD"
   },
   {
     "symbol": "1D3",
@@ -3050,6 +3043,13 @@
     "sector": "Consumer Defensive",
     "sub_sector": "Packaged Foods",
     "currency": "CNY"
+  },
+  {
+    "symbol": "P7VU",
+    "name": "Hutchison Port Holdings Trust",
+    "sector": "Industrials",
+    "sub_sector": "Marine Shipping",
+    "currency": "HKD"
   },
   {
     "symbol": "P8A",
@@ -3087,13 +3087,6 @@
     "currency": "HKD"
   },
   {
-    "symbol": "PPC",
-    "name": "ProsperCap Corp Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Lodging",
-    "currency": "SGD"
-  },
-  {
     "symbol": "PH0",
     "name": "Hatten Land Ltd",
     "sector": "Real Estate",
@@ -3108,10 +3101,10 @@
     "currency": "JPY"
   },
   {
-    "symbol": "VIN",
-    "name": "Vins Holdings Ltd",
+    "symbol": "PPC",
+    "name": "ProsperCap Corp Ltd",
     "sector": "Consumer Cyclical",
-    "sub_sector": "Auto & Truck Dealerships",
+    "sub_sector": "Lodging",
     "currency": "SGD"
   },
   {
@@ -3122,17 +3115,17 @@
     "currency": "SGD"
   },
   {
+    "symbol": "VIN",
+    "name": "Vins Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Auto & Truck Dealerships",
+    "currency": "SGD"
+  },
+  {
     "symbol": "VVL",
     "name": "Alpha DX Group Ltd",
     "sector": "Technology",
     "sub_sector": "Information Technology Services",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "W05",
-    "name": "Wing Tai Holdings Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Development",
     "currency": "SGD"
   },
   {
@@ -3143,6 +3136,20 @@
     "currency": "SGD"
   },
   {
+    "symbol": "WKS",
+    "name": "Winking Studios Ltd",
+    "sector": "Communication Services",
+    "sub_sector": "Electronic Gaming & Multimedia",
+    "currency": "USD"
+  },
+  {
+    "symbol": "W05",
+    "name": "Wing Tai Holdings Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Development",
+    "currency": "SGD"
+  },
+  {
     "symbol": "WJ9",
     "name": "Advanced Systems Automation Ltd",
     "sector": "Technology",
@@ -3150,10 +3157,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "WKS",
-    "name": "Winking Studios Ltd",
-    "sector": "Communication Services",
-    "sub_sector": "Electronic Gaming & Multimedia",
+    "symbol": "WPC",
+    "name": "Vallianz Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Marine Shipping",
     "currency": "USD"
   },
   {
@@ -3171,32 +3178,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "WPC",
-    "name": "Vallianz Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Marine Shipping",
-    "currency": "USD"
-  },
-  {
     "symbol": "XHV",
     "name": "Serial Achieva Ltd",
     "sector": "Technology",
     "sub_sector": "Computer Hardware",
     "currency": "USD"
-  },
-  {
-    "symbol": "XWA",
-    "name": "AEM Holdings Ltd",
-    "sector": "Technology",
-    "sub_sector": "Semiconductor Equipment & Materials",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "XZB",
-    "name": "Sincap Group Ltd",
-    "sector": "Energy",
-    "sub_sector": "Thermal Coal",
-    "currency": "CNY"
   },
   {
     "symbol": "XJB",
@@ -3213,11 +3199,18 @@
     "currency": "SGD"
   },
   {
-    "symbol": "XZL",
-    "name": "Acrophyte Hospitality Trust",
-    "sector": "Real Estate",
-    "sub_sector": "REIT - Hotel & Motel",
-    "currency": "USD"
+    "symbol": "XWA",
+    "name": "AEM Holdings Ltd",
+    "sector": "Technology",
+    "sub_sector": "Semiconductor Equipment & Materials",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "XZB",
+    "name": "Sincap Group Ltd",
+    "sector": "Energy",
+    "sub_sector": "Thermal Coal",
+    "currency": "CNY"
   },
   {
     "symbol": "Y03",
@@ -3225,6 +3218,13 @@
     "sector": "Consumer Defensive",
     "sub_sector": "Packaged Foods",
     "currency": "SGD"
+  },
+  {
+    "symbol": "XZL",
+    "name": "Acrophyte Hospitality Trust",
+    "sector": "Real Estate",
+    "sub_sector": "REIT - Hotel & Motel",
+    "currency": "USD"
   },
   {
     "symbol": "Y06",
@@ -3241,18 +3241,18 @@
     "currency": "USD"
   },
   {
-    "symbol": "Y45",
-    "name": "SMI Vantage Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Specialty Retail",
-    "currency": "USD"
-  },
-  {
     "symbol": "Y3D",
     "name": "mDR Ltd",
     "sector": "Technology",
     "sub_sector": "Electronics & Computer Distribution",
     "currency": "SGD"
+  },
+  {
+    "symbol": "Y45",
+    "name": "SMI Vantage Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Specialty Retail",
+    "currency": "USD"
   },
   {
     "symbol": "Y8E",
@@ -3290,13 +3290,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "Z25",
-    "name": "Yanlord Land Group Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Development",
-    "currency": "CNY"
-  },
-  {
     "symbol": "YYN",
     "name": "Plato Capital Ltd",
     "sector": "Financial Services",
@@ -3304,11 +3297,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "Z59",
-    "name": "Yoma Strategic Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Conglomerates",
-    "currency": "USD"
+    "symbol": "Z25",
+    "name": "Yanlord Land Group Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Development",
+    "currency": "CNY"
   },
   {
     "symbol": "Z4D",
@@ -3316,6 +3309,13 @@
     "sector": "Healthcare",
     "sub_sector": "Medical Care Facilities",
     "currency": "MYR"
+  },
+  {
+    "symbol": "Z59",
+    "name": "Yoma Strategic Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Conglomerates",
+    "currency": "USD"
   },
   {
     "symbol": "Z74",
@@ -3346,13 +3346,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5G1",
-    "name": "EuroSports Global Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Auto & Truck Dealerships",
-    "currency": "SGD"
-  },
-  {
     "symbol": "5G2",
     "name": "Kim Heng Ltd",
     "sector": "Energy",
@@ -3360,10 +3353,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5G4",
-    "name": "Rich Capital Holdings Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Development",
+    "symbol": "5G1",
+    "name": "EuroSports Global Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Auto & Truck Dealerships",
     "currency": "SGD"
   },
   {
@@ -3371,6 +3364,13 @@
     "name": "TalkMed Group Ltd",
     "sector": "Healthcare",
     "sub_sector": "Medical Care Facilities",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "5G4",
+    "name": "Rich Capital Holdings Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Development",
     "currency": "SGD"
   },
   {
@@ -3395,6 +3395,13 @@
     "currency": "USD"
   },
   {
+    "symbol": "5GZ",
+    "name": "HGH Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Electrical Equipment & Parts",
+    "currency": "SGD"
+  },
+  {
     "symbol": "5GJ",
     "name": "AusGroup Ltd",
     "sector": "Industrials",
@@ -3402,10 +3409,10 @@
     "currency": "AUD"
   },
   {
-    "symbol": "5GZ",
-    "name": "HGH Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Electrical Equipment & Parts",
+    "symbol": "5HG",
+    "name": "Edition Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Farm Products",
     "currency": "SGD"
   },
   {
@@ -3416,10 +3423,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5HG",
-    "name": "Edition Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Farm Products",
+    "symbol": "5HT",
+    "name": "Imperium Crown Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Lodging",
     "currency": "SGD"
   },
   {
@@ -3430,8 +3437,8 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5HT",
-    "name": "Imperium Crown Ltd",
+    "symbol": "5I4",
+    "name": "ICP Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Lodging",
     "currency": "SGD"
@@ -3441,13 +3448,6 @@
     "name": "KOP Ltd",
     "sector": "Real Estate",
     "sub_sector": "Real Estate - Development",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "5I4",
-    "name": "ICP Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Lodging",
     "currency": "SGD"
   },
   {
@@ -3465,17 +3465,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5IG",
-    "name": "Gallant Venture Ltd",
-    "sector": "Utilities",
-    "sub_sector": "Utilities - Diversified",
-    "currency": "SGD"
-  },
-  {
     "symbol": "5JK",
     "name": "Hiap Hoe Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Lodging",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "5IG",
+    "name": "Gallant Venture Ltd",
+    "sector": "Utilities",
+    "sub_sector": "Utilities - Diversified",
     "currency": "SGD"
   },
   {
@@ -3493,13 +3493,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5LE",
-    "name": "Sitra Holdings (International) Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Furnishings, Fixtures & Appliances",
-    "currency": "SGD"
-  },
-  {
     "symbol": "E6R",
     "name": "Samko Timber Ltd",
     "sector": "Basic Materials",
@@ -3507,11 +3500,11 @@
     "currency": "IDR"
   },
   {
-    "symbol": "1D5",
-    "name": "Capital World Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Development",
-    "currency": "MYR"
+    "symbol": "5LE",
+    "name": "Sitra Holdings (International) Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Furnishings, Fixtures & Appliances",
+    "currency": "SGD"
   },
   {
     "symbol": "1D4",
@@ -3521,10 +3514,17 @@
     "currency": "CNY"
   },
   {
-    "symbol": "B61",
-    "name": "Bukit Sembawang Estates Ltd",
+    "symbol": "1D5",
+    "name": "Capital World Ltd",
     "sector": "Real Estate",
     "sub_sector": "Real Estate - Development",
+    "currency": "MYR"
+  },
+  {
+    "symbol": "B58",
+    "name": "Banyan Tree Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Resorts & Casinos",
     "currency": "SGD"
   },
   {
@@ -3535,17 +3535,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "B58",
-    "name": "Banyan Tree Holdings Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Resorts & Casinos",
-    "currency": "SGD"
-  },
-  {
     "symbol": "1E3",
     "name": "Sanli Environmental Ltd",
     "sector": "Industrials",
     "sub_sector": "Waste Management",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "B61",
+    "name": "Bukit Sembawang Estates Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Development",
     "currency": "SGD"
   },
   {
@@ -3563,18 +3563,18 @@
     "currency": "USD"
   },
   {
-    "symbol": "1F2",
-    "name": "Union Gas Holdings Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Specialty Retail",
-    "currency": "SGD"
-  },
-  {
     "symbol": "1F3",
     "name": "Aspen (Group) Holdings Ltd",
     "sector": "Real Estate",
     "sub_sector": "Real Estate - Development",
     "currency": "MYR"
+  },
+  {
+    "symbol": "1F2",
+    "name": "Union Gas Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Specialty Retail",
+    "currency": "SGD"
   },
   {
     "symbol": "1H2",
@@ -3588,6 +3588,13 @@
     "name": "Global Investments Ltd",
     "sector": "Financial Services",
     "sub_sector": "Asset Management",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "BAC",
+    "name": "Camsing Healthcare Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Food Distribution",
     "currency": "SGD"
   },
   {
@@ -3605,25 +3612,11 @@
     "currency": "SGD"
   },
   {
-    "symbol": "BAC",
-    "name": "Camsing Healthcare Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Food Distribution",
-    "currency": "SGD"
-  },
-  {
     "symbol": "BAZ",
     "name": "Lion Asiapac Ltd",
     "sector": "Basic Materials",
     "sub_sector": "Building Materials",
     "currency": "SGD"
-  },
-  {
-    "symbol": "BCD",
-    "name": "China Yuanbang Property Holdings Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate - Diversified",
-    "currency": "CNY"
   },
   {
     "symbol": "BBP",
@@ -3640,17 +3633,24 @@
     "currency": "HKD"
   },
   {
-    "symbol": "BCY",
-    "name": "Powermatic Data Systems Ltd",
-    "sector": "Technology",
-    "sub_sector": "Communication Equipment",
-    "currency": "SGD"
+    "symbol": "BCD",
+    "name": "China Yuanbang Property Holdings Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate - Diversified",
+    "currency": "CNY"
   },
   {
     "symbol": "BCV",
     "name": "Qian Hu Corp Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Leisure",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "BCY",
+    "name": "Powermatic Data Systems Ltd",
+    "sector": "Technology",
+    "sub_sector": "Communication Equipment",
     "currency": "SGD"
   },
   {
@@ -3696,20 +3696,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "BEW",
-    "name": "JB Foods Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Confectioners",
-    "currency": "USD"
-  },
-  {
-    "symbol": "BEZ",
-    "name": "Beng Kuang Marine Ltd",
-    "sector": "Energy",
-    "sub_sector": "Oil & Gas Equipment & Services",
-    "currency": "SGD"
-  },
-  {
     "symbol": "BEI",
     "name": "LHT Holdings Ltd",
     "sector": "Basic Materials",
@@ -3724,10 +3710,24 @@
     "currency": "CNY"
   },
   {
+    "symbol": "BEW",
+    "name": "JB Foods Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Confectioners",
+    "currency": "USD"
+  },
+  {
     "symbol": "1H3",
     "name": "Clearbridge Health Ltd",
     "sector": "Healthcare",
     "sub_sector": "Diagnostics & Research",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "BEZ",
+    "name": "Beng Kuang Marine Ltd",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Equipment & Services",
     "currency": "SGD"
   },
   {
@@ -3738,17 +3738,17 @@
     "currency": "MYR"
   },
   {
-    "symbol": "1J4",
-    "name": "JEP Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Aerospace & Defense",
-    "currency": "SGD"
-  },
-  {
     "symbol": "1J0",
     "name": "SLB Development Ltd",
     "sector": "Real Estate",
     "sub_sector": "Real Estate - Development",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "1J4",
+    "name": "JEP Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Aerospace & Defense",
     "currency": "SGD"
   },
   {
@@ -3766,13 +3766,6 @@
     "currency": "MYR"
   },
   {
-    "symbol": "1L2",
-    "name": "Hiap Seng Industries Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
-    "currency": "SGD"
-  },
-  {
     "symbol": "1MZ",
     "name": "Nam Cheong Ltd",
     "sector": "Industrials",
@@ -3780,18 +3773,18 @@
     "currency": "MYR"
   },
   {
+    "symbol": "1L2",
+    "name": "Hiap Seng Industries Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
+    "currency": "SGD"
+  },
+  {
     "symbol": "1R6",
     "name": "Avi-Tech Holdings Ltd",
     "sector": "Technology",
     "sub_sector": "Semiconductor Equipment & Materials",
     "currency": "SGD"
-  },
-  {
-    "symbol": "40B",
-    "name": "Healthbank Holdings Ltd",
-    "sector": "Real Estate",
-    "sub_sector": "Real Estate Services",
-    "currency": "CNY"
   },
   {
     "symbol": "1V3",
@@ -3815,11 +3808,11 @@
     "currency": "USD"
   },
   {
-    "symbol": "40T",
-    "name": "ISEC Healthcare Ltd",
-    "sector": "Healthcare",
-    "sub_sector": "Medical Care Facilities",
-    "currency": "SGD"
+    "symbol": "40B",
+    "name": "Healthbank Holdings Ltd",
+    "sector": "Real Estate",
+    "sub_sector": "Real Estate Services",
+    "currency": "CNY"
   },
   {
     "symbol": "40N",
@@ -3829,10 +3822,17 @@
     "currency": "MYR"
   },
   {
-    "symbol": "40W",
-    "name": "ZICO Holdings Inc",
+    "symbol": "40T",
+    "name": "ISEC Healthcare Ltd",
+    "sector": "Healthcare",
+    "sub_sector": "Medical Care Facilities",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "5LY",
+    "name": "Marco Polo Marine Ltd",
     "sector": "Industrials",
-    "sub_sector": "Specialty Business Services",
+    "sub_sector": "Marine Shipping",
     "currency": "SGD"
   },
   {
@@ -3843,10 +3843,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5LY",
-    "name": "Marco Polo Marine Ltd",
+    "symbol": "40W",
+    "name": "ZICO Holdings Inc",
     "sector": "Industrials",
-    "sub_sector": "Marine Shipping",
+    "sub_sector": "Specialty Business Services",
     "currency": "SGD"
   },
   {
@@ -3864,13 +3864,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5ML",
-    "name": "Old Chang Kee Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Restaurants",
-    "currency": "SGD"
-  },
-  {
     "symbol": "BFK",
     "name": "Pharmesis International Ltd",
     "sector": "Healthcare",
@@ -3878,10 +3871,10 @@
     "currency": "CNY"
   },
   {
-    "symbol": "BFU",
-    "name": "Tye Soon Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Industrial Distribution",
+    "symbol": "5ML",
+    "name": "Old Chang Kee Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Restaurants",
     "currency": "SGD"
   },
   {
@@ -3892,18 +3885,18 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5MZ",
-    "name": "Kingsmen Creatives Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Consulting Services",
-    "currency": "SGD"
-  },
-  {
     "symbol": "BHD",
     "name": "China Mining International Ltd",
     "sector": "Consumer Defensive",
     "sub_sector": "Farm Products",
     "currency": "CNY"
+  },
+  {
+    "symbol": "BFU",
+    "name": "Tye Soon Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Industrial Distribution",
+    "currency": "SGD"
   },
   {
     "symbol": "BHK",
@@ -3917,6 +3910,13 @@
     "name": "Mencast Holdings Ltd",
     "sector": "Energy",
     "sub_sector": "Oil & Gas Equipment & Services",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "5MZ",
+    "name": "Kingsmen Creatives Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Consulting Services",
     "currency": "SGD"
   },
   {
@@ -3934,13 +3934,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5OC",
-    "name": "Koyo International Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
-    "currency": "SGD"
-  },
-  {
     "symbol": "BIP",
     "name": "Vibrant Group Ltd",
     "sector": "Industrials",
@@ -3948,10 +3941,10 @@
     "currency": "SGD"
   },
   {
-    "symbol": "5OQ",
-    "name": "Teho International Inc Ltd",
-    "sector": "Energy",
-    "sub_sector": "Oil & Gas Equipment & Services",
+    "symbol": "5OC",
+    "name": "Koyo International Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
     "currency": "SGD"
   },
   {
@@ -3959,6 +3952,13 @@
     "name": "Japan Foods Holding Ltd",
     "sector": "Consumer Cyclical",
     "sub_sector": "Restaurants",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "5OQ",
+    "name": "Teho International Inc Ltd",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Equipment & Services",
     "currency": "SGD"
   },
   {
@@ -3976,13 +3976,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "E9L",
-    "name": "Joyas International Holdings Ltd",
-    "sector": "Financial Services",
-    "sub_sector": "Credit Services",
-    "currency": "HKD"
-  },
-  {
     "symbol": "BJV",
     "name": "Yamada Green Resources Ltd",
     "sector": "Real Estate",
@@ -3997,11 +3990,11 @@
     "currency": "USD"
   },
   {
-    "symbol": "G92",
-    "name": "China Aviation Oil (Singapore) Corp Ltd",
-    "sector": "Energy",
-    "sub_sector": "Oil & Gas Refining & Marketing",
-    "currency": "USD"
+    "symbol": "E9L",
+    "name": "Joyas International Holdings Ltd",
+    "sector": "Financial Services",
+    "sub_sector": "Credit Services",
+    "currency": "HKD"
   },
   {
     "symbol": "GEH",
@@ -4011,17 +4004,17 @@
     "currency": "SGD"
   },
   {
+    "symbol": "G92",
+    "name": "China Aviation Oil (Singapore) Corp Ltd",
+    "sector": "Energy",
+    "sub_sector": "Oil & Gas Refining & Marketing",
+    "currency": "USD"
+  },
+  {
     "symbol": "GRQ",
     "name": "Don Agro International Ltd",
     "sector": "Consumer Defensive",
     "sub_sector": "Farm Products",
-    "currency": "SGD"
-  },
-  {
-    "symbol": "H02",
-    "name": "Haw Par Corp Ltd",
-    "sector": "Healthcare",
-    "sub_sector": "Drug Manufacturers - General",
     "currency": "SGD"
   },
   {
@@ -4030,6 +4023,13 @@
     "sector": "Industrials",
     "sub_sector": "Electrical Equipment & Parts",
     "currency": "HKD"
+  },
+  {
+    "symbol": "H02",
+    "name": "Haw Par Corp Ltd",
+    "sector": "Healthcare",
+    "sub_sector": "Drug Manufacturers - General",
+    "currency": "SGD"
   },
   {
     "symbol": "H07",
@@ -4060,17 +4060,17 @@
     "currency": "CNY"
   },
   {
-    "symbol": "5OX",
-    "name": "Mary Chia Holdings Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Personal Services",
-    "currency": "SGD"
-  },
-  {
     "symbol": "5PC",
     "name": "Goodland Group Ltd",
     "sector": "Real Estate",
     "sub_sector": "Real Estate - Development",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "5OX",
+    "name": "Mary Chia Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Personal Services",
     "currency": "SGD"
   },
   {
@@ -4088,6 +4088,13 @@
     "currency": "SGD"
   },
   {
+    "symbol": "5QR",
+    "name": "MSM International Ltd",
+    "sector": "Consumer Cyclical",
+    "sub_sector": "Furnishings, Fixtures & Appliances",
+    "currency": "MYR"
+  },
+  {
     "symbol": "5PO",
     "name": "Hiap Tong Corp Ltd",
     "sector": "Industrials",
@@ -4100,13 +4107,6 @@
     "sector": "Utilities",
     "sub_sector": "Utilities - Renewable",
     "currency": "USD"
-  },
-  {
-    "symbol": "5QR",
-    "name": "MSM International Ltd",
-    "sector": "Consumer Cyclical",
-    "sub_sector": "Furnishings, Fixtures & Appliances",
-    "currency": "MYR"
   },
   {
     "symbol": "5QY",
@@ -4123,17 +4123,17 @@
     "currency": "SGD"
   },
   {
-    "symbol": "Q01",
-    "name": "QAF Ltd",
-    "sector": "Consumer Defensive",
-    "sub_sector": "Packaged Foods",
-    "currency": "SGD"
-  },
-  {
     "symbol": "H13",
     "name": "Ho Bee Land Ltd",
     "sector": "Real Estate",
     "sub_sector": "Real Estate - Diversified",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "Q01",
+    "name": "QAF Ltd",
+    "sector": "Consumer Defensive",
+    "sub_sector": "Packaged Foods",
     "currency": "SGD"
   },
   {
@@ -4158,18 +4158,18 @@
     "currency": "AUD"
   },
   {
-    "symbol": "EHG",
-    "name": "Econ Healthcare (Asia) Ltd",
-    "sector": "Healthcare",
-    "sub_sector": "Medical Care Facilities",
-    "currency": "SGD"
-  },
-  {
     "symbol": "EMI",
     "name": "Emperador Inc",
     "sector": "Consumer Defensive",
     "sub_sector": "Beverages - Wineries & Distilleries",
     "currency": "PHP"
+  },
+  {
+    "symbol": "EHG",
+    "name": "Econ Healthcare (Asia) Ltd",
+    "sector": "Healthcare",
+    "sub_sector": "Medical Care Facilities",
+    "currency": "SGD"
   },
   {
     "symbol": "ENV",
@@ -4207,13 +4207,6 @@
     "currency": "SGD"
   },
   {
-    "symbol": "Z77",
-    "name": "Singapore Telecommunications Ltd",
-    "sector": "Communication Services",
-    "sub_sector": "Telecom Services",
-    "currency": "SGD"
-  },
-  {
     "symbol": "QES",
     "name": "China Sunsine Chemical Holdings Ltd",
     "sector": "Basic Materials",
@@ -4228,10 +4221,10 @@
     "currency": "MYR"
   },
   {
-    "symbol": "ZKX",
-    "name": "Ever Glory United Holdings Ltd",
-    "sector": "Industrials",
-    "sub_sector": "Engineering & Construction",
+    "symbol": "Z77",
+    "name": "Singapore Telecommunications Ltd",
+    "sector": "Communication Services",
+    "sub_sector": "Telecom Services",
     "currency": "SGD"
   },
   {
@@ -4239,6 +4232,13 @@
     "name": "Union Steel Holdings Ltd",
     "sector": "Industrials",
     "sub_sector": "Waste Management",
+    "currency": "SGD"
+  },
+  {
+    "symbol": "ZKX",
+    "name": "Ever Glory United Holdings Ltd",
+    "sector": "Industrials",
+    "sub_sector": "Engineering & Construction",
     "currency": "SGD"
   },
   {
