@@ -64,44 +64,57 @@ def load_json_data(filepath: str) -> list:
     print(f"Filtered down to {stats['usable_entries']} usable entries from {stats['total_entries']} total.")
     return usable
 
-# Fetch existing rows with only necessary columns
+# Fetch existing rows with investing_symbol from the table
 def fetch_existing_rows(supabase: Client, table: str) -> dict:
-    response = supabase.table(table).select("symbol, name, sector, sub_sector, currency, is_active").execute()
+    response = supabase.table(table).select(
+        "symbol, name, sector, sub_sector, currency, is_active, investing_symbol"
+    ).execute()
     rows = {row['symbol']: row for row in response.data}
     print(f"Fetched {len(rows)} existing rows in '{table}'.")
     return rows
 
-# Upsert JSON entries (insert full payload or update only if changed)
+# Upsert JSON entries, defaulting investing_symbol when absent in DB
 def upsert_entries(supabase: Client, table: str, entries: list, existing_rows: dict):
     for entry in entries:
         symbol = entry['symbol']
         existing = existing_rows.get(symbol)
-        # Always ensure is_active=True on insert or update
+
+        # Determine investing_symbol: use existing value if present, otherwise default to symbol
+        current_inv = existing.get('investing_symbol') if existing else None
+        investing_symbol = current_inv if current_inv else symbol
+
+        # Check if update is needed
         if existing:
-            # If nothing changed including activation, skip
+            # Only skip if nothing changed AND investing_symbol was already set
             if (
                 existing.get('name') == entry['name'] and
                 existing.get('sector') == entry['sector'] and
                 existing.get('sub_sector') == entry['sub_sector'] and
                 existing.get('currency') == entry['currency'] and
-                existing.get('is_active') is True
+                existing.get('is_active') is True and
+                current_inv and investing_symbol == current_inv
             ):
                 stats['skipped_no_change'] += 1
                 continue
-            # Update only changed fields and reactivate if was inactive
+
             payload = {
                 'symbol': symbol,
                 'name': entry['name'],
                 'sector': entry['sector'],
                 'sub_sector': entry['sub_sector'],
                 'currency': entry['currency'],
-                'is_active': True
+                'is_active': True,
+                'investing_symbol': investing_symbol
             }
             is_insert = False
         else:
-            # New insert with full payload
-            payload = {**entry, 'is_active': True}
+            payload = {
+                **entry,
+                'is_active': True,
+                'investing_symbol': investing_symbol
+            }
             is_insert = True
+
         try:
             supabase.table(table).upsert(payload, on_conflict='symbol').execute()
             if is_insert:
@@ -111,8 +124,7 @@ def upsert_entries(supabase: Client, table: str, entries: list, existing_rows: d
         except Exception:
             stats['upsert_errors'] += 1
 
-# Deactivate old symbols, but always keep exempt active
-
+# Deactivate old symbols, but keep exempt active
 def deactivate_old(supabase: Client, table: str, existing_symbols: set, new_symbols: set):
     to_check = existing_symbols - new_symbols
     for symbol in to_check:
