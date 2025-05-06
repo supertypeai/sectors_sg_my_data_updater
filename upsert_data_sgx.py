@@ -133,7 +133,7 @@ def deactivate_old(supabase: Client, table: str, existing_symbols: set, new_symb
 # Main workflow
 def main():
     supabase = init_supabase()
-    table_name = "sgx_companies_test"
+    table_name = "sgx_companies"
     filepath = "sector_data/data_sgx.json"
 
     entries = load_json_data(filepath)
