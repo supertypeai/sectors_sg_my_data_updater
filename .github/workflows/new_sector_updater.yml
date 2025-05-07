@@ -1,9 +1,9 @@
-name: Daily SGX Sector & Subsector Data Update
+name: Weekly SGX Sector & Subsector Data Update
 
 on:
   schedule:
-    # runs every day at 00:00 UTC
-    - cron: "0 0 * * *"
+    # Runs every Monday at 00:00 UTC
+    - cron: "0 0 * * 1"
   workflow_dispatch:
 
 jobs:
