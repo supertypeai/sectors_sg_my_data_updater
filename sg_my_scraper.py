@@ -65,7 +65,8 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             currency = ticker.info.get("currency", None)
             country_currency = "MYR" if country == "my" else "SGD"
             if currency is None:
-                raise AttributeError(f"Currency information not available for {symbol}")
+                currency = row.get("currency")
+                print(f"No currency in info; using data_prep currency '{currency}'")
 
             # Update data from yfinance info            
             data_json = ticker.info
