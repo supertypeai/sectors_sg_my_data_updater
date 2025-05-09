@@ -235,10 +235,9 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
             # Get ticker with proper extension
             ticker_extension = ".KL" if country == "my" else ".SI"
             ticker = yf.Ticker(row["symbol"] + ticker_extension)
-            currency = ticker.info.get("currency", None)
+            currency_info = ticker.info.get("currency", None)
+            currency = currency_info or row.get("currency")
             country_currency = "MYR" if country == "my" else "SGD"
-            if currency is None:
-                raise AttributeError(f"Currency information not available for {symbol}")
 
             # Retrieve ticker history
             try:
@@ -895,9 +894,7 @@ if __name__ == "__main__":
     elif args.daily:
         db = "klse_companies" if args.malaysia else "sgx_companies"
         data_db = supabase.table(db).select("*").eq("is_active", True).execute()
-        # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "Z74", "U11", "K6S", "TATD", "S63", "F34", "C6L", "TCPD", "Q0F", "TPED", "C38U", "J36", "S68", "VC2", "C07", "G92", "E5H", "Y92", "NIO"]).execute()
-        # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "Z74", "U11", "K6S"]).execute()
-        # data_db = supabase.table(db).select("*").eq("is_active", True).limit(20).execute()
+        # data_db = supabase.table(db).select("*").eq("is_active", True).limit(50).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'weekly_signal',
