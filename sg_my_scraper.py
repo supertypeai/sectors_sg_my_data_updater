@@ -893,7 +893,10 @@ if __name__ == "__main__":
         # print("Columns in data_final after final drop:", data_final.columns.tolist())
     elif args.daily:
         db = "klse_companies" if args.malaysia else "sgx_companies"
-        data_db = supabase.table(db).select("*").eq("is_active", True).execute()
+        if args.singapore:
+            data_db = supabase.table(db).select("*").eq("is_active", True).execute()
+        else:
+            data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").eq("is_active", True).limit(50).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
