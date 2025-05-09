@@ -54,109 +54,134 @@ def GetGeneralData(country):
 def yf_data_updater(data_prep: pd.DataFrame, country):
     """
     Updates financial fundamentals (market cap, volume, PE, etc.) for each symbol.
+    Includes debug prints to trace values and identify NoneType errors.
     """
 
     for index, row in data_prep.iterrows():
         symbol = row["symbol"]
+        # print(f"\n--- Processing symbol: {symbol} (row {index}) ---")
         try:
-            # Get ticker with proper extension
+            # Determine ticker extension and fetch info
             ticker_extension = ".KL" if country == "my" else ".SI"
             ticker = yf.Ticker(symbol + ticker_extension)
-            currency = ticker.info.get("currency", None)
-            country_currency = "MYR" if country == "my" else "SGD"
-            if currency is None:
-                currency = row.get("currency")
-                print(f"No currency in info; using data_prep currency '{currency}'")
+            info = ticker.info
 
-            # Update data from yfinance info            
-            data_json = ticker.info
-            
+            currency_info = info.get("currency")
+            country_currency = "MYR" if country == "my" else "SGD"
+            currency = currency_info or row.get("currency")
+            # print(f"Currency from info: {currency_info} -> using currency: {currency}")
+
+            # Fetch conversion rate if needed
+            if currency and currency != country_currency:
+                rate = data.get(currency, {}).get(country_currency)
+                # print(f"Lookup rate {currency}->{country_currency}: {rate}")
+                if rate is None:
+                    # print(f"Warning: no conversion rate for {currency}->{country_currency}. Skipping currency adjustment.")
+                    continue
+                else:
+                    rate = float(rate)
+
+            # Data we will update
             desired_values = {
                 "marketCap": "market_cap",
                 "volume": "volume",
-                "trailingPE": "pe",  # We'll override this value immediately.
+                "trailingPE": "pe",
                 "priceToSalesTrailing12Months": "ps_ttm",
                 "priceToBook": "pb",
                 "beta": "beta",
                 "operatingCashflow": "ocf",
                 "fiveYearAvgDividendYield": "dividend_yield_5y_avg"
             }
-            # Add the company's short name in SGX for the SGX short sell pipeline
             if country == "sg":
                 desired_values["shortName"] = "short_name"
 
-            for key_dv, val_dv in desired_values.items():
+            # Iterate desired keys
+            for key_dv, col in desired_values.items():
                 try:
-                    if val_dv == "market_cap":
-                        # Adjust for currency differences if necessary
-                        if currency != country_currency:
-                            rate = float(data[currency][country_currency])
-                            temp_val = data_json[key_dv] * rate
+                    raw_val = info.get(key_dv, np.nan)
+
+                    if col == "market_cap":
+                        # print(f"Raw marketCap: {raw_val}")
+                        if raw_val is not None and raw_val is not np.nan:
+                            if currency and currency != country_currency and rate is not None:
+                                adjusted = raw_val * rate
+                                # print(f"Adjusted market_cap = {raw_val} * {rate} = {adjusted}")
+                                data_prep.at[index, col] = adjusted
+                            else:
+                                data_prep.at[index, col] = raw_val
                         else:
-                            temp_val = data_json[key_dv]
-                        data_prep.loc[index, val_dv] = temp_val
-                                        
-                    elif val_dv == "ocf":
-                        # Calculate pcf using marketCap / ocf
-                        if data_json.get(key_dv, None):
-                            temp_val = data_json["marketCap"] / data_json[key_dv]
-                            data_prep.loc[index, "pcf"] = temp_val
+                            # print(f"marketCap missing for {symbol}")
+                            data_prep.at[index, col] = np.nan
+
+                    elif col == "ocf":
+                        ocf_val = raw_val
+                        # print(f"Raw operatingCashflow: {ocf_val}")
+                        if ocf_val not in [None, 0, np.nan]:
+                            mcap = info.get("marketCap")
+                            # print(f"Using marketCap {mcap} / ocf {ocf_val}")
+                            data_prep.at[index, "pcf"] = mcap / ocf_val
                         else:
-                            data_prep.loc[index, "pcf"] = np.nan
-                    
-                    elif val_dv == "pe":
-                        # Retrieve the YF trailingPE value
-                        yf_pe = data_json.get("trailingPE", np.nan)
-                        # Convert string representations of anomalies into proper numeric values.
+                            data_prep.at[index, "pcf"] = np.nan
+
+                    elif col == "pe":
+                        yf_pe = raw_val
+                        # print(f"Raw trailingPE: {yf_pe} (type {type(yf_pe)})")
+                        # Convert string anomalies
                         if isinstance(yf_pe, str):
-                            yf_pe_str = yf_pe.strip().lower()
-                            if yf_pe_str in ["none", "nan"]:
+                            pe_str = yf_pe.strip().lower()
+                            if pe_str in ["none", "nan"]:
                                 yf_pe = np.nan
-                            elif yf_pe_str in ["infinity", "inf"]:
-                                yf_pe = float("inf")
+                            elif pe_str in ["inf", "infinity"]:
+                                yf_pe = float('inf')
                             else:
                                 try:
                                     yf_pe = float(yf_pe)
                                 except Exception:
                                     yf_pe = np.nan
+                            # print(f"Converted trailingPE to float: {yf_pe}")
 
-                        # Use trailingPE only if it is a valid finite number.
                         if not pd.isna(yf_pe) and np.isfinite(yf_pe):
-                            chosen_pe = yf_pe
+                            # print(f"Using valid trailingPE: {yf_pe}")
+                            data_prep.at[index, col] = yf_pe
                         else:
-                            # Retrieve the last close value from the existing row only if needed.
-                            close_series = row.get("close", None)
-                            if isinstance(close_series, list) and close_series:
-                                last_close = close_series[-1].get("close", None)
+                            # print(f"Invalid trailingPE, falling back to close/EPS for {symbol}")
+                            close_list = row.get("close", [])
+                            last_close = None
+                            if isinstance(close_list, list) and close_list:
+                                last_close = close_list[-1].get("close")
+                            eps = row.get("eps")
+                            # print(f"last_close: {last_close}, eps: {eps}")
+                            if last_close is not None and eps:
+                                fallback = last_close / eps
+                                # print(f"Fallback PE = {last_close} / {eps} = {fallback}")
+                                data_prep.at[index, col] = fallback
                             else:
-                                last_close = None
-                            # Calculate PE using last close divided by EPS.
-                            chosen_pe = (last_close / row["eps"]) if (last_close is not None and row["eps"] != 0) else np.nan
-                        data_prep.loc[index, "pe"] = chosen_pe
+                                # print(f"Cannot compute fallback PE for {symbol}")
+                                data_prep.at[index, col] = np.nan
 
                     else:
-                        data_prep.loc[index, val_dv] = data_json.get(key_dv, np.nan)
-                        
-                except KeyError as e:
-                    # Fallback for missing keys; recalculate PE if needed.
-                    if val_dv == "pe":
-                        close_series = row.get("close", None)
-                        if isinstance(close_series, list) and close_series:
-                            last_close = close_series[-1].get("close", None)
-                        else:
-                            last_close = None
-                        temp_pe = (last_close / row["eps"]) if (last_close is not None and row["eps"] != 0) else np.nan
-                        data_prep.loc[index, "pe"] = temp_pe
+                        # print(f"Setting {col} = {raw_val}")
+                        data_prep.at[index, col] = raw_val
+
+                except KeyError:
+                    # print(f"KeyError for {key_dv} on symbol {symbol}")
+                    if col == "pe":
+                        # Fallback as above
+                        close_list = row.get("close", [])
+                        last_close = close_list[-1].get("close") if isinstance(close_list, list) and close_list else None
+                        eps = row.get("eps")
+                        # print(f"Fallback (KeyError) last_close: {last_close}, eps: {eps}")
+                        data_prep.at[index, col] = (last_close / eps) if (last_close and eps) else np.nan
                     else:
-                        data_prep.loc[index, val_dv] = np.nan
+                        data_prep.at[index, col] = np.nan
 
         except Exception as e:
-            print(f"error in symbol {symbol} : ", e)
-    
-    # Optionally, drop the 'ocf' column if it exists
+            print(f"Error updating symbol {symbol}: {e}")
+
+    # Drop temporary ocf if exists
     if "ocf" in data_prep.columns:
-        data_prep = data_prep.drop("ocf", axis="columns")
-    
+        data_prep = data_prep.drop(columns=["ocf"])
+
     return data_prep
 
 def update_dividend_growth_rate(data_prep: pd.DataFrame, country):
@@ -869,10 +894,10 @@ if __name__ == "__main__":
         # print("Columns in data_final after final drop:", data_final.columns.tolist())
     elif args.daily:
         db = "klse_companies" if args.malaysia else "sgx_companies"
-        data_db = supabase.table(db).select("*").execute()
+        data_db = supabase.table(db).select("*").eq("is_active", True).execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "Z74", "U11", "K6S", "TATD", "S63", "F34", "C6L", "TCPD", "Q0F", "TPED", "C38U", "J36", "S68", "VC2", "C07", "G92", "E5H", "Y92", "NIO"]).execute()
         # data_db = supabase.table(db).select("*").in_("symbol", ["D05", "O39", "Z74", "U11", "K6S"]).execute()
-        # data_db = supabase.table(db).select("*").limit(10).execute()
+        # data_db = supabase.table(db).select("*").eq("is_active", True).limit(20).execute()
         data_db = pd.DataFrame(data_db.data)
         drop_cols = ['market_cap', 'volume', 'pe',
                      'revenue', 'beta', 'weekly_signal',
