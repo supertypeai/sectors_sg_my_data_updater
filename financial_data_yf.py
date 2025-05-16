@@ -21,7 +21,7 @@ resp = resp.json()
 
 def fetch_existing_symbol(country,supabase):
     if country == "SG":
-        data = supabase.table("sgx_companies").select("symbol").execute()
+        data = supabase.table("sgx_companies").select("symbol").eq("is_active", True).execute()
         # data = supabase.table("sgx_companies").select("symbol").in_("symbol", ["1R6"]).execute()
         # data = supabase.table("sgx_companies").select("symbol").in_("symbol", ["1AZ", "1B0", "1B1", "1B6", "1D0"]).execute()
         # data = supabase.table("sgx_companies").select("symbol").limit(20).execute()
