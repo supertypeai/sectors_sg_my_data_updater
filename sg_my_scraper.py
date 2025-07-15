@@ -919,6 +919,7 @@ if __name__ == "__main__":
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]
     data_final.to_csv("data_my.csv", index=False) if args.malaysia else data_final.to_csv("data_sg.csv", index=False)
     records = data_final.replace({np.nan: None}).to_dict("records")
+    records = data_final.fillna(None).to_dict("records")
     # print(f"[DEBUG] First 5 records after replacing NaN with None:\n{records[:21]}")
 
     supabase.table(db).upsert(records, returning='minimal').execute()
