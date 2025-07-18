@@ -14,6 +14,20 @@ from supabase import create_client
 import yf_custom as yf
 
 
+def recursively_clean_nans(obj):
+    """
+    Recursively traverses a nested object (dict, list) and replaces any
+    NaN-like values (e.g., np.nan, pd.NA) with None.
+    """
+    if isinstance(obj, dict):
+        return {k: recursively_clean_nans(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [recursively_clean_nans(e) for e in obj]
+    # Use pd.isna for robust NaN checking (handles np.nan, None, pd.NaT, etc.)
+    if pd.isna(obj):
+        return None
+    return obj
+
 def safe_relative_diff(num1: float, num2: float):
     # if both are 0, 0 difference
     if num1 == 0:
@@ -895,6 +909,7 @@ if __name__ == "__main__":
         db = "klse_companies" if args.malaysia else "sgx_companies"
         if args.singapore:
             data_db = supabase.table(db).select("*").eq("is_active", True).execute()
+            # data_db = supabase.table(db).select("*").eq("is_active", True).limit(50).execute()
         else:
             data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").eq("is_active", True).limit(50).execute()
@@ -918,9 +933,58 @@ if __name__ == "__main__":
                          'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]
     data_final.to_csv("data_my.csv", index=False) if args.malaysia else data_final.to_csv("data_sg.csv", index=False)
-    records = data_final.replace({np.nan: None}).to_dict("records")
-    records = data_final.fillna(None).to_dict("records")
-    # print(f"[DEBUG] First 5 records after replacing NaN with None:\n{records[:21]}")
+    
+    # --- BEFORE CLEANING ---
+    print("\n--- [DEBUG STEP 1: BEFORE CLEANING] Checking for records with NaN values ---")
+    records_before_cleaning = data_final.to_dict("records")
+    problematic_records_before = []
+    for record in records_before_cleaning:
+        try:
+            # This will fail if NaN is present. We use `allow_nan=True` just to print it later.
+            json.dumps(record, allow_nan=False, default=str)
+        except ValueError:
+            problematic_records_before.append(record)
 
+    if problematic_records_before:
+        print(f"  - FOUND {len(problematic_records_before)} records with NaN values before cleaning. Example:")
+        # Print the first problematic record found
+        bad_record = problematic_records_before[0]
+        print(f"\n--- Problematic Record (Symbol: {bad_record.get('symbol', 'N/A')}) BEFORE CLEANING ---")
+        # Use json.dumps with `allow_nan=True` to be able to print the structure containing 'NaN'
+        print(json.dumps(bad_record, indent=2, allow_nan=True, default=str))
+    else:
+        print("  - OK. No records with NaN values found before cleaning.")
+
+    # --- APPLY CLEANING LOGIC ---
+    print("\n--- [STEP 2: APPLYING CLEANING LOGIC] ---")
+    # First, handle top-level NaNs
+    data_final.replace({np.nan: None}, inplace=True)
+    print("  - Applied top-level NaN replacement.")
+
+    # These columns can contain nested structures (lists of dicts) with NaNs.
+    json_like_cols = ['close', 'historical_dividends', 'all_time_price']
+    for col in json_like_cols:
+        if col in data_final.columns:
+            print(f"  - Applying recursive NaN cleaning to nested data in column: '{col}'")
+            # The .apply() method with the recursive function cleans NaNs inside these nested structures.
+            data_final[col] = data_final[col].apply(recursively_clean_nans)
+            
+    # --- AFTER CLEANING ---
+    print("\n--- [STEP 3: PREPARING FOR UPSERT] Converting DataFrame to records ---")
+    records = data_final.to_dict("records")
+    print(f"  - Converted {len(records)} rows to a list of dictionaries.")
+
+    print("\n--- [DEBUG STEP 4: AFTER CLEANING] Verifying all records for any remaining NaN values ---")
+    found_error_after_cleaning = False
+    for record in records:
+        try:
+            json.dumps(record, allow_nan=False, default=str)
+        except ValueError:
+            print(f"  - ERROR: Found a record with NaN even after cleaning! Symbol: {record.get('symbol', 'N/A')}")
+            found_error_after_cleaning = True
+    if not found_error_after_cleaning:
+        print("  - OK. Verification complete. No NaN values remain.")
+        
+    print(f"\n--- [STEP 5: UPSERT] Sending {len(records)} records to Supabase table '{db}' ---")
     supabase.table(db).upsert(records, returning='minimal').execute()
     print("Upsert operation successful.")
