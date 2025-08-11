@@ -276,10 +276,10 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
                     
             # Filter close data to only dates later than last_date
             close_data = [close for close in close_data if close["date"] > last_date]
-            new_close.append(close_data)
+            new_close.append(close_data if close_data else row["close"])
         except Exception as e:
             print(f"error in symbol {symbol} : ", e)
-            new_close.append(None)
+            new_close.append(row["close"])
     
     # Update the DataFrame with the newly fetched close data
     try:
