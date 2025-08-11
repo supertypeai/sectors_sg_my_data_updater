@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 # Symbols to never deactivate (always keep active)
-EXEMPT_SYMBOLS = {'TCPD', 'C70', 'TPED', 'TATD'}
+EXEMPT_SYMBOLS = {'TCPD', 'C70', 'TPED', 'TATD','XZB','CWCU','N33','42D','M12','PJX'}
 
 # Statistics collector
 stats = {
@@ -77,6 +77,10 @@ def fetch_existing_rows(supabase: Client, table: str) -> dict:
 def upsert_entries(supabase: Client, table: str, entries: list, existing_rows: dict):
     for entry in entries:
         symbol = entry['symbol']
+        if symbol in EXEMPT_SYMBOLS:
+            stats['skipped_no_change'] += 1 # Or a new stat like 'skipped_exempt_update'
+            continue
+
         existing = existing_rows.get(symbol)
 
         # Determine investing_symbol: use existing value if present, otherwise default to symbol
@@ -129,13 +133,9 @@ def deactivate_old(supabase: Client, table: str, existing_symbols: set, new_symb
     to_check = existing_symbols - new_symbols
     for symbol in to_check:
         if symbol in EXEMPT_SYMBOLS:
-            try:
-                supabase.table(table).update({'is_active': True}).eq('symbol', symbol).execute()
-                stats['activated_exempt'] += 1
-            except Exception:
-                pass
             stats['skipped_exempt_deactivate'] += 1
             continue
+
         try:
             supabase.table(table).update({'is_active': False}).eq('symbol', symbol).execute()
             stats['deactivated'] += 1
