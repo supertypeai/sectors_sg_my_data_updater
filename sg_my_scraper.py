@@ -137,6 +137,12 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                         else:
                             data_prep.at[index, "pcf"] = np.nan
 
+                    elif col == "dividend_yield_5y_avg":
+                        # print(f"Raw dividend_yield_5y_avg: {raw_val}")
+                        if raw_val is not None and not pd.isna(raw_val):
+                            data_prep.at[index, col] = raw_val / 100
+                        # If raw_val is None or NaN, do nothing, keeping the old data.
+
                     elif col == "pe":
                         yf_pe = raw_val
                         # print(f"Raw trailingPE: {yf_pe} (type {type(yf_pe)})")
