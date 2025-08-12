@@ -193,7 +193,8 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                         # print(f"Fallback (KeyError) last_close: {last_close}, eps: {eps}")
                         data_prep.at[index, col] = (last_close / eps) if (last_close and eps) else np.nan
                     else:
-                        data_prep.at[index, col] = np.nan
+                        # data_prep.at[index, col] = np.nan
+                        continue
 
         except Exception as e:
             print(f"Error updating symbol {symbol}: {e}")
@@ -314,7 +315,8 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
     """
     date_format = "%Y-%m-%d"
     # Ensure the 'historical_dividends' column exists and is of type object
-    data_prep["historical_dividends"] = None
+    if "historical_dividends" not in data_prep.columns:
+        data_prep["historical_dividends"] = None
 
     for index, row in data_prep.iterrows():
         symbol = row["symbol"]
@@ -557,8 +559,9 @@ def update_change_data(data_prep: pd.DataFrame, country):
             
         except Exception as e:
             print(f"[DEBUG] Error calculating change metrics for {symbol}: {e}")
-            for metric in ["change_ytd", "change_1y", "change_3y"]:
-                data_prep.loc[index, metric] = np.nan
+            # for metric in ["change_ytd", "change_1y", "change_3y"]:
+            #     data_prep.loc[index, metric] = np.nan
+            continue
                 
     return data_prep
 
@@ -952,45 +955,41 @@ if __name__ == "__main__":
             problematic_records_before.append(record)
 
     if problematic_records_before:
-        print(f"  - FOUND {len(problematic_records_before)} records with NaN values before cleaning. Example:")
+        # print(f"  - FOUND {len(problematic_records_before)} records with NaN values before cleaning. Example:")
         # Print the first problematic record found
         bad_record = problematic_records_before[0]
-        print(f"\n--- Problematic Record (Symbol: {bad_record.get('symbol', 'N/A')}) BEFORE CLEANING ---")
+        # print(f"\n--- Problematic Record (Symbol: {bad_record.get('symbol', 'N/A')}) BEFORE CLEANING ---")
         # Use json.dumps with `allow_nan=True` to be able to print the structure containing 'NaN'
-        print(json.dumps(bad_record, indent=2, allow_nan=True, default=str))
-    else:
-        print("  - OK. No records with NaN values found before cleaning.")
+        # print(json.dumps(bad_record, indent=2, allow_nan=True, default=str))
 
     # --- APPLY CLEANING LOGIC ---
-    print("\n--- [STEP 2: APPLYING CLEANING LOGIC] ---")
+    # print("\n--- [STEP 2: APPLYING CLEANING LOGIC] ---")
     # First, handle top-level NaNs
     data_final.replace({np.nan: None}, inplace=True)
-    print("  - Applied top-level NaN replacement.")
+    # print("  - Applied top-level NaN replacement.")
 
     # These columns can contain nested structures (lists of dicts) with NaNs.
     json_like_cols = ['close', 'historical_dividends', 'all_time_price']
     for col in json_like_cols:
         if col in data_final.columns:
-            print(f"  - Applying recursive NaN cleaning to nested data in column: '{col}'")
+            # print(f"  - Applying recursive NaN cleaning to nested data in column: '{col}'")
             # The .apply() method with the recursive function cleans NaNs inside these nested structures.
             data_final[col] = data_final[col].apply(recursively_clean_nans)
             
     # --- AFTER CLEANING ---
-    print("\n--- [STEP 3: PREPARING FOR UPSERT] Converting DataFrame to records ---")
+    # print("\n--- [STEP 3: PREPARING FOR UPSERT] Converting DataFrame to records ---")
     records = data_final.to_dict("records")
-    print(f"  - Converted {len(records)} rows to a list of dictionaries.")
+    # print(f"  - Converted {len(records)} rows to a list of dictionaries.")
 
-    print("\n--- [DEBUG STEP 4: AFTER CLEANING] Verifying all records for any remaining NaN values ---")
+    # print("\n--- [DEBUG STEP 4: AFTER CLEANING] Verifying all records for any remaining NaN values ---")
     found_error_after_cleaning = False
     for record in records:
         try:
             json.dumps(record, allow_nan=False, default=str)
         except ValueError:
-            print(f"  - ERROR: Found a record with NaN even after cleaning! Symbol: {record.get('symbol', 'N/A')}")
+            # print(f"  - ERROR: Found a record with NaN even after cleaning! Symbol: {record.get('symbol', 'N/A')}")
             found_error_after_cleaning = True
-    if not found_error_after_cleaning:
-        print("  - OK. Verification complete. No NaN values remain.")
         
-    print(f"\n--- [STEP 5: UPSERT] Sending {len(records)} records to Supabase table '{db}' ---")
+    # print(f"\n--- [STEP 5: UPSERT] Sending {len(records)} records to Supabase table '{db}' ---")
     supabase.table(db).upsert(records, returning='minimal').execute()
     print("Upsert operation successful.")
