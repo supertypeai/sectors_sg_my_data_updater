@@ -230,6 +230,7 @@ def update_dividend_growth_rate(data_prep: pd.DataFrame, country):
 
         except Exception as e:
             print(f"error updating dividend growth rate for symbol {symbol} : ", e)
+            continue
     
     return data_prep
 
@@ -854,6 +855,7 @@ def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.Dat
             # on any failure, set NaN
             print(f"[DEBUG] Failed to fetch estimates for {symbol}: {e}")
             # data_prep.loc[idx, ["one_year_eps_growth", "one_year_sales_growth"]] = np.nan
+            continue
 
     return data_prep
 
