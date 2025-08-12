@@ -12,7 +12,7 @@ import requests
 from supabase import create_client
 
 import yf_custom as yf
-
+import re
 
 def recursively_clean_nans(obj):
     """
@@ -71,6 +71,59 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
     Includes debug prints to trace values and identify NoneType errors.
     """
 
+    def clean_short_name(name: str) -> str | None:
+        """
+        Cleans and standardizes a 'short_name' string with advanced logic.
+        - Splits stuck-together words (e.g., "ParkwayLife" -> "Parkway Life").
+        - Preserves all-caps words as abbreviations (e.g., "KSH", "UOB").
+        - Converts other words to title case (e.g., "hldg" -> "Hldg").
+        - Removes a comprehensive list of junk suffixes.
+        """
+        if not isinstance(name, str) or pd.isna(name):
+            return None
+
+        cleaned_name = name.strip()
+
+        # 1. Nullify invalid formats (e.g., "null" string or identifier codes)
+        if cleaned_name.lower() == 'null':
+            return None
+        if '.si,' in cleaned_name.lower() and ',' in cleaned_name.lower():
+            return None
+
+        # 2. Split CamelCase or PascalCase words (e.g., "ParkwayLife" -> "Parkway Life")
+        cleaned_name = re.sub(r'([a-z])([A-Z])', r'\1 \2', cleaned_name)
+
+        # 3. Remove a comprehensive list of suffixes (case-insensitive)
+        suffix_pattern = re.compile(
+            r'\s*('
+            r'(- watch list|USD OV|TH SDR 1to1|A\$|HK\$|GROUP|LIMITED|LTD|PLC|PCL|DRC'
+            r'|REIT|TRUST|TR|T|COM|NCCPS|SGD|USD|EUR|CNY|GBP|OV)$'
+            r')',
+            re.IGNORECASE
+        )
+        cleaned_name = suffix_pattern.sub('', cleaned_name)
+
+        # 4. Remove leading special characters or standalone letters
+        leading_pattern = re.compile(r'^\$\s*|^[acht]\s+', re.IGNORECASE)
+        cleaned_name = leading_pattern.sub('', cleaned_name)
+        
+        # 5. Apply intelligent title-casing that preserves abbreviations
+        words = cleaned_name.split()
+        processed_words = []
+        for word in words:
+            # If a word is already all-caps (likely an abbreviation), keep it.
+            if word.isupper():
+                processed_words.append(word)
+            # Otherwise, convert it to title case.
+            else:
+                processed_words.append(word.title())
+        
+        cleaned_name = " ".join(processed_words)
+
+        # 6. Final strip and check for empty result
+        cleaned_name = cleaned_name.strip()
+        return cleaned_name if cleaned_name else None
+
     for index, row in data_prep.iterrows():
         symbol = row["symbol"]
         # print(f"\n--- Processing symbol: {symbol} (row {index}) ---")
@@ -126,6 +179,10 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                         else:
                             # print(f"marketCap missing for {symbol}")
                             data_prep.at[index, col] = np.nan
+
+                    elif col == "short_name":
+                        cleaned_value = clean_short_name(raw_val)
+                        data_prep.at[index, col] = cleaned_value
 
                     elif col == "ocf":
                         ocf_val = raw_val
@@ -920,7 +977,7 @@ if __name__ == "__main__":
         db = "klse_companies" if args.malaysia else "sgx_companies"
         if args.singapore:
             data_db = supabase.table(db).select("*").eq("is_active", True).execute()
-            # data_db = supabase.table(db).select("*").eq("is_active", True).limit(50).execute()
+            # data_db = supabase.table(db).select("*").eq("is_active", True).limit(200).execute()
         else:
             data_db = supabase.table(db).select("*").execute()
         # data_db = supabase.table(db).select("*").eq("is_active", True).limit(50).execute()
