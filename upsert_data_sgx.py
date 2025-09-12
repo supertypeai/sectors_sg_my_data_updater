@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 # Symbols to never deactivate (always keep active)
-EXEMPT_SYMBOLS = {'TCPD', 'C70', 'TPED', 'TATD','XZB','CWCU','N33','42D','M12','PJX'}
+EXEMPT_SYMBOLS = {'TCPD', 'C70', 'TPED', 'TATD','XZB','CWCU','N33','42D','M12','PJX','SO7'}
 
 # Statistics collector
 stats = {
@@ -16,7 +16,9 @@ stats = {
     'upsert_errors': 0,
     'deactivated': 0,
     'activated_exempt': 0,
-    'skipped_exempt_deactivate': 0
+    'skipped_exempt_deactivate': 0,
+    # REVISION: Added new stat to track skipping inactive exempt symbols
+    'skipped_exempt_inactive': 0
 }
 
 # Sub-sector overrides to clean up labels
@@ -77,11 +79,16 @@ def fetch_existing_rows(supabase: Client, table: str) -> dict:
 def upsert_entries(supabase: Client, table: str, entries: list, existing_rows: dict):
     for entry in entries:
         symbol = entry['symbol']
-        if symbol in EXEMPT_SYMBOLS:
-            stats['skipped_no_change'] += 1 # Or a new stat like 'skipped_exempt_update'
-            continue
-
         existing = existing_rows.get(symbol)
+
+        # REVISION START: This block is revised to handle the new exception.
+        # Instead of skipping all exempt symbols, we now only skip an exempt symbol
+        # if it already exists in the database and is currently deactivated.
+        # This prevents the script from re-activating it.
+        if symbol in EXEMPT_SYMBOLS and existing and existing.get('is_active') is False:
+            stats['skipped_exempt_inactive'] += 1
+            continue
+        # REVISION END
 
         # Determine investing_symbol: use existing value if present, otherwise default to symbol
         current_inv = existing.get('investing_symbol') if existing else None
