@@ -39,30 +39,30 @@ def safe_relative_diff(num1: float, num2: float):
     return (num1 / num2) - 1
 
 
-def GetGeneralData(country):
-    if country == "sg":
-        # url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=36&filter-domain=&page=0&page-size=1000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
-        url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=36&filter-domain=&page=0&page-size=1000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
-    elif country == "my":
-        url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=42&filter-domain=&page=0&page-size=2000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
-    data_from_api = None
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req) as response:
-        html = response.read()
+# def GetGeneralData(country):
+#     if country == "sg":
+#         # url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=36&filter-domain=&page=0&page-size=1000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
+#         url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=36&filter-domain=&page=0&page-size=1000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
+#     elif country == "my":
+#         url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/default?fields-list=id%2Cname%2Csymbol%2CisCFD%2Chigh%2Clow%2Clast%2ClastPairDecimal%2Cchange%2CchangePercent%2Cvolume%2Ctime%2CisOpen%2Curl%2Cflag%2CcountryNameTranslated%2CexchangeId%2CperformanceYtd%2CperformanceYear%2Cperformance3Year%2CtechnicalHour%2CtechnicalDay%2CtechnicalWeek%2CtechnicalMonth%2CavgVolume%2CfundamentalMarketCap%2CfundamentalRevenue%2CfundamentalRatio%2CfundamentalBeta%2CpairType&country-id=42&filter-domain=&page=0&page-size=2000&limit=0&include-additional-indices=false&include-major-indices=false&include-other-indices=false&include-primary-sectors=false&include-market-overview=false"
+#     headers = {
+#         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
+#     data_from_api = None
+#     req = urllib.request.Request(url, headers=headers)
+#     with urllib.request.urlopen(req) as response:
+#         html = response.read()
 
-    data_from_api = json.loads(html)
-    data_from_api = pd.DataFrame(data_from_api["data"])
+#     data_from_api = json.loads(html)
+#     data_from_api = pd.DataFrame(data_from_api["data"])
 
-    # for i in range(10):
-    #     response = requests.get(url, headers=headers)
+#     # for i in range(10):
+#     #     response = requests.get(url, headers=headers)
 
-    #     if response.status_code == 200:
-    #         json_data = response.json()
-    #         data_from_api = pd.DataFrame(json_data["data"])
-    #         break
-    return data_from_api
+#     #     if response.status_code == 200:
+#     #         json_data = response.json()
+#     #         data_from_api = pd.DataFrame(json_data["data"])
+#     #         break
+#     return data_from_api
 
 
 def yf_data_updater(data_prep: pd.DataFrame, country):
@@ -724,157 +724,157 @@ def convert_to_number(x):
         return np.nan
 
 
-def rename_and_convert(data, period):
-    if period == "monthly":
-        rename_cols = {
-            'Name': 'name',
-            'Symbol': 'investing_symbol',
-            'currency': 'currency',
-            'Sector': 'sector',
-            'Industry': 'industry',
-            'Employees': 'employee_num',
-            'Last': 'close',
-            'ChgPct': 'percentage_change',
-            'FundamentalMarketCap': 'market_cap',
-            'Volume_x': 'volume',
-            'FundamentalRatio': 'pe',
-            'FundamentalRevenue': 'revenue',
-            'EPS': 'eps',
-            'FundamentalBeta': 'beta',
-            'dividend': 'dividend',
-            'dividend_yield': 'dividend_yield',
-            'TechnicalDay': 'daily_signal',
-            'TechnicalWeek': 'weekly_signal',
-            'TechnicalMonth': 'monthly_signal',
-            'PerformanceYtd': 'ytd_percentage_change',
-            'PerformanceYear': 'one_year_percentage_change',
-            'Performance3Year': 'three_year_percentage_change',
-            'P/E Ratio TTM': 'pe_ttm',
-            'Price to Sales TTM': 'ps_ttm',
-            'Price to Cash Flow MRQ': 'pcf',
-            'Price to Free Cash Flow TTM': 'pcf_ttm',
-            'Price to Book MRQ': 'pb',
-            '5 Year EPS Growth 5YA': 'five_year_eps_growth',
-            '5 Year Sales Growth 5YA': 'five_year_sales_growth',
-            '5 Year Capital Spending Growth 5YA': 'five_year_capital_spending_growth',
-            'Asset Turnover TTM': 'asset_turnover',
-            'Inventory Turnover TTM': 'inventory_turnover_ttm',
-            'Receivable Turnover TTM': 'receivable_turnover',
-            'Gross margin TTM': 'gross_margin',
-            'Operating margin TTM': 'operating_margin',
-            'Net Profit margin TTM': 'net_profit_margin',
-            'Quick Ratio MRQ': 'quick_ratio',
-            'Current Ratio MRQ': 'current_ratio',
-            'Total Debt to Equity MRQ': 'debt_to_equity',
-            'Dividend Yield 5 Year Avg. 5YA': 'five_year_dividend_average',
-            'Dividend Growth Rate ANN': 'dividend_growth_rate',
-            'Payout Ratio TTM': 'payout_ratio'
-        }
-        cleaned_data = data[rename_cols.keys()].rename(rename_cols, axis=1)
+# def rename_and_convert(data, period):
+#     if period == "monthly":
+#         rename_cols = {
+#             'Name': 'name',
+#             'Symbol': 'investing_symbol',
+#             'currency': 'currency',
+#             'Sector': 'sector',
+#             'Industry': 'industry',
+#             'Employees': 'employee_num',
+#             'Last': 'close',
+#             'ChgPct': 'percentage_change',
+#             'FundamentalMarketCap': 'market_cap',
+#             'Volume_x': 'volume',
+#             'FundamentalRatio': 'pe',
+#             'FundamentalRevenue': 'revenue',
+#             'EPS': 'eps',
+#             'FundamentalBeta': 'beta',
+#             'dividend': 'dividend',
+#             'dividend_yield': 'dividend_yield',
+#             'TechnicalDay': 'daily_signal',
+#             'TechnicalWeek': 'weekly_signal',
+#             'TechnicalMonth': 'monthly_signal',
+#             'PerformanceYtd': 'ytd_percentage_change',
+#             'PerformanceYear': 'one_year_percentage_change',
+#             'Performance3Year': 'three_year_percentage_change',
+#             'P/E Ratio TTM': 'pe_ttm',
+#             'Price to Sales TTM': 'ps_ttm',
+#             'Price to Cash Flow MRQ': 'pcf',
+#             'Price to Free Cash Flow TTM': 'pcf_ttm',
+#             'Price to Book MRQ': 'pb',
+#             '5 Year EPS Growth 5YA': 'five_year_eps_growth',
+#             '5 Year Sales Growth 5YA': 'five_year_sales_growth',
+#             '5 Year Capital Spending Growth 5YA': 'five_year_capital_spending_growth',
+#             'Asset Turnover TTM': 'asset_turnover',
+#             'Inventory Turnover TTM': 'inventory_turnover_ttm',
+#             'Receivable Turnover TTM': 'receivable_turnover',
+#             'Gross margin TTM': 'gross_margin',
+#             'Operating margin TTM': 'operating_margin',
+#             'Net Profit margin TTM': 'net_profit_margin',
+#             'Quick Ratio MRQ': 'quick_ratio',
+#             'Current Ratio MRQ': 'current_ratio',
+#             'Total Debt to Equity MRQ': 'debt_to_equity',
+#             'Dividend Yield 5 Year Avg. 5YA': 'five_year_dividend_average',
+#             'Dividend Growth Rate ANN': 'dividend_growth_rate',
+#             'Payout Ratio TTM': 'payout_ratio'
+#         }
+#         cleaned_data = data[rename_cols.keys()].rename(rename_cols, axis=1)
 
-        cleaned_data.replace(['-', 'N/A'], np.nan, inplace=True)
-        cleaned_data['revenue'] = cleaned_data['revenue'].apply(convert_to_number)
-        cleaned_data['market_cap'] = cleaned_data['market_cap'].apply(convert_to_number)
-        return cleaned_data
+#         cleaned_data.replace(['-', 'N/A'], np.nan, inplace=True)
+#         cleaned_data['revenue'] = cleaned_data['revenue'].apply(convert_to_number)
+#         cleaned_data['market_cap'] = cleaned_data['market_cap'].apply(convert_to_number)
+#         return cleaned_data
 
-    elif period == "daily":
-        rename_cols = {
-            'Symbol': 'investing_symbol',
-            'Last': 'close',
-            'ChgPct': 'percentage_change',
-            'FundamentalMarketCap': 'market_cap',
-            'Volume': 'volume',
-            'FundamentalRatio': 'pe',
-            'FundamentalRevenue': 'revenue',
-            'FundamentalBeta': 'beta',
-            'TechnicalDay': 'daily_signal',
-            'TechnicalWeek': 'weekly_signal',
-            'TechnicalMonth': 'monthly_signal'
-        }
-        cleaned_data = data[rename_cols.keys()].rename(rename_cols, axis=1)
+#     elif period == "daily":
+#         rename_cols = {
+#             'Symbol': 'investing_symbol',
+#             'Last': 'close',
+#             'ChgPct': 'percentage_change',
+#             'FundamentalMarketCap': 'market_cap',
+#             'Volume': 'volume',
+#             'FundamentalRatio': 'pe',
+#             'FundamentalRevenue': 'revenue',
+#             'FundamentalBeta': 'beta',
+#             'TechnicalDay': 'daily_signal',
+#             'TechnicalWeek': 'weekly_signal',
+#             'TechnicalMonth': 'monthly_signal'
+#         }
+#         cleaned_data = data[rename_cols.keys()].rename(rename_cols, axis=1)
 
-        cleaned_data.replace(['-', 'N/A'], np.nan, inplace=True)
-        cleaned_data['revenue'] = cleaned_data['revenue'].apply(convert_to_number)
-        cleaned_data['market_cap'] = cleaned_data['market_cap'].apply(convert_to_number)
-        return cleaned_data
-
-
-def clean_daily_foreign_data(foreign_daily_data):
-    """
-    SGX/KLSE Daily Data Fetching Cleansing.
-
-    Parameters:
-    - foreign_daily_data: dataframe, KLSE/SGX daily data from investing.com api hit
-
-    Returns:
-    - foreign_daily_data: dataframe, Cleaned KLSE/SGX daily data
-    """
-
-    # Replace '-' data with ''
-    foreign_daily_data = foreign_daily_data.replace('-', np.nan)
-
-    # Remove percentage and change data to decimal
-    # for i in ['ytd', 'one_year', 'three_year']:
-    #     foreign_daily_data[f"{i}_percentage_change"] = foreign_daily_data[f"{i}_percentage_change"] / 100
-
-    #     # Rename columns
-    # foreign_daily_data.rename(columns={"ytd_percentage_change": "change_ytd",
-    #                                    "one_year_percentage_change": "change_1y",
-    #                                    "three_year_percentage_change": "change_3y"}, inplace=True)
-
-    # Delete redundant percentage change columns
-    foreign_daily_data.drop(["percentage_change", "close"], axis=1, inplace=True)
-
-    # Change data type to float
-    float_columns = ['market_cap', 'volume', 'pe', 'revenue', 'beta']
-
-    foreign_daily_data[float_columns] = foreign_daily_data[float_columns].applymap(
-        lambda x: float(str(x).replace(',', '')))
-
-    return foreign_daily_data
+#         cleaned_data.replace(['-', 'N/A'], np.nan, inplace=True)
+#         cleaned_data['revenue'] = cleaned_data['revenue'].apply(convert_to_number)
+#         cleaned_data['market_cap'] = cleaned_data['market_cap'].apply(convert_to_number)
+#         return cleaned_data
 
 
-def clean_periodic_foreign_data(foreign_periodic_data, foreign_sectors):
-    """
-    SGX/KLSE Periodic Data Fetching Cleansing.
+# def clean_daily_foreign_data(foreign_daily_data):
+#     """
+#     SGX/KLSE Daily Data Fetching Cleansing.
 
-    Parameters:
-    - foreign_periodic_data: dataframe, periodic data from investing.com data scraping using request
-    - foreign_sectors: dataframe, KLSE/SGX sectors mapping to IDX sectors
+#     Parameters:
+#     - foreign_daily_data: dataframe, KLSE/SGX daily data from investing.com api hit
 
-    Returns:
-    - foreign_periodic_data: dataframe, Cleaned KLSE/SGX periodic data
-    """
+#     Returns:
+#     - foreign_daily_data: dataframe, Cleaned KLSE/SGX daily data
+#     """
 
-    # Replace '-' data with ''
-    foreign_periodic_data = foreign_periodic_data.replace('-', np.nan)
+#     # Replace '-' data with ''
+#     foreign_daily_data = foreign_daily_data.replace('-', np.nan)
 
-    foreign_periodic_data['dividend_yield'] = foreign_periodic_data['dividend_yield'].apply(
-        lambda x: float(x.strip('%')) / 100 if pd.notnull(x) else np.nan)
+#     # Remove percentage and change data to decimal
+#     # for i in ['ytd', 'one_year', 'three_year']:
+#     #     foreign_daily_data[f"{i}_percentage_change"] = foreign_daily_data[f"{i}_percentage_change"] / 100
 
-    for i in ["gross_margin", "operating_margin", 'net_profit_margin', "debt_to_equity", "five_year_dividend_average",
-              'dividend_growth_rate', "payout_ratio", "five_year_eps_growth", "five_year_sales_growth",
-              "five_year_capital_spending_growth"]:
-        foreign_periodic_data[i] = foreign_periodic_data[i].apply(
-            lambda x: float(x.replace('%', '').replace(',', '')) / 100 if pd.notnull(x) else np.nan)
+#     #     # Rename columns
+#     # foreign_daily_data.rename(columns={"ytd_percentage_change": "change_ytd",
+#     #                                    "one_year_percentage_change": "change_1y",
+#     #                                    "three_year_percentage_change": "change_3y"}, inplace=True)
 
-    foreign_periodic_data.rename(columns={"five_year_dividend_average": "dividend_yield_5y_avg"}, inplace=True)
+#     # Delete redundant percentage change columns
+#     foreign_daily_data.drop(["percentage_change", "close"], axis=1, inplace=True)
 
-    float_columns = ['eps', 'dividend', 'dividend_yield', 'pe_ttm', 'ps_ttm', 'pcf', 'pcf_ttm', 'pb',
-                     'five_year_eps_growth',
-                     'five_year_sales_growth', 'five_year_capital_spending_growth',
-                     'asset_turnover', 'inventory_turnover_ttm', 'receivable_turnover',
-                     'gross_margin', 'operating_margin', 'net_profit_margin', 'quick_ratio',
-                     'current_ratio', 'debt_to_equity', 'dividend_yield_5y_avg',
-                     'dividend_growth_rate', 'payout_ratio']
+#     # Change data type to float
+#     float_columns = ['market_cap', 'volume', 'pe', 'revenue', 'beta']
 
-    foreign_periodic_data[float_columns] = foreign_periodic_data[float_columns].applymap(
-        lambda x: float(str(x).replace(',', '')))
+#     foreign_daily_data[float_columns] = foreign_daily_data[float_columns].applymap(
+#         lambda x: float(str(x).replace(',', '')))
 
-    foreign_periodic_data = foreign_periodic_data.merge(foreign_sectors, on=["sector", 'industry']).drop(
-        ["sector", 'industry'], axis=1).rename(columns={"sectors_id": "sector", "sub_sector_id": "sub_sector"})
+#     return foreign_daily_data
 
-    return foreign_periodic_data
+
+# def clean_periodic_foreign_data(foreign_periodic_data, foreign_sectors):
+#     """
+#     SGX/KLSE Periodic Data Fetching Cleansing.
+
+#     Parameters:
+#     - foreign_periodic_data: dataframe, periodic data from investing.com data scraping using request
+#     - foreign_sectors: dataframe, KLSE/SGX sectors mapping to IDX sectors
+
+#     Returns:
+#     - foreign_periodic_data: dataframe, Cleaned KLSE/SGX periodic data
+#     """
+
+#     # Replace '-' data with ''
+#     foreign_periodic_data = foreign_periodic_data.replace('-', np.nan)
+
+#     foreign_periodic_data['dividend_yield'] = foreign_periodic_data['dividend_yield'].apply(
+#         lambda x: float(x.strip('%')) / 100 if pd.notnull(x) else np.nan)
+
+#     for i in ["gross_margin", "operating_margin", 'net_profit_margin', "debt_to_equity", "five_year_dividend_average",
+#               'dividend_growth_rate', "payout_ratio", "five_year_eps_growth", "five_year_sales_growth",
+#               "five_year_capital_spending_growth"]:
+#         foreign_periodic_data[i] = foreign_periodic_data[i].apply(
+#             lambda x: float(x.replace('%', '').replace(',', '')) / 100 if pd.notnull(x) else np.nan)
+
+#     foreign_periodic_data.rename(columns={"five_year_dividend_average": "dividend_yield_5y_avg"}, inplace=True)
+
+#     float_columns = ['eps', 'dividend', 'dividend_yield', 'pe_ttm', 'ps_ttm', 'pcf', 'pcf_ttm', 'pb',
+#                      'five_year_eps_growth',
+#                      'five_year_sales_growth', 'five_year_capital_spending_growth',
+#                      'asset_turnover', 'inventory_turnover_ttm', 'receivable_turnover',
+#                      'gross_margin', 'operating_margin', 'net_profit_margin', 'quick_ratio',
+#                      'current_ratio', 'debt_to_equity', 'dividend_yield_5y_avg',
+#                      'dividend_growth_rate', 'payout_ratio']
+
+#     foreign_periodic_data[float_columns] = foreign_periodic_data[float_columns].applymap(
+#         lambda x: float(str(x).replace(',', '')))
+
+#     foreign_periodic_data = foreign_periodic_data.merge(foreign_sectors, on=["sector", 'industry']).drop(
+#         ["sector", 'industry'], axis=1).rename(columns={"sectors_id": "sector", "sub_sector_id": "sub_sector"})
+
+#     return foreign_periodic_data
 
 def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.DataFrame:
     """
@@ -923,7 +923,7 @@ if __name__ == "__main__":
     parser.add_argument("-my", "--malaysia", action="store_true", default=False, help="Update malaysia data")
     parser.add_argument("-d", "--daily", action="store_true", default=False, help="Update daily data")
     parser.add_argument("-m", "--monthly", action="store_true", default=False, help="Update monthly data")
-    parser.add_argument("-w", "--weekly", action="store_true", default=False, help="Update weekly data")
+    # parser.add_argument("-w", "--weekly", action="store_true", default=False, help="Update weekly data")
 
     args = parser.parse_args()
     if args.singapore and args.malaysia:
@@ -951,28 +951,28 @@ if __name__ == "__main__":
         data_db = supabase.table(db).select("*").execute()
         data_db = pd.DataFrame(data_db.data)
         data_final = employee_updater(data_db, country)
-    elif args.weekly:
-        data_general = GetGeneralData(country)
-        data_general = rename_and_convert(data_general, "daily")
-        data_general = clean_daily_foreign_data(data_general)
-        # print("\nStep 3: After clean_daily_foreign_data:")
-        # print(data_general.head())
-        # print("Columns in data_general after clean_daily_foreign_data:", data_general.columns.tolist())
-        db = "klse_companies" if args.malaysia else "sgx_companies"
-        data_db = supabase.table(db).select("*").execute()
-        data_db = pd.DataFrame(data_db.data)
-        drop_cols = ['market_cap', 'volume', 'pe',
-                     'revenue', 'beta', 'weekly_signal',
-                     'monthly_signal', 'change_ytd', 'change_1y', 'change_3y']
-        data_db.drop(drop_cols, axis=1, inplace=True)
-        data_final = pd.merge(data_general, data_db, on="investing_symbol", how="inner")
-        data_final = data_final.drop(
-            ["revenue", 'dividend_ttm', 'forward_dividend', 'forward_dividend_yield', 'net_profit_margin',
-             "operating_margin", "gross_margin", "quick_ratio", "current_ratio", "debt_to_equity", "payout_ratio",
-             "eps"], axis=1)
-        # print("\nStep 10: data_final after dropping additional columns:")
-        # print(data_final.head())
-        # print("Columns in data_final after final drop:", data_final.columns.tolist())
+    # elif args.weekly:
+    #     data_general = GetGeneralData(country)
+    #     data_general = rename_and_convert(data_general, "daily")
+    #     data_general = clean_daily_foreign_data(data_general)
+    #     # print("\nStep 3: After clean_daily_foreign_data:")
+    #     # print(data_general.head())
+    #     # print("Columns in data_general after clean_daily_foreign_data:", data_general.columns.tolist())
+    #     db = "klse_companies" if args.malaysia else "sgx_companies"
+    #     data_db = supabase.table(db).select("*").execute()
+    #     data_db = pd.DataFrame(data_db.data)
+    #     drop_cols = ['market_cap', 'volume', 'pe',
+    #                  'revenue', 'beta', 'weekly_signal',
+    #                  'monthly_signal', 'change_ytd', 'change_1y', 'change_3y']
+    #     data_db.drop(drop_cols, axis=1, inplace=True)
+    #     data_final = pd.merge(data_general, data_db, on="investing_symbol", how="inner")
+    #     data_final = data_final.drop(
+    #         ["revenue", 'dividend_ttm', 'forward_dividend', 'forward_dividend_yield', 'net_profit_margin',
+    #          "operating_margin", "gross_margin", "quick_ratio", "current_ratio", "debt_to_equity", "payout_ratio",
+    #          "eps"], axis=1)
+    #     # print("\nStep 10: data_final after dropping additional columns:")
+    #     # print(data_final.head())
+    #     # print("Columns in data_final after final drop:", data_final.columns.tolist())
     elif args.daily:
         db = "klse_companies" if args.malaysia else "sgx_companies"
         if args.singapore:
