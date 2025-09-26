@@ -933,9 +933,34 @@ if __name__ == "__main__":
         print("Error: Please specify either -d or -m, not both.")
         raise SystemExit(1)
 
-    url_currency = 'https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json'
-    response = requests.get(url_currency)
-    data = response.json()
+    # url_currency = 'https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json'
+    # response = requests.get(url_currency)
+    # data = response.json()
+
+    country = "my" if args.malaysia else "sg"
+
+    if country == "sg":
+        # For Singapore, first TRY to use the local compact_rates.json file.
+        print("Attempting to use local compact_rates.json for SGX...")
+        try:
+            with open('compact_rates.json', 'r') as f:
+                data = json.load(f)
+            print("...Success! Loaded conversion rates from local compact_rates.json file.")
+        except Exception as e:
+            # If it fails for ANY reason (e.g., FileNotFoundError, json.JSONDecodeError),
+            # fall back to using the current rates from the live URL.
+            print(f"...Warning: Could not load local file due to an error ({e}).")
+            print("...Falling back to fetching current rates from the live URL.")
+            url_currency = 'https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json'
+            response = requests.get(url_currency)
+            data = response.json()
+            print("...Successfully fetched current rates from URL as a fallback.")
+    else:
+        # For Malaysia (KLSE), always use the current conversion rate from the URL.
+        print("Fetching current conversion rates from URL for KLSE data.")
+        url_currency = 'https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json'
+        response = requests.get(url_currency)
+        data = response.json()
 
     url_supabase = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_KEY")
@@ -1002,8 +1027,6 @@ if __name__ == "__main__":
     data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]
     data_final.to_csv("data_my.csv", index=False) if args.malaysia else data_final.to_csv("data_sg.csv", index=False)
     
-    # --- BEFORE CLEANING ---
-    print("\n--- [DEBUG STEP 1: BEFORE CLEANING] Checking for records with NaN values ---")
     records_before_cleaning = data_final.to_dict("records")
     problematic_records_before = []
     for record in records_before_cleaning:
@@ -1014,33 +1037,18 @@ if __name__ == "__main__":
             problematic_records_before.append(record)
 
     if problematic_records_before:
-        # print(f"  - FOUND {len(problematic_records_before)} records with NaN values before cleaning. Example:")
-        # Print the first problematic record found
         bad_record = problematic_records_before[0]
-        # print(f"\n--- Problematic Record (Symbol: {bad_record.get('symbol', 'N/A')}) BEFORE CLEANING ---")
-        # Use json.dumps with `allow_nan=True` to be able to print the structure containing 'NaN'
-        # print(json.dumps(bad_record, indent=2, allow_nan=True, default=str))
 
-    # --- APPLY CLEANING LOGIC ---
-    # print("\n--- [STEP 2: APPLYING CLEANING LOGIC] ---")
-    # First, handle top-level NaNs
     data_final.replace({np.nan: None}, inplace=True)
-    # print("  - Applied top-level NaN replacement.")
 
     # These columns can contain nested structures (lists of dicts) with NaNs.
     json_like_cols = ['close', 'historical_dividends', 'all_time_price']
     for col in json_like_cols:
         if col in data_final.columns:
-            # print(f"  - Applying recursive NaN cleaning to nested data in column: '{col}'")
-            # The .apply() method with the recursive function cleans NaNs inside these nested structures.
             data_final[col] = data_final[col].apply(recursively_clean_nans)
             
-    # --- AFTER CLEANING ---
-    # print("\n--- [STEP 3: PREPARING FOR UPSERT] Converting DataFrame to records ---")
     records = data_final.to_dict("records")
-    # print(f"  - Converted {len(records)} rows to a list of dictionaries.")
 
-    # print("\n--- [DEBUG STEP 4: AFTER CLEANING] Verifying all records for any remaining NaN values ---")
     found_error_after_cleaning = False
     for record in records:
         try:

@@ -15,8 +15,8 @@ warnings.filterwarnings('ignore')
 import time
 from random import uniform
 
-resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
-resp = resp.json()
+# resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json')
+# resp = resp.json()
 # print("resp: ", resp)
 
 def fetch_existing_symbol(country,supabase):
@@ -61,7 +61,7 @@ def upsert_db(update_data, supabase, country):
         print(f"Finish updating data for column {i}")
 
 # Dividend TTM Function
-def fetch_div_ttm(stock, currency, symbol, curr):
+def fetch_div_ttm(stock, currency, symbol, curr,resp):
     try:
         # print(f"Processing stock: {stock}")
         
@@ -112,7 +112,7 @@ def fetch_div_ttm(stock, currency, symbol, curr):
 
     return div_ttm
 
-def update_div_ttm(country, country_data, supabase):
+def update_div_ttm(country, country_data, supabase, resp):
     div_ttm = pd.DataFrame()
     base_delay = 2  # Base delay in seconds
     max_delay = 60  # Maximum delay in seconds
@@ -141,7 +141,7 @@ def update_div_ttm(country, country_data, supabase):
         while not success and retry_count < max_retries:
             try:
                 # print(f"Attempt {retry_count + 1} for fetching data for {stock}")
-                data = fetch_div_ttm(stock, curr, symbol, curr)
+                data = fetch_div_ttm(stock, curr, symbol, curr,resp)
                 # print(f"Fetched data for {stock}: {data}")
 
                 # Append the fetched data to the main DataFrame
@@ -180,7 +180,7 @@ def update_div_ttm(country, country_data, supabase):
     upsert_db(div_ttm, supabase, country)
     # print("Data upsert completed.")
 
-def earnings_fetcher(ticker, currency, stock, country):
+def earnings_fetcher(ticker, currency, stock, country,resp):
 
     # --- Helper: get currency from ticker info ---
     def get_data_currency(ticker, stock, country):
@@ -289,7 +289,7 @@ def earnings_fetcher(ticker, currency, stock, country):
 
     return net_income_json, revenue_json, last_financial
 
-def update_historical_data(country, country_data, supabase):
+def update_historical_data(country, country_data, supabase,resp):
     df_earnings = pd.DataFrame()
 
     for stock in country_data.symbol.unique():
@@ -298,7 +298,7 @@ def update_historical_data(country, country_data, supabase):
 
         currency = "SGD" if country == "SG" else "MYR"
 
-        net_income,revenue, last_data = earnings_fetcher(ticker,currency, stock, country)
+        net_income,revenue, last_data = earnings_fetcher(ticker,currency, stock, country,resp)
 
         if type(last_data) == float:
             last_data = pd.DataFrame(data={'symbol':np.nan, "period": np.nan,'earnings':np.nan,'revenue':np.nan}, index=[0])
@@ -320,7 +320,7 @@ def update_historical_data(country, country_data, supabase):
     upsert_db(df_earnings,supabase,country)
 
 
-def fetch_highlight_data(stock, currency, country_code):
+def fetch_highlight_data(stock, currency, country_code,resp):
     row_list = [stock]
 
     ticker = yf.Ticker(f"{stock}.{country_code}")
@@ -419,7 +419,7 @@ def fetch_highlight_data(stock, currency, country_code):
 
     return data
 
-def update_financial_data(country, country_data, supabase):
+def update_financial_data(country, country_data, supabase,resp):
     highlight_data = pd.DataFrame()
     # print("Initializing empty DataFrame for financial data.")
 
@@ -443,7 +443,7 @@ def update_financial_data(country, country_data, supabase):
         # print(f"Start fetching data for stock: {stock}")
         
         try:
-            data = fetch_highlight_data(stock, curr, symbol)
+            data = fetch_highlight_data(stock, curr, symbol,resp)
             # print(f"Fetched data for {stock}:\n{data}")
         except Exception as e:
             # print(f"Error fetching data for {stock}: {e}")
@@ -475,6 +475,24 @@ def main():
     
     if args.fetch_type not in ['weekly','monthly', 'historical']:
         raise ValueError("Please Specify Fetch Type Between weekly, monthly, and historical")
+        
+    # --- ADD CONDITIONAL LOADING LOGIC WITH FALLBACK ---
+    if args.country == "SG":
+        # For Singapore, first TRY to use the local compact_rates.json file.
+        print("Attempting to use local compact_rates.json for SGX...")
+        try:
+            with open('compact_rates.json', 'r') as f:
+                resp = json.load(f)
+            print("...Success! Loaded conversion rates from local file.")
+        except Exception as e:
+            # If it fails, fall back to using the live URL.
+            print(f"...Warning: Could not load local file ({e}). Falling back to live URL.")
+            resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json').json()
+            print("...Successfully fetched current rates from URL as a fallback.")
+    else: # This will run for 'MY'
+        # For Malaysia (KLSE), always use the current conversion rate from the URL.
+        print("Fetching current conversion rates from URL for KLSE data.")
+        resp = requests.get('https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json').json()
     
     # Specify DB Credentials
     load_dotenv()
@@ -486,11 +504,11 @@ def main():
     country_data = fetch_existing_symbol(args.country,supabase)
 
     if args.fetch_type == "weekly":
-        update_div_ttm(args.country,country_data,supabase)
+        update_div_ttm(args.country,country_data,supabase,resp)
     elif args.fetch_type == "monthly":
-        update_financial_data(args.country,country_data,supabase)
+        update_financial_data(args.country,country_data,supabase,resp)
     elif args.fetch_type == "historical":
-        update_historical_data(args.country, country_data, supabase)
+        update_historical_data(args.country, country_data, supabase,resp)
 
 if __name__ == "__main__":
     main()
