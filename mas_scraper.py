@@ -4,7 +4,7 @@ import json
 import time
 import sys
 import os # Imported for file operations (replace, remove)
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Dict, Any
 
 # ==============================================================================
@@ -46,9 +46,9 @@ STATIC_CHECKBOXES = {
 
 def compute_start_end(mode: str = "latest_month", n_months: int = 1):
     """Return (start_year, start_month, end_year, end_month) as strings."""
-    today = date.today()
-    end_year = today.year
-    end_month = today.month
+    yesterday = date.today() - timedelta(days=1) # <-- REVISED: Use d-1 date
+    end_year = yesterday.year
+    end_month = yesterday.month
 
     if mode == "latest_month":
         start_year, start_month = end_year, end_month
@@ -59,8 +59,8 @@ def compute_start_end(mode: str = "latest_month", n_months: int = 1):
     elif mode == "last_n_months":
         if n_months < 1:
             n_months = 1
-        total_months = end_year * 12 + (end_month - 1)
-        start_total_months = total_months - (n_months - 1)
+        total_months_yesterday = end_year * 12 + (end_month - 1)
+        start_total_months = total_months_yesterday - (n_months - 1)
         start_year = start_total_months // 12
         start_month = (start_total_months % 12) + 1
     else:
