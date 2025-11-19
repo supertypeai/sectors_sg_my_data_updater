@@ -1013,8 +1013,9 @@ if __name__ == "__main__":
         data_db.drop(drop_cols, axis=1, inplace=True, errors='ignore')
         data_final = yf_data_updater(data_db, country)
         data_final = update_change_data(data_final, country)
-        data_final = update_close_history_data(data_final, country)
         data_final = update_dividend_growth_rate(data_final, country)
+        if not args.singapore:
+            data_final = update_close_history_data(data_final, country)
         
         if args.singapore:
             data_final = update_historical_dividends(data_final, country)

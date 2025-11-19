@@ -1,0 +1,41 @@
+name: Update SGX Daily Data
+
+on:
+  # Triggers the workflow to run on a schedule.
+  schedule:
+    - cron: "0 18 * * *"
+
+  workflow_dispatch:
+
+jobs:
+  # A single job in this workflow, you can name it anything descriptive.
+  update-sgx-data:
+    # Specifies that the job will run on the latest version of an Ubuntu Linux runner.
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out your repository code
+      # This action checks out your repository onto the runner, so your script is available to be run.
+      - name: Checkout repository content
+        uses: actions/checkout@v4
+
+      # Step 2: Set up the Python environment
+      # This action sets up a specific version of Python.
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10" # You can change this to match your preferred Python version.
+
+      # Step 3: Install Python dependencies
+      # Reads the requirements.txt file and installs the necessary packages using pip.
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Step 4: Run the SGX Daily Data Scraper
+      # This is the main step that executes your Python script.
+      - name: Run SGX Daily Data Scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python sgx_daily_data_scraper.py --mode daily
