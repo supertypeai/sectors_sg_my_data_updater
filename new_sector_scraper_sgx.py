@@ -23,6 +23,18 @@ SNAPSHOT_API_URL = (
     "?params=companyName,stockCode,sectorName,industryName,reportingCurrency,tradedCurrency"
 )
 
+sector_mapping = {
+    "Industrial & Commercial Services": "Industrials",
+    "Industrial Goods": "Industrials",
+    "Industrial Services": "Industrials",
+    "Transportation": "Industrials",
+    "Retailers": "Consumer Cyclical",
+    "Cyclical Consumer Services": "Consumer Cyclical",
+    "Retail Trade": "Consumer Cyclical",
+    "Personal & Household Products & Services": "Consumer Defensive",
+    "Holding Companies": "Financial Services",
+    "Energy Minerals": "Energy"
+}
 
 def fetch_screener_symbols():
     """
@@ -59,10 +71,15 @@ def fetch_snapshot(item: dict) -> dict:
         if not records:
             raise ValueError("Empty data returned from snapshot API")
         entry = records[0]
+
+        sector = entry.get('sectorName')
+        # Apply mapping with fallback
+        sector = sector_mapping.get(sector, sector)
+        
         return {
             'symbol': code_full,
             'name': entry.get('companyName'),
-            'sector': entry.get('sectorName'),
+            'sector': sector,
             'sub_sector': entry.get('industryName'),
             'currency': entry.get('reportingCurrency')
         }
