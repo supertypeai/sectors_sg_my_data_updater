@@ -33,7 +33,7 @@ jobs:
           python new_sector_scraper_sgx.py
           python upsert_data_sgx.py
 
-      - name: execute scraper and upsert scripts
+      - name: execute klse scraper and upsert scripts
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
