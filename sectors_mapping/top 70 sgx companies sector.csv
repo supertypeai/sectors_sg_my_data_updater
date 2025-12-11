@@ -1,0 +1,72 @@
+symbol,name,sector,sub_sector
+TATD,Airports of Thailand PCL DRC,Infrastructures,Transportation Infrastructure
+S58,SATS Ltd,Infrastructures,Transportation Infrastructure
+S59,SIA Engineering Co Ltd,Infrastructures,Transportation Infrastructure
+C52,ComfortDelGro Corp Ltd,Infrastructures,Transportation Infrastructure
+C6L,Singapore Airlines Ltd,Transportation & Logistic,Transportation
+Z77,Singapore Telecommunications Ltd,Infrastructures,Telecommunication
+Z74,Singapore Telecommunications Ltd,Infrastructures,Telecommunication
+CJLU,NetLink NBN Trust,Infrastructures,Telecommunication
+V03,Venture Corp Ltd,Technology,Technology Hardware & Equipment
+AVP,AvePoint Inc,Technology,Technology Hardware & Equipment
+AIY,iFAST Corp Ltd,Technology,Software & IT Services
+C38U,CapitaLand Integrated Commercial Trust,REIT,REIT - Retail
+A17U,CapitaLand Ascendas REIT,REIT,REIT - Industrial
+N2IU,Mapletree Pan Asia Commercial Trust,REIT,REIT - Office
+M44U,Mapletree Logistics Trust,REIT,REIT - Industrial
+ME8U,Mapletree Industrial Trust,REIT,REIT - Industrial
+AJBU,Keppel DC REIT,REIT,REIT - Office
+J69U,Frasers Centrepoint Trust,REIT,REIT - Retail
+K71U,Keppel REIT,REIT,REIT - Office
+T82U,Suntec Real Estate Investment Trust,REIT,REIT - Diversified
+BUOU,Frasers Logistics & Commercial Trust,REIT,REIT - Industrial
+HMN,CapitaLand Ascott Trust,REIT,REIT - Diversified
+SK6U,Paragon REIT,REIT,REIT - Retail
+C2PU,Parkway Life Real Estate Investment Trust,REIT,REIT - Healthcare Facilities
+9A4U,ESR-REIT,REIT,REIT - Industrial
+J91U,ESR-REIT,REIT,REIT - Industrial
+H78,Hongkong Land Holdings Ltd,Properties & Real Estate,Properties & Real Estate
+9CI,CapitaLand Investment Ltd,Properties & Real Estate,Properties & Real Estate
+U14,UOL Group Ltd,Properties & Real Estate,Properties & Real Estate
+C09,City Developments Ltd,Properties & Real Estate,Properties & Real Estate
+U06,Singapore Land Group Ltd,Properties & Real Estate,Properties & Real Estate
+TQ5,Frasers Property Ltd,Properties & Real Estate,Properties & Real Estate
+F17,GuocoLand Ltd,Properties & Real Estate,Properties & Real Estate
+8A8,China Medical System Holdings Ltd,Healthcare,Pharmaceuticals & Health Care Research
+T14,Tianjin Pharmaceutical Da Ren Tang Group Corp Ltd,Healthcare,Pharmaceuticals & Health Care Research
+H02,Haw Par Corp Ltd,Healthcare,Pharmaceuticals & Health Care Research
+TPED,PTT Exploration Production PCL DRC,Energy,"Oil, Gas & Coal"
+5E2,Seatrium Ltd,Energy,"Oil, Gas & Coal"
+J36,Jardine Matheson Holdings Ltd,Industrials,Multi-sector Holdings
+BN4,Keppel Ltd,Industrials,Multi-sector Holdings
+C07,Jardine Cycle & Carriage Ltd,Industrials,Multi-sector Holdings
+U96,Sembcorp Industries Ltd,Industrials,Multi-sector Holdings
+G13,Genting Singapore Ltd,Consumer Cyclicals,Media & Entertainment
+M04,Mandarin Oriental International Ltd,Consumer Cyclical,Media & Entertainment
+S07,Shangri-La Asia Ltd,Consumer Cyclical,Media & Entertainment
+H15,Hotel Properties Ltd,Consumer Cyclical,Media & Entertainment
+NS8U,Hutchison Port Holdings Trust,Transportation & Logistic,Logistics & Deliveries
+P7VU,Hutchison Port Holdings Trust,Transportation & Logistic,Logistics & Deliveries
+S68,Singapore Exchange Ltd,Financials,Investment Service
+U10,UOB-Kay Hian Holdings Ltd,Financial Services,Investment Service
+K6S,Prudential PLC,Financials,Insurance
+G07,Great Eastern Holdings Ltd,Financials,Insurance
+Q0F,IHH Healthcare Bhd,Healthcare,Healthcare Equipment & Providers
+TCPD,CP All PCL DRC,Consumer Non-Cyclicals,Food & Staples Retailing
+D01,DFI Retail Group Holdings Ltd,Consumer Non-Cyclicals,Food & Staples Retailing
+OV8,Sheng Siong Group Ltd,Consumer Non-Cyclicals,Food & Staples Retailing
+F34,Wilmar International Ltd,Consumer Non-Cyclicals,Food & Beverage
+Y92,Thai Beverage PLC,Consumer Non-Cyclicals,Food & Beverage
+EMI,Emperador Inc,Consumer Non-Cyclicals,Food & Beverage
+VC2,Olam Group Ltd,Consumer Non-Cyclicals,Food & Beverage
+E5H,Golden Agri-Resources Ltd,Consumer Non-Cyclicals,Food & Beverage
+EB5,First Resources Ltd,Consumer Non-Cyclicals,Food & Beverage
+P8Z,Bumitama Agri Ltd,Consumer Non-Cyclicals,Food & Beverage
+A7RU,Keppel Infrastructure Trust,Basic Materials,Basic Materials
+D05,DBS Group Holdings Ltd,Financials,Banks
+O39,Oversea-Chinese Banking Corp Ltd,Financials,Banks
+U11,United Overseas Bank Ltd,Financials,Banks
+NIO,NIO Inc,Consumer Cyclicals,Automobiles & Components
+S63,Singapore Technologies Engineering Ltd,Industrials,Aerospace & Defense
+SO7,Yangzijiang Shipbuilding (Holdings) Ltd,Infrastructures,Heavy Constructions & Civil Engineering
+BS6,Yangzijiang Shipbuilding (Holdings) Ltd,Infrastructures,Heavy Constructions & Civil Engineering

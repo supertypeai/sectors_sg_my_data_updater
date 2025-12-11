@@ -1,9 +1,9 @@
 import os
 import json
-import time
 import requests
 import concurrent.futures
 import traceback
+import pandas as pd
 
 # Output settings
 OUTPUT_DIR = os.path.join(os.getcwd(), 'sector_data')
@@ -116,6 +116,21 @@ if __name__ == '__main__':
 
         symbols = fetch_screener_symbols()
         enriched = scrape_all(symbols)
+
+        # Add sector standardization with IDXIC
+        sgx_df = pd.read_csv("sectors_mapping/top 70 sgx companies sector.csv")
+
+        update_map = sgx_df.set_index('symbol')[['sector', 'sub_sector']].to_dict('index')
+
+        ## Iterate through the JSON data and update
+        for item in enriched:
+            symbol = item['symbol']
+            
+            # Check if the symbol exists in the update map
+            if symbol in update_map:
+                # Update the sector and sub_sector fields with the values from the DataFrame
+                item['sector'] = update_map[symbol]['sector']
+                item['sub_sector'] = update_map[symbol]['sub_sector']
 
         print(f"[STEP] Writing output JSON to {OUTPUT_JSON}")
         with open(OUTPUT_JSON, 'w', encoding='utf-8') as f:
