@@ -1,4 +1,4 @@
-name: Weekly SGX Sector & Subsector Data Update
+name: SGX & KLSE Sector & Subsector Data Update
 
 on:
   schedule:
