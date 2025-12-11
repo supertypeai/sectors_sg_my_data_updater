@@ -1,286 +1,105 @@
-from bs4 import BeautifulSoup
-import json
-import logging
+import requests
+import pandas as pd
+from supabase import create_client
+from dotenv import load_dotenv
 import os
-import time
-import urllib.request
-from requests_html import HTMLSession
 
-# Set the logging level for the 'websockets' logger
-logging.getLogger('websockets').setLevel(logging.WARNING)
+load_dotenv()
 
-# If you need to configure logging for requests-html as well
-logging.getLogger('requests_html').setLevel(logging.WARNING)
-
-
-
-# Setup Constant 
-BASE_URL = "https://my.bursamalaysia.com/stock-details?stockcode="
-USER_AGENT = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7'
-
-SYMBOL_MAP = {
-  # "HEKR" : "", # REITs
-  # "KIPR" : "", # REITs
-  # "TWRE" : "", # REITs
-  "LBSBq" : "LBSB",
-  # "PREI" : "", # REITs
-  # "YTLR" : "", # REITs
-  # "KLCC" : "", # REITs
-  # "CAMA" : "", # REITs
-  "SETIq" : "SETI",
-  "ANNJq" : "ANNJ",
-  # "ATRL" : "", # REITs
-  "YONGq" : "YONG",
-  # "UOAR" : "", # REITs
-  # "AMRY" : "", # REITs
-  # "ALQA" : "", # REITs
-  # OMHO -> Special Case, ada Sector tapi ga ada SubSector
-  # MDCH -> Special Case, ada Sector tapi ga ada SubSector
-  # "SUNW" : "", # REITs
-  # "AMFL" : "", # REITs
-  # "SENT" : "", # REITs
-  # "AXSR" : "", # REITs
-  "SWAYq" : "SWAY",
-  # "IGRE" : "", # REITs
-  # "PROL" : "", # Business Trusts
-  "PELK" : "PBSB"
-}
-
-def get_url(base_url: str, symbol: str) -> str:
-  return f"{base_url}{symbol}.KL"
-
-def read_page(url: str):
-  try:
-    headers = {'User-Agent': USER_AGENT}
-    request = urllib.request.Request(url,None,headers)
-    time.sleep(2)
-    response = urllib.request.urlopen(request).read()
-    soup = BeautifulSoup(response, 'html.parser')
-    return soup
-  
-  except Exception as e:
-    print(f"Failed to open {url}: {e}")
-    return None
-
-def read_page_session(url: str):
-  try:
-    session = HTMLSession()
-    response = session.get(url)
-    response.html.render(sleep=5, timeout=10)
-
-    soup = BeautifulSoup(response.html.html, "html.parser")
-    return soup
-  except Exception as e:
-    print(f"Failed to open {url}: {e}")
-    return None
-  finally:
-    session.close()
-    print(f"Session in {url} is closed")
-
-def scrap_stock_page(base_url: str, symbol: str, new_symbol: str):
-  url = get_url(base_url, new_symbol)
-  soup = read_page(url)
-  
-  sector = None
-  sub_sector = None
-
-  if (soup is not None):
-
-    print(f"Scraping from {url}")
-    # Get Sector
-    try:
-      sector_elm = soup.findAll("a", {"class": "stock-links"})
-      sector = sector_elm[0].get_text().strip()
-      if (len(sector_elm) > 1):
-        sub_sector = sector_elm[1].get_text().strip()
-      else:
-        sub_sector = sector
-    except:
-      print(f"Failed to get Sector and Subsector data from {url}")
-      sector = None
-      sub_sector = None
-
-    if (sector is not None and sub_sector is not None):
-      print(f"Successfully scrap from {symbol} stock page")
-    else:
-      if (sector is None):
-        print(f"Detected None type for Sector variable from {symbol} stock page")
-      if (sub_sector is None):
-        print(f"Detected None type for Sector variable from {symbol} stock page")
+# Normalize company names function
+def normalize_company_names(df: pd.DataFrame, columns_to_clean: list) -> pd.DataFrame:
+    """
+    Standardizes company suffixes, converts text to lowercase, and removes all periods (.).
+    """
     
-    stock_data = dict()
-    stock_data['investing_symbol'] = symbol
-    stock_data['sector'] = sector
-    stock_data['sub_sector'] = sub_sector
+    # Define the mapping of common suffixes to their standardized form
+    # The regex (\.|) handles both 'word' and 'word.' variations.
+    replacements = {
+        r'\bbhd\b(\.|)': 'berhad',
+        r'\bcorp\b(\.|)': 'corporation',
+        r'\bltd\b(\.|)': 'limited'
+    }
 
-    return stock_data
-  else:
-    print(f"None type of BeautifulSoup")
-    stock_data = {
-        "investing_symbol" : symbol,
-        "sector" : None,
-        "sub_sector" : None
-      }
-    return stock_data
-
-def scrap_function_my(symbol_list: list, process_idx: int):
-  print(f"==> Start scraping from process P{process_idx}")
-  all_data = []
-  cwd = os.getcwd()
-  start_idx = 0
-  count = 0
-
-  # Iterate in symbol list
-  for i in range(start_idx, len(symbol_list)):
-    attempt_count = 1
-    symbol = symbol_list[i]
-
-    if (symbol is not None):
-      scrapped_data = {
-        "investing_symbol" : symbol,
-        "sector" : None,
-        "sub_sector" : None
-      }
-
-      # Check if symbol is in symbol_list
-      if (symbol in SYMBOL_MAP):
-        new_symbol = SYMBOL_MAP[symbol]
-      else:
-        new_symbol = symbol
-
-      # Handling for page that returns None although it should not
-      while ((scrapped_data is None or (scrapped_data['sector'] is None and scrapped_data['sub_sector'] is None)) and attempt_count <= 3):
-        scrapped_data = scrap_stock_page(BASE_URL, symbol, new_symbol)
-
-        if (scrapped_data is None or (scrapped_data['sector'] is None and scrapped_data['sub_sector'] is None)):
-          print(f"Data not found! Retrying.. Attempt: {attempt_count}")
-        attempt_count += 1
-
-      all_data.append(scrapped_data)
-
-    if (i % 10 == 0 and count != 0):
-      print(f"CHECKPOINT || P{process_idx} {i} Data")
-    
-    count += 1
-  
-  # Save last
-  filename = f"P{process_idx}_data_sgx.json"
-  print(f"==> Finished data is exported in {filename}")
-  file_path = os.path.join(cwd, "data", filename)
-
-  # Save to JSON
-  with open(file_path, "w") as output_file:
-    json.dump(all_data, output_file, indent=2)
-
-  return all_data
-
-
-
-
-ADDITIONAL_BASE_URL = "https://www.tradingview.com/symbols/MYX-"
-
-ADDITIONAL_SYMBOL_MAP = {
-  "HEKR" : "HEKTAR", # REITs
-  "KIPR" : "KIPREIT", # REITs
-  "TWRE" : "TWRREIT", # REITs
-  "PREI" : "PAVREIT", # REITs
-  "YTLR" : "YTLREIT", # REITs
-  # "KLCC" : "KLCC", # REITs
-  "CAMA" : "CLMT", # REITs
-  "ATRL" : "ATRIUM", # REITs
-  "UOAR" : "UOAREIT", # REITs
-  "AMRY" : "ARREIT", # REITs
-  "ALQA" : "ALAQAR", # REITs
-  "SUNW" : "SUNREIT", # REITs
-  "AMFL" : "AMFIRST", # REITs
-  "SENT" : "SENTRAL", # REITs
-  "AXSR" : "AXREIT", # REITs
-  "IGRE" : "IGBREIT", # REITs
-  "PROL" : "PLINTAS", # Business Trusts
-}
-
-def scrap_stock_page_additional( symbol : str) -> dict :
-  if (symbol in SYMBOL_MAP):
-    new_symbol = SYMBOL_MAP[symbol]
-  else:
-    new_symbol = symbol
-  url = get_url(ADDITIONAL_BASE_URL, new_symbol)
-  soup = read_page(url)
-
-  data_dict = {
-    "investing_symbol" : symbol,
-    "sector" : None,
-    "sub_sector" : None
-  }
-
-  if (soup is not None):
-    try:
-      container = soup.find("div", {"data-container-name" : "company-info-id"})
-      needed_data = container.findAll("a")
-      sector = None
-      sub_sector = None
-      if (len(needed_data) > 1):
-        sector = needed_data[0].get_text().replace(u'\xa0', u' ').strip()
-        sub_sector = needed_data[1].get_text().replace(u'\xa0', u' ').strip()
-      else:
-        print(f"There is at least 2 data needed on {url}")
-      
-      data_dict['sector'] = sector
-      data_dict['sub_sector'] = sub_sector
-
-      return data_dict
-    except:
-      print(f"Failed to get data from {url}")
-      return data_dict
-  else:
-    print(f"Detected None type for Beautifulsoup for {url}")
-    return data_dict
-
-def scrap_null_data_my():
-  cwd = os.getcwd()
-  data_dir = os.path.join(cwd, "data")
-  data_file_path = [os.path.join(data_dir,f'P{i}_data_klse.json') for i in range(1,5)]
-
-
-  # Iterate each file
-  file_idx = 0
-  for file_path in data_file_path:
-    file_idx += 1
-
-    f = open(file_path)
-    all_data_list = json.load(f)
-    null_list = []
-
-
-    for i in range(len(all_data_list)):
-      data = all_data_list[i]
-      if (data['sector'] is None or data['sub_sector'] is None):
-        null_list.append({"idx" : i, "data" : data})
-
-    for null_data in null_list:
-      symbol = null_data['data']['investing_symbol']
-
-      attempt = 1
-      while ( attempt <= 3):
-        data_dict = scrap_stock_page_additional(symbol)
-        null_data['data'] = data_dict
-
-        if (data_dict['sector'] is not None and data_dict['sub_sector'] is not None):
-          print(f"Successfully get data for stock {symbol}")
-          break
+    # Iterate over each column name provided
+    for col in columns_to_clean:
+        if col in df.columns:
+            # 1. Convert the entire column to lowercase
+            df[col] = df[col].astype(str).str.lower()
+            
+            # 2. Apply all defined suffix replacements (handles bhd. -> berhad)
+            for pattern, replacement in replacements.items():
+                df[col] = df[col].str.replace(
+                    pat=pattern, 
+                    repl=replacement, 
+                    regex=True
+                )
+            
+            # 3. GLOBAL CLEANUP: Remove ALL periods (e.g., in acronyms like y.s.g.)
+            # We use regex=False for simple literal string replacement of the dot
+            df[col] = df[col].str.replace('.', '', regex=False)
+            
         else:
-          print(f"Failed to get data from {symbol} on attempt {attempt}. Retrying...")
-        attempt +=1
+            print(f"Warning: Column '{col}' not found in the DataFrame. Skipping.")
+            
+    return df
 
-    # After done with each file
-    for null_data in null_list:
-      all_data_list[null_data['idx']] = null_data['data']
-    
-    # Save last
-    filename = f"P{file_idx}_data_klse.json"
-    print(f"==> Finished data is exported in {filename}")
-    file_path = os.path.join(cwd, "data", filename)
+proxies = {
+    'http': os.getenv("proxy_url"),
+    'https': os.getenv("proxy_url")
+}
 
-    # Save to JSON
-    with open(file_path, "w") as output_file:
-      json.dump(all_data_list, output_file, indent=2)
+headers = {
+    'Content-Type': 'application/json',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Referer': 'https://www.bursamalaysia.com/', 
+}
+
+payload_data = {
+    "pageSize": 1088,
+    "pageNo": 1, 
+    "shariaMode": False,
+    "filters": [],
+    "selection": {
+        "sku": "overview",
+        "sortBy": "percentage_change",
+        "sortOrder": "desc",
+        "searchBy": ""
+    },
+    "searchBy": "",
+    "sku": "overview",
+    "sortBy": "percentage_change",
+    "sortOrder": "desc"
+}
+
+url = "https://my.bursamalaysia.com/api/v1/market/stock-screener"
+response = requests.post(url, proxies=proxies, verify=False, headers=headers, json=payload_data)
+
+# Get data and convert to DataFrame
+data = response.json()
+df = pd.DataFrame(data['returnData'])
+
+# Get existing companies from Supabase
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
+supabase = create_client(url, key)
+
+curr_df = supabase.table("klse_companies").select("symbol",'name').execute()
+curr_df = curr_df.data
+curr_df = pd.DataFrame(curr_df)
+
+curr_df = normalize_company_names(curr_df, ['name'])
+df = normalize_company_names(df, ['name'])
+
+comb_df = curr_df.merge(df[['stock_code','name','sector_name',"sub_sector","id"]], left_on='name', right_on='name', how='inner')
+
+comb_df.rename(columns={"sector_name":"sector"}, inplace=True)
+
+klse_df = pd.read_csv("sectors_mapping/top 50 klse companies sectors.csv", delimiter=";")
+
+final_df = pd.concat([comb_df[~comb_df.symbol.isin(klse_df['symbol'].tolist())][["symbol","name","sector","sub_sector"]],klse_df[["symbol","name","sector","sub_sector"]]])
+
+for i in range(0,final_df.shape[0]):
+    supabase.table("klse_companies").update(
+        {"sector": final_df.iloc[i].sector,
+        "sub_sector": final_df.iloc[i].sub_sector}
+    ).eq("symbol", final_df.iloc[i].symbol).execute()
