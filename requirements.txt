@@ -7,3 +7,7 @@ Requests==2.32.3
 requests_html==0.10.0
 supabase==2.16.0
 yfinance[nospam]==0.2.59
+curl-cffi
+pyrate-limiter<3
+requests-cache
+requests-ratelimiter
