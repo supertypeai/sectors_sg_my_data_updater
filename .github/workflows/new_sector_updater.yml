@@ -2,8 +2,8 @@ name: SGX & KLSE Sector & Subsector Data Update
 
 on:
   schedule:
-    # Runs every Monday at 00:00 UTC
-    - cron: "0 0 1 2,5,8,11 *"
+    # Runs at 00:00 every Monday
+    - cron: "0 0 * * 1"
   workflow_dispatch:
 
 jobs:
@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: checkout repo content
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: setup python
         uses: actions/setup-python@v4
@@ -28,10 +28,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          PROXY: ${{ secrets.PROXY }}
         run: |
           python new_sector_scraper_sgx.py
-          python upsert_data_sgx.py
 
       - name: execute klse scraper and upsert scripts
         env:
@@ -40,20 +38,3 @@ jobs:
           proxy_url: ${{ secrets.PROXY }}
         run: |
           python sector_scraper_klse.py
-
-      - name: Pull changes
-        run: |
-          git pull origin main
-
-      - name: Commit files
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add sector_data/data_sgx.json
-          git diff-index --quiet HEAD || git commit -a -m "ci: daily update of SGX data" --allow-empty
-
-      - name: Push changes
-        uses: ad-m/github-push-action@v0.6.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: main
