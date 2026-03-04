@@ -13,7 +13,7 @@ class Config:
     COMPANY_SOURCE_TABLE = "sgx_companies"
     DAILY_DATA_TABLE = "sgx_daily_data"
     YF_PERIOD_DAILY = "1mo"
-    YF_PERIOD_FULL_PRIMARY = "1y"
+    YF_PERIOD_FULL_PRIMARY = "2y"
     YF_PERIOD_FULL_FALLBACK = "max"
     UPLOAD_BATCH_SIZE = 1000
 
@@ -62,7 +62,7 @@ def get_active_symbols(client: Client) -> list[str]:
             return []
             
         symbols = [item['symbol'] for item in response.data if item.get('symbol')]
-        logging.info(f"Successfully fetched {len(symbols)} active symbols (Top 10 by Market Cap).")
+        logging.info(f"Successfully fetched {len(symbols)} active symbols.")
         return symbols
     except Exception as e:
         logging.error(f"Error fetching symbols from Supabase: {e}")
@@ -90,39 +90,54 @@ def fetch_and_prepare_daily_data(symbols: list[str], mode: str, country: str) ->
     elif mode == 'full':
         logging.info(f"Starting 'full' mode fetch for {len(full_tickers)} symbols.")
         logging.info(f"--> Step 1: Attempting batch download with period='{Config.YF_PERIOD_FULL_PRIMARY}'...")
-        data_1y = yf.download(tickers=full_tickers, period=Config.YF_PERIOD_FULL_PRIMARY, progress=False, auto_adjust=False, actions=False)
+        data_primary = yf.download(tickers=full_tickers, period=Config.YF_PERIOD_FULL_PRIMARY, progress=False, auto_adjust=False, actions=False)
         
-        successful_tickers = data_1y['Close'].columns.dropna().tolist()
+        successful_tickers = data_primary['Close'].columns.dropna().tolist()
         failed_tickers = [s for s in full_tickers if s not in successful_tickers]
         
-        final_data = data_1y
+        final_data = data_primary
         
         if failed_tickers:
-            logging.warning(f"--> Step 2: {len(failed_tickers)} symbols failed the 1-year fetch. Retrying with fallback.")
+            logging.warning(f"--> Step 2: {len(failed_tickers)} symbols failed the {Config.YF_PERIOD_FULL_PRIMARY} fetch. Retrying with fallback.")
             logging.info(f"Failed tickers: {failed_tickers}")
             logging.info(f"--> Step 3: Attempting fallback batch download with period='{Config.YF_PERIOD_FULL_FALLBACK}'...")
             data_max = yf.download(tickers=failed_tickers, period=Config.YF_PERIOD_FULL_FALLBACK, progress=False, auto_adjust=False, actions=False)
             
             if not data_max.empty:
                 logging.info("Combining results from primary and fallback downloads.")
-                final_data = pd.concat([data_1y, data_max], axis=1)
+                # Combine along columns (axis=1), aligning by Date index
+                final_data = pd.concat([data_primary, data_max], axis=1)
         else:
-            logging.info("--> All symbols successfully fetched with 1-year period. No fallback needed.")
+            logging.info(f"--> All symbols successfully fetched with {Config.YF_PERIOD_FULL_PRIMARY} period. No fallback needed.")
 
     if final_data.empty:
         logging.warning("yfinance download returned an empty DataFrame after all attempts.")
         return pd.DataFrame()
         
     logging.info("Processing and transforming downloaded data...")
-    close_prices = final_data['Close']
-    df_long = close_prices.stack().reset_index()
-    df_long.columns = ['date', 'symbol', 'close']
+    
+    # Extract only Close and Volume
+    try:
+        # We expect a MultiIndex since we're fetching multiple symbols
+        df_long = final_data[['Close', 'Volume']].stack(level=1).reset_index()
+        df_long.columns = ['date', 'symbol', 'close', 'volume']
+    except Exception as e:
+        logging.error(f"Error transforming data (MultiIndex check failed): {e}")
+        # Fallback for single symbol or unexpected structure
+        if 'Close' in final_data and 'Volume' in final_data:
+            df_long = final_data[['Close', 'Volume']].reset_index()
+            df_long.columns = ['date', 'close', 'volume']
+            df_long['symbol'] = symbols[0]
+        else:
+            logging.error("Required columns 'Close' or 'Volume' missing.")
+            return pd.DataFrame()
     
     # --- CRITICAL FIX: Strip the suffix to match the base symbol in the database ---
     df_long['symbol'] = df_long['symbol'].str.replace(ticker_extension, '', regex=False)
     
     df_long.dropna(subset=['close'], inplace=True)
     df_long['close'] = df_long['close'].astype(float).round(6)
+    df_long['volume'] = df_long['volume'].fillna(0).astype('int64')
     df_long['date'] = df_long['date'].dt.strftime('%Y-%m-%d')
     
     logging.info(f"Successfully transformed data into {df_long.shape[0]} daily records.")
@@ -175,6 +190,11 @@ def main():
             "'full':  Fetches 1 year of data, with a 'max' history fallback for any failures."
         )
     )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help="Perform a dry run: fetch data but don't upload to Supabase."
+    )
     args = parser.parse_args()
     
     country = 'sg' # This script is specifically for the Singapore Exchange
@@ -196,7 +216,12 @@ def main():
         logging.warning("No new data was fetched or prepared. Script finished.")
         return
 
-    upsert_in_batches(supabase_client, Config.DAILY_DATA_TABLE, daily_data_df)
+    if args.dry_run:
+        logging.info(f"[DRY RUN] Would have upserted {len(daily_data_df)} records to '{Config.DAILY_DATA_TABLE}'.")
+        if not daily_data_df.empty:
+            logging.info(f"[DRY RUN] Sample record: {daily_data_df.iloc[0].to_dict()}")
+    else:
+        upsert_in_batches(supabase_client, Config.DAILY_DATA_TABLE, daily_data_df)
     
     logging.info(f"--- SGX Daily Data Importer Finished Successfully (Mode: {args.mode.upper()}) ---")
 
