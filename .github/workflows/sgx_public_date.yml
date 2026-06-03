@@ -1,7 +1,10 @@
 name: SGX Company Public Date Update
+
 on:
   schedule:
     - cron: "0 0 */14 * *"   # Every 2 weeks at midnight UTC
+  workflow_dispatch:        # Allows manual triggering from the GitHub UI
+
 jobs:
   update:
     runs-on: ubuntu-latest
