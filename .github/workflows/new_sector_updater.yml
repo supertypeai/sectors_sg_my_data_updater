@@ -29,7 +29,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          python new_sector_scraper_sgx.py
+          python sgx_scrape/new_sector_scraper_sgx.py
 
       - name: execute klse scraper and upsert scripts
         env:
