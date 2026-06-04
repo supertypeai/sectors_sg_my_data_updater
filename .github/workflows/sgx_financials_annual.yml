@@ -1,0 +1,40 @@
+name: SGX Annual Financials Scraper
+
+# Runs the SGX annual financials scraper monthly on the 1st day of each month.
+# Allows manual triggering via workflow_dispatch.
+
+on:
+  schedule:
+    - cron: "0 0 1 * *"  # At 00:00 UTC on day-of-month 1.
+  workflow_dispatch:
+    inputs:
+      incremental:
+        description: "Run scraper in incremental mode"
+        required: false
+        default: "true"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run SGX annual financials scraper
+        env:
+          # Propagate any needed environment variables, e.g., Supabase keys
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python sgx_scrape/sgx_financials_annual_scraper.py \
+            $(if [ "${{ github.event.inputs.incremental }}" = "false" ]; then echo ""; else echo "--incremental"; fi)
