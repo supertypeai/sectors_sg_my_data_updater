@@ -59,11 +59,21 @@ global_errors =[]
 # ==========================================
 # HELPER FUNCTIONS
 # ==========================================
-def normalize_sub_sector(sub):
+def normalize_sub_sector(sub: str) -> str:
     if not sub:
         return "Unknown"
+    
     if sub.endswith(' - Regional'):
         return sub.replace(' - Regional', '')
+    
+    sub_map = {
+        'Consumer Cyclicals': 'Consumer Cyclical', 
+        'Construction & Engineering': 'Engineering & Construction'
+    }
+    
+    if sub in sub_map:
+        return sub_map[sub]
+
     return sub
 
 def chunked_list(lst, n):
