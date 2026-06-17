@@ -36,7 +36,8 @@ SECTOR_MAPPING = {
     "Retail Trade": "Consumer Cyclical",
     "Personal & Household Products & Services": "Consumer Defensive",
     "Holding Companies": "Financial Services",
-    "Energy Minerals": "Energy"
+    "Energy Minerals": "Energy",
+    "Real Estate": "Properties & Real Estate"
 }
 
 # Statistics & Error Collection
@@ -68,7 +69,8 @@ def normalize_sub_sector(sub: str) -> str:
     
     sub_map = {
         'Consumer Cyclicals': 'Consumer Cyclical', 
-        'Construction & Engineering': 'Engineering & Construction'
+        'Construction & Engineering': 'Engineering & Construction',
+        'Software & IT Services': 'Software - Application'
     }
     
     if sub in sub_map:
