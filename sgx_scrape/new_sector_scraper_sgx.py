@@ -1,11 +1,15 @@
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+from utils.constant import *
+
 import os
 import sys
 import json
 import requests
 import concurrent.futures
 import traceback
-from dotenv import load_dotenv
-from supabase import create_client, Client
+
 
 # ==========================================
 # CONFIGURATION
@@ -52,7 +56,8 @@ stats = {
     'deactivated': 0,
     'reactivated': 0,
     'skipped_exempt_deactivate': 0,
-    'skipped_exempt_inactive': 0
+    'skipped_exempt_inactive': 0,
+    'flagged_unresolved': 0
 }
 
 global_errors =[]
@@ -60,6 +65,39 @@ global_errors =[]
 # ==========================================
 # HELPER FUNCTIONS
 # ==========================================
+def reclassify_to_enum(symbol: str, sector: str, sub_sector: str) -> tuple[str, str]:
+    if sub_sector == "Unknown" or sector == "Unknown":
+        return sector, sub_sector
+
+    normalised_sector = SECTOR_REMAP.get(sector, sector)
+    composite_key = (normalised_sector, sub_sector)
+
+    if composite_key in VALID_PAIRS:
+        return normalised_sector, sub_sector
+    
+    if composite_key in SECONDARY_PAIR_MAP:
+        return SECONDARY_PAIR_MAP[composite_key]
+    
+    if sub_sector in DIRECT_SUBSECTOR_MAP:
+        return DIRECT_SUBSECTOR_MAP[sub_sector]
+
+    # Unresolved and not Unknown: leave as-is, flag it
+    stats['flagged_unresolved'] = stats.get('flagged_unresolved', 0) + 1
+    print(f"  [FLAG] unresolved classification: symbol:{symbol} sector:{sector} sub_sector:{sub_sector}")
+    
+    return sector, sub_sector
+
+def apply_enum_classification(payloads: list) -> list:
+    for payload in payloads:
+        target_sector, target_sub_sector = reclassify_to_enum(
+            payload['symbol'], payload['sector'], payload['sub_sector']
+        )
+
+        payload['sector'] = target_sector
+        payload['sub_sector'] = target_sub_sector
+
+    return payloads
+
 def normalize_sub_sector(sub: str) -> str:
     if not sub:
         return "Unknown"
@@ -291,6 +329,7 @@ def main():
         new_payloads =[]
         if to_insert:
             new_payloads = fetch_enrichment_data(to_insert)
+            new_payloads = apply_enum_classification(new_payloads)
 
         # =========================================================================
         # PREVIEW / SNIPPET OF UPCOMING CHANGES
