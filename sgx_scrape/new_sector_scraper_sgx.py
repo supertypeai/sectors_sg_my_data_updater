@@ -57,7 +57,9 @@ stats = {
     'reactivated': 0,
     'skipped_exempt_deactivate': 0,
     'skipped_exempt_inactive': 0,
-    'flagged_unresolved': 0
+    'flagged_unresolved': 0,
+    'suspended': 0,
+    'unsuspended': 0
 }
 
 global_errors =[]
@@ -141,36 +143,42 @@ def fetch_db_state(supabase: Client) -> tuple:
     print("[STEP] Fetch DB State: Grab all symbols and their is_active status from Supabase.")
     all_symbols = set()
     active_symbols = set()
+    suspended_db_symbols = set()
     page_size = 1000
     offset = 0
-    
+
     try:
         while True:
-            response = supabase.table("sgx_companies").select("symbol, is_active").range(offset, offset + page_size - 1).execute()
+            response = supabase.table("sgx_companies").select("symbol, is_active, is_suspended").range(offset, offset + page_size - 1).execute()
             data = response.data
             if not data:
                 break
-                
+
             for r in data:
                 all_symbols.add(r['symbol'])
                 if r['is_active']:
                     active_symbols.add(r['symbol'])
-                    
+
+                if r.get('is_suspended'):
+                    suspended_db_symbols.add(r['symbol'])
+
             if len(data) < page_size:
                 break
             offset += page_size
-            
+
         stats['db_total_records'] = len(all_symbols)
         stats['db_active_records'] = len(active_symbols)
         print(f"       -> Retrieved {stats['db_total_records']} total DB symbols ({stats['db_active_records']} active).")
     except Exception as e:
         global_errors.append(f"DB Fetch Error: {str(e)}\n{traceback.format_exc()}")
-        
-    return all_symbols, active_symbols
 
-def fetch_sgx_state() -> set:
+    return all_symbols, active_symbols, suspended_db_symbols
+
+def fetch_sgx_state() -> tuple[set, set]:
     print("[STEP] Fetch SGX State (API 1): Grab all currently active/suspended stock codes from SGX.")
     active_sgx_symbols = set()
+    suspended_symbols = set()
+
     try:
         resp = requests.get(STOCKS_API_URL, headers=HEADERS, timeout=15)
         resp.raise_for_status()
@@ -186,13 +194,17 @@ def fetch_sgx_state() -> set:
             if sec_type in valid_types:
                 if symbol:
                     active_sgx_symbols.add(symbol)
-                    
+
+                    if item.get('i', '').strip().upper() == 'SUSP':
+                        suspended_symbols.add(symbol)
+
         stats['sgx_active_records'] = len(active_sgx_symbols)
         print(f"       -> SGX API reports {stats['sgx_active_records']} targeted symbols (including SUSP).")
+    
     except Exception as e:
         global_errors.append(f"SGX API 1 Error: {str(e)}\n{traceback.format_exc()}")
         
-    return active_sgx_symbols
+    return active_sgx_symbols, suspended_symbols
 
 def fetch_enrichment_data(symbols_to_insert: set) -> list:
     if not symbols_to_insert:
@@ -287,8 +299,8 @@ def main():
         supabase = init_supabase()
         
         # 1 & 2. Get State
-        db_all, db_active = fetch_db_state(supabase)
-        sgx_active = fetch_sgx_state()
+        db_all, db_active, suspended_db_symbols = fetch_db_state(supabase)
+        sgx_active, suspended_symbols = fetch_sgx_state()
         
         # Stop immediately if critical API errors happen to prevent wiping DB
         if global_errors:
@@ -298,6 +310,10 @@ def main():
         raw_to_insert = sgx_active - db_all
         raw_to_deactivate = db_active - sgx_active
         raw_to_reactivate = sgx_active.intersection(db_all - db_active)
+
+        # 4. Suspended symbols — only symbols where is_suspended actually flips
+        to_suspend = (db_active & suspended_symbols) - suspended_db_symbols
+        to_unsuspend = suspended_db_symbols - suspended_symbols
 
         to_insert = raw_to_insert
         to_deactivate = set()
@@ -330,6 +346,9 @@ def main():
         if to_insert:
             new_payloads = fetch_enrichment_data(to_insert)
             new_payloads = apply_enum_classification(new_payloads)
+            
+            for payload in new_payloads:
+                payload['is_suspended'] = payload['symbol'] in suspended_symbols
 
         # =========================================================================
         # PREVIEW / SNIPPET OF UPCOMING CHANGES
@@ -355,16 +374,32 @@ def main():
             print(f"     {list(to_reactivate)}")
         else:
             print("\n---> TO REACTIVATE: None")
-            
+
+        if to_suspend:
+            print(f"\n---> TO SUSPEND ({len(to_suspend)} symbols):")
+            print(f"     {list(to_suspend)}")
+        else:
+            print("\n---> TO SUSPEND: None")
+
+        if to_unsuspend:
+            print(f"\n---> TO UNSUSPEND ({len(to_unsuspend)} symbols):")
+            print(f"     {list(to_unsuspend)}")
+        else:
+            print("\n---> TO UNSUSPEND: None")
+
         print("="*50 + "\n")
 
         # 5. Execute
         print("[STEP] Batch Execution: Push batched updates and inserts to Supabase.")
+
         if dry_run:
             print("  [DRY RUN] Execution skipped.")
             stats['deactivated'] = len(to_deactivate)
             stats['reactivated'] = len(to_reactivate)
             stats['inserted'] = len(new_payloads)
+            stats['suspended'] = len(to_suspend)
+            stats['unsuspended'] = len(to_unsuspend)
+
         else:
             # Deactivate
             if to_deactivate:
@@ -392,6 +427,23 @@ def main():
                         stats['inserted'] += len(chunk)
                     except Exception as e:
                         global_errors.append(f"Insert DB Error: {str(e)}")
+
+            # Update is_suspended that flipped
+            if to_suspend:
+                for chunk in chunked_list(list(to_suspend), 100):
+                    try:
+                        supabase.table("sgx_companies").update({"is_suspended": True}).in_("symbol", chunk).execute()
+                        stats['suspended'] += len(chunk)
+                    except Exception as e:
+                        global_errors.append(f"Suspend DB Error: {str(e)}")
+
+            if to_unsuspend:
+                for chunk in chunked_list(list(to_unsuspend), 100):
+                    try:
+                        supabase.table("sgx_companies").update({"is_suspended": False}).in_("symbol", chunk).execute()
+                        stats['unsuspended'] += len(chunk)
+                    except Exception as e:
+                        global_errors.append(f"Unsuspend DB Error: {str(e)}")
 
     except Exception as e:
         global_errors.append(f"Main Process Crash: {str(e)}\n{traceback.format_exc()}")
