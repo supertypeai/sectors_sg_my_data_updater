@@ -16,7 +16,7 @@ VALID_PAIRS = frozenset(
         ("Consumer Cyclical", "Luxury Goods"),
         ("Consumer Cyclical", "Packaging & Containers"),
         ("Consumer Cyclical", "Apparel & Accessories"),
-        ("Consumer Cyclical", "Media & Entertainment"),
+        # ("Consumer Cyclical", "Media & Entertainment"),
         ("Consumer Cyclical", "Personal Services"),
         ("Consumer Defensive", "Food & Beverage Production"),
         ("Consumer Defensive", "Food Distribution"),
@@ -33,7 +33,8 @@ VALID_PAIRS = frozenset(
         ("Healthcare", "Medical Devices & Supplies"),
         ("Industrials", "Engineering, Construction & Building Products"),
         ("Industrials", "Industrial Machinery & Parts"),
-        ("Industrials", "Transportation & Logistics"),
+        # ("Industrials", "Transportation & Logistics"),
+        ("Industrials", "Supply Chain, Freight & Infrastructure"),
         ("Industrials", "Business & Employment Services"),
         ("Industrials", "Conglomerates & Holdings"),
         ("Industrials", "Aerospace & Defense"),
@@ -177,14 +178,14 @@ DIRECT_SUBSECTOR_MAP = {
 SECONDARY_PAIR_MAP = {
     # Media & Entertainment family: target sub stays "Media & Entertainment",
     ("Communication Services", "Entertainment"): ("Communication Services", "Media & Entertainment"),
-    ("Consumer Cyclical", "Entertainment"): ("Consumer Cyclical", "Media & Entertainment"),
+    ("Consumer Cyclical", "Entertainment"): ("Consumer Cyclical", "Hotels, Resorts & Leisure"),
     ("Communication Services", "Publishing"): ("Communication Services", "Media & Entertainment"),
-    ("Consumer Cyclical", "Publishing"): ("Consumer Cyclical", "Media & Entertainment"),
+    ("Consumer Cyclical", "Publishing"): ("Consumer Cyclical", "Hotels, Resorts & Leisure"),
     ("Communication Services", "Advertising Agencies"): ("Communication Services", "Media & Entertainment"),
-    ("Consumer Cyclical", "Advertising Agencies"): ("Consumer Cyclical", "Media & Entertainment"),
+    ("Consumer Cyclical", "Advertising Agencies"): ("Consumer Cyclical", "Hotels, Resorts & Leisure"),
     ("Communication Services", "Electronic Gaming & Multimedia"): ("Communication Services", "Media & Entertainment"),
-    ("Consumer Cyclical", "Electronic Gaming & Multimedia"): ("Consumer Cyclical", "Media & Entertainment"),
- 
+    ("Consumer Cyclical", "Electronic Gaming & Multimedia"): ("Consumer Cyclical", "Hotels, Resorts & Leisure"),
+
     # Telecom family.
     ("Infrastructures", "Telecom Services"): ("Infrastructures", "Telecommunication"),
     ("Communication Services", "Telecommunication"): ("Communication Services", "Telecom Services"),
@@ -193,22 +194,22 @@ SECONDARY_PAIR_MAP = {
  
     # Transportation: target sub is "Transportation & Logistics",
     # sector stays Industrials or the standalone Transportation & Logistics.
-    ("Industrials", "Transportation"): ("Industrials", "Transportation & Logistics"),
+    ("Industrials", "Transportation"): ("Industrials", "Supply Chain, Freight & Infrastructure"),
     ("Transportation & Logistics", "Transportation"): ("Transportation & Logistics", "Transportation & Logistics"),
-    ("Industrials", "Other Transportation"): ("Industrials", "Transportation & Logistics"),
+    ("Industrials", "Other Transportation"): ("Industrials", "Supply Chain, Freight & Infrastructure"),
     ("Transportation & Logistics", "Other Transportation"): ("Transportation & Logistics", "Transportation & Logistics"),
-    ("Industrials", "Marine Shipping"): ("Industrials", "Transportation & Logistics"),
+    ("Industrials", "Marine Shipping"): ("Industrials", "Supply Chain, Freight & Infrastructure"),
     ("Transportation & Logistics", "Marine Shipping"): ("Transportation & Logistics", "Transportation & Logistics"),
-    ("Industrials", "Railroads"): ("Industrials", "Transportation & Logistics"),
+    ("Industrials", "Railroads"): ("Industrials", "Supply Chain, Freight & Infrastructure"),
     ("Transportation & Logistics", "Railroads"): ("Transportation & Logistics", "Transportation & Logistics"),
-    ("Industrials", "Integrated Freight & Logistics"): ("Industrials", "Transportation & Logistics"),
+    ("Industrials", "Integrated Freight & Logistics"): ("Industrials", "Supply Chain, Freight & Infrastructure"),
     ("Transportation & Logistics", "Integrated Freight & Logistics"): ("Transportation & Logistics", "Transportation & Logistics"),
-    ("Industrials", "Logistics & Deliveries"): ("Industrials", "Transportation & Logistics"),
+    ("Industrials", "Logistics & Deliveries"): ("Industrials", "Supply Chain, Freight & Infrastructure"),
     ("Transportation & Logistics", "Logistics & Deliveries"): ("Transportation & Logistics", "Transportation & Logistics"),
- 
+
     # Transportation Infrastructure: Infrastructures vs Industrials/Transport.
-    ("Infrastructures", "Transportation Infrastructure"): ("Infrastructures", "Heavy Construction & Transport Infrastructure"),
-    ("Industrials", "Transportation Infrastructure"): ("Industrials", "Transportation & Logistics"),
+     ("Infrastructures", "Transportation Infrastructure"): ("Infrastructures", "Heavy Construction & Transport Infrastructure"),
+    ("Industrials", "Transportation Infrastructure"): ("Industrials", "Supply Chain, Freight & Infrastructure"),
     ("Transportation & Logistics", "Transportation Infrastructure"): ("Transportation & Logistics", "Transportation & Logistics"),
  
     # Heavy Constructions & Civil Engineering.
@@ -244,5 +245,6 @@ SECONDARY_PAIR_MAP = {
     # Tools & Accessories: default to Industrial Machinery when Industrials.
     ("Industrials", "Tools & Accessories"): ("Industrials", "Industrial Machinery & Parts"),
 
-    ("REIT", "REIT - Hotel & Motel"): ("REIT", "REIT - Specialty & Healthcare")
+    ("REIT", "REIT - Hotel & Motel"): ("REIT", "REIT - Specialty & Healthcare"),
+    ("Basic Materials", "Basic Materials"): ("Basic Materials", "Basic Materials - Diversified")
 }
