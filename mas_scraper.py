@@ -42,6 +42,10 @@ STATIC_CHECKBOXES = {
     "ctl00$ContentPlaceHolder1$EndOfPeriodPer100UnitsCheckBoxList$6": "on",
     "ctl00$ContentPlaceHolder1$EndOfPeriodPer100UnitsCheckBoxList$7": "on",
     "ctl00$ContentPlaceHolder1$EndOfPeriodPer100UnitsCheckBoxList$8": "on",
+    "ctl00$ContentPlaceHolder1$EndOfPeriodPer100UnitsCheckBoxList$9": "on",
+    "ctl00$ContentPlaceHolder1$EndOfPeriodPer100UnitsCheckBoxList$11": "on",
+    "ctl00$ContentPlaceHolder1$EndOfPeriodPer100UnitsCheckBoxList$14": "on",
+    "ctl00$ContentPlaceHolder1$EndOfPeriodPer100UnitsCheckBoxList$15": "on",
 }
 
 def compute_start_end(mode: str = "latest_month", n_months: int = 1):
@@ -177,7 +181,8 @@ NAME_TO_CODE = {
     'Euro':'EUR','Pound Sterling':'GBP','US Dollar':'USD','Australian Dollar':'AUD',
     'Canadian Dollar':'CAD','Chinese Renminbi':'CNY','Hong Kong Dollar':'HKD',
     'Indian Rupee':'INR','Indonesian Rupiah':'IDR','Japanese Yen':'JPY','Korean Won':'KRW',
-    'Malaysian Ringgit':'MYR'
+    'Malaysian Ringgit':'MYR','Thai Baht':'THB','Philippine Peso':'PHP',
+    'Swiss Franc':'CHF','New Taiwan Dollar':'TWD'
 }
 
 class NoScientificNotationEncoder(json.JSONEncoder):
