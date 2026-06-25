@@ -19,6 +19,7 @@ Usage Guide:
 
 import os
 import sys
+import json
 import argparse
 import time
 import random
@@ -50,6 +51,42 @@ logger = logging.getLogger(__name__)
 API_BASE_URL = "https://api.sgx.com/financialstatementreports/v2.0/{report_type}/countryCode/SGP/stockCode/{stock_code}?params=all"
 
 # ==========================================
+# QUARTERLY FX RATES (SGD conversion)
+# ==========================================
+_QUARTERLY_RATES_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "quarterly_rates.json")
+
+def _load_quarterly_rates() -> dict:
+    try:
+        with open(_QUARTERLY_RATES_PATH, "r") as f:
+            return json.load(f).get("quarters", {})
+    except Exception as e:
+        logger.warning(f"Could not load quarterly_rates.json: {e}")
+        return {}
+
+_QUARTERLY_RATES: dict = None  # lazy-loaded on first use
+
+def get_sgd_rate(period_end_date: str, currency_id: str) -> float | None:
+    """Return how many SGD 1 unit of currency_id was worth at the nearest quarter-end <= period_end_date."""
+    global _QUARTERLY_RATES
+    if _QUARTERLY_RATES is None:
+        _QUARTERLY_RATES = _load_quarterly_rates()
+
+    if not currency_id or currency_id == "SGD" or not _QUARTERLY_RATES:
+        return 1.0
+
+    # Find the latest quarter date that is <= period_end_date
+    matching = [d for d in _QUARTERLY_RATES if d <= period_end_date]
+    if not matching:
+        return None
+
+    quarter_date = max(matching)
+    rate = _QUARTERLY_RATES[quarter_date].get(currency_id, {}).get("SGD")
+    return rate
+
+# Fields that are share counts, not monetary — must NOT be currency-converted
+_NON_MONETARY = {"diluted_shares_outstanding"}
+
+# ==========================================
 # STRICT WHITELISTS BASED ON YOUR SCHEMA
 # ==========================================
 INCOME_STMT_TARGETS = {
@@ -75,11 +112,16 @@ CASH_FLOW_TARGETS = {
     "financing_cash_flow", "investing_cash_flow", "operating_cash_flow"
 }
 
-def transform_metrics(raw_data: dict, report_type: str) -> dict | None:
-    """ Maps SGX keys, filters by whitelist, and calculates FCF/CapEx. """
+def transform_metrics(raw_data: dict, report_type: str, currency_id: str = None, period_end_date: str = None) -> dict | None:
+    """ Maps SGX keys, filters by whitelist, calculates FCF/CapEx, and converts values to SGD. """
     if not raw_data:
         return None
-        
+
+    sgd_rate = get_sgd_rate(period_end_date, currency_id) if period_end_date and currency_id else 1.0
+    if sgd_rate is None:
+        logger.warning(f"No FX rate found for {currency_id} at {period_end_date} — values left in original currency.")
+        sgd_rate = 1.0
+
     cleaned = {}
     
     if report_type == 'income':
@@ -112,6 +154,8 @@ def transform_metrics(raw_data: dict, report_type: str) -> dict | None:
         if target_key and target_key in target_list:
             try:
                 num_val = float(v)
+                if target_key not in _NON_MONETARY:
+                    num_val *= sgd_rate
                 cleaned[target_key] = int(num_val) if num_val.is_integer() else num_val
             except (ValueError, TypeError):
                 cleaned[target_key] = v
@@ -124,13 +168,13 @@ def transform_metrics(raw_data: dict, report_type: str) -> dict | None:
         if capex_raw is not None:
             try:
                 c_val = float(capex_raw)
-                abs_capex = abs(c_val)
+                abs_capex = abs(c_val) * sgd_rate
                 cleaned['capital_expenditure'] = int(abs_capex) if abs_capex.is_integer() else abs_capex
             except ValueError: pass
-                
+
         if ocf_raw is not None and capex_raw is not None:
             try:
-                fcf = float(ocf_raw) + float(capex_raw)
+                fcf = (float(ocf_raw) + float(capex_raw)) * sgd_rate
                 cleaned['free_cash_flow'] = int(fcf) if fcf.is_integer() else fcf
             except ValueError: pass
 
@@ -141,13 +185,26 @@ def fetch_symbols(limit: int = 750, specific_symbols: list = None) -> list:
     try:
         query = supabase.table('sgx_companies').select('symbol')
         if specific_symbols:
-            formatted_symbols = [s if '.' in s else f"{s}.SI" for s in specific_symbols]
-            query = query.in_('symbol', formatted_symbols)
+            # Try both the raw symbol and the .SI-suffixed version so we match
+            # however the symbol is stored in sgx_companies (e.g. "Y92" vs "Y92.SI")
+            candidates = []
+            for s in specific_symbols:
+                candidates.append(s)
+                if '.' not in s:
+                    candidates.append(f"{s}.SI")
+            query = query.in_('symbol', candidates)
         else:
             query = query.eq('is_active', True).limit(limit)
-            
+
         response = query.execute()
-        return [row['symbol'] for row in response.data] if response.data else []
+        if response.data:
+            return [row['symbol'] for row in response.data]
+        # Fall back to the provided symbols directly if none found in DB
+        if specific_symbols:
+            fallback = [s if '.' in s else f"{s}.SI" for s in specific_symbols]
+            logger.warning(f"Symbols not found in sgx_companies — processing directly: {fallback}")
+            return fallback
+        return []
     except Exception as e:
         logger.error(f"Failed to fetch symbols: {e}")
         return []
@@ -211,13 +268,19 @@ def process_symbol(symbol: str, is_incremental: bool, updated_on: str):
             financial_year = int(date.split('-')[0])
         except (IndexError, ValueError):
             continue
-            
+
+        currency_id = (
+            metrics.get('income', {}).get('currencyId')
+            or metrics.get('bs', {}).get('currencyId')
+            or metrics.get('cf', {}).get('currencyId')
+        )
+
         upsert_payloads.append({
             "symbol": symbol,
             "financial_year": financial_year,
-            "income_stmt_metrics": transform_metrics(metrics.get('income', {}), 'income'),
-            "balance_sheet_metrics": transform_metrics(metrics.get('bs', {}), 'bs'),
-            "cash_flow_metrics": transform_metrics(metrics.get('cf', {}), 'cf'),
+            "income_stmt_metrics": transform_metrics(metrics.get('income', {}), 'income', currency_id, date),
+            "balance_sheet_metrics": transform_metrics(metrics.get('bs', {}), 'bs', currency_id, date),
+            "cash_flow_metrics": transform_metrics(metrics.get('cf', {}), 'cf', currency_id, date),
             "updated_on": updated_on,
             "date": date
         })
