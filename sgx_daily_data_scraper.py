@@ -3,7 +3,8 @@ import logging
 import argparse
 from math import ceil
 import pandas as pd
-import yfinance as yf
+import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -68,79 +69,56 @@ def get_active_symbols(client: Client) -> list[str]:
         logging.error(f"Error fetching symbols from Supabase: {e}")
         return []
 
-def fetch_and_prepare_daily_data(symbols: list[str], mode: str, country: str) -> pd.DataFrame:
-    """
-    Fetches daily close data, applying the correct ticker suffix for Yahoo Finance.
-    """
+SGX_HISTORIC_URL = "https://api.sgx.com/securities/v1.1//charts/historic/stocks/code/{symbol}/{period}?params=trading_time,vl,lt"
+SGX_HEADERS = {"User-Agent": "Mozilla/5.0"}
+
+def fetch_sgx_historic_single(symbol: str, period: str) -> pd.DataFrame:
+    """Fetch historic price/volume data for one symbol from the SGX API."""
+    url = SGX_HISTORIC_URL.format(symbol=symbol, period=period)
+    try:
+        resp = requests.get(url, headers=SGX_HEADERS, timeout=15)
+        resp.raise_for_status()
+        records = resp.json().get("data", {}).get("historic", [])
+        if not records:
+            return pd.DataFrame()
+        df = pd.DataFrame(records)
+        df["symbol"] = symbol
+        df["date"] = pd.to_datetime(df["trading_time"].str[:8], format="%Y%m%d").dt.strftime("%Y-%m-%d")
+        df = df.rename(columns={"lt": "close", "vl": "volume"})
+        df["close"] = pd.to_numeric(df["close"], errors="coerce").round(6)
+        # SGX reports volume in thousands — multiply to get actual share count
+        df["volume"] = (pd.to_numeric(df["volume"], errors="coerce").fillna(0) * 1000).astype("int64")
+        return df[["symbol", "date", "close", "volume"]]
+    except Exception as e:
+        logging.warning(f"[{symbol}] Failed to fetch SGX historic data: {e}")
+        return pd.DataFrame()
+
+def fetch_and_prepare_daily_data(symbols: list[str], mode: str, country: str = 'sg') -> pd.DataFrame:
+    """Fetches daily close/volume data from the SGX historic API concurrently."""
     if not symbols:
         logging.warning("Symbol list is empty. Skipping data fetch.")
         return pd.DataFrame()
 
-    # --- CRITICAL FIX: Add the correct exchange suffix for yfinance ---
-    ticker_extension = ".SI" if country == 'sg' else ".KL"
-    full_tickers = [s + ticker_extension for s in symbols]
-    
-    final_data = pd.DataFrame()
+    period = "1y" if mode == "full" else "1m"
+    logging.info(f"Fetching SGX historic data in '{mode}' mode ({period}) for {len(symbols)} symbols...")
 
-    if mode == 'daily':
-        period = Config.YF_PERIOD_DAILY
-        logging.info(f"Fetching data in '{mode}' mode for {len(full_tickers)} symbols (e.g., {full_tickers[0] if full_tickers else ''})...")
-        final_data = yf.download(tickers=full_tickers, period=period, progress=False, auto_adjust=False, actions=False)
-    
-    elif mode == 'full':
-        logging.info(f"Starting 'full' mode fetch for {len(full_tickers)} symbols.")
-        logging.info(f"--> Step 1: Attempting batch download with period='{Config.YF_PERIOD_FULL_PRIMARY}'...")
-        data_primary = yf.download(tickers=full_tickers, period=Config.YF_PERIOD_FULL_PRIMARY, progress=False, auto_adjust=False, actions=False)
-        
-        successful_tickers = data_primary['Close'].columns.dropna().tolist()
-        failed_tickers = [s for s in full_tickers if s not in successful_tickers]
-        
-        final_data = data_primary
-        
-        if failed_tickers:
-            logging.warning(f"--> Step 2: {len(failed_tickers)} symbols failed the {Config.YF_PERIOD_FULL_PRIMARY} fetch. Retrying with fallback.")
-            logging.info(f"Failed tickers: {failed_tickers}")
-            logging.info(f"--> Step 3: Attempting fallback batch download with period='{Config.YF_PERIOD_FULL_FALLBACK}'...")
-            data_max = yf.download(tickers=failed_tickers, period=Config.YF_PERIOD_FULL_FALLBACK, progress=False, auto_adjust=False, actions=False)
-            
-            if not data_max.empty:
-                logging.info("Combining results from primary and fallback downloads.")
-                # Combine along columns (axis=1), aligning by Date index
-                final_data = pd.concat([data_primary, data_max], axis=1)
-        else:
-            logging.info(f"--> All symbols successfully fetched with {Config.YF_PERIOD_FULL_PRIMARY} period. No fallback needed.")
+    frames = []
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(fetch_sgx_historic_single, sym, period): sym for sym in symbols}
+        for i, future in enumerate(as_completed(futures), 1):
+            df = future.result()
+            if not df.empty:
+                frames.append(df)
+            if i % 100 == 0:
+                logging.info(f"  Fetched {i}/{len(symbols)} symbols...")
 
-    if final_data.empty:
-        logging.warning("yfinance download returned an empty DataFrame after all attempts.")
+    if not frames:
+        logging.warning("No data returned from SGX API.")
         return pd.DataFrame()
-        
-    logging.info("Processing and transforming downloaded data...")
-    
-    # Extract only Close and Volume
-    try:
-        # We expect a MultiIndex since we're fetching multiple symbols
-        df_long = final_data[['Close', 'Volume']].stack(level=1).reset_index()
-        df_long.columns = ['date', 'symbol', 'close', 'volume']
-    except Exception as e:
-        logging.error(f"Error transforming data (MultiIndex check failed): {e}")
-        # Fallback for single symbol or unexpected structure
-        if 'Close' in final_data and 'Volume' in final_data:
-            df_long = final_data[['Close', 'Volume']].reset_index()
-            df_long.columns = ['date', 'close', 'volume']
-            df_long['symbol'] = symbols[0]
-        else:
-            logging.error("Required columns 'Close' or 'Volume' missing.")
-            return pd.DataFrame()
-    
-    # --- CRITICAL FIX: Strip the suffix to match the base symbol in the database ---
-    df_long['symbol'] = df_long['symbol'].str.replace(ticker_extension, '', regex=False)
-    
-    df_long.dropna(subset=['close'], inplace=True)
-    df_long['close'] = df_long['close'].astype(float).round(6)
-    df_long['volume'] = df_long['volume'].fillna(0).astype('int64')
-    df_long['date'] = df_long['date'].dt.strftime('%Y-%m-%d')
-    
-    logging.info(f"Successfully transformed data into {df_long.shape[0]} daily records.")
+
+    df_long = pd.concat(frames, ignore_index=True)
+    df_long.dropna(subset=["close"], inplace=True)
+    logging.info(f"Successfully fetched {df_long.shape[0]} records for {df_long['symbol'].nunique()} symbols.")
     return df_long
 
 def upsert_in_batches(client: Client, table_name: str, df: pd.DataFrame):
@@ -170,6 +148,25 @@ def upsert_in_batches(client: Client, table_name: str, df: pd.DataFrame):
 
     logging.info(f"Successfully upserted all {total_records} records.")
 
+def fetch_market_cap() -> pd.DataFrame:
+    """Fetches stockCode and marketCapitalization from the SGX screener API."""
+    url = "https://api.sgx.com/stockscreener/v2.0/all"
+    params = {"params": "stockCode,marketCapitalization"}
+    logging.info("Fetching market cap data from SGX API...")
+    try:
+        resp = requests.get(url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        df = pd.DataFrame(data)[["stockCode", "marketCapitalization"]]
+        df.columns = ["symbol", "market_cap"]
+        df["market_cap"] = pd.to_numeric(df["market_cap"], errors="coerce").round(0).astype("Int64")
+        logging.info(f"Fetched market cap for {len(df)} symbols.")
+        return df
+    except Exception as e:
+        logging.error(f"Failed to fetch market cap data: {e}")
+        return pd.DataFrame()
+
+
 # --- 4. Main Execution Block ---
 
 def main():
@@ -195,6 +192,11 @@ def main():
         action='store_true',
         help="Perform a dry run: fetch data but don't upload to Supabase."
     )
+    parser.add_argument(
+        '--csv',
+        action='store_true',
+        help="Save output to CSV instead of upserting to Supabase."
+    )
     args = parser.parse_args()
     
     country = 'sg' # This script is specifically for the Singapore Exchange
@@ -216,12 +218,29 @@ def main():
         logging.warning("No new data was fetched or prepared. Script finished.")
         return
 
-    if args.dry_run:
-        logging.info(f"[DRY RUN] Would have upserted {len(daily_data_df)} records to '{Config.DAILY_DATA_TABLE}'.")
-        if not daily_data_df.empty:
-            logging.info(f"[DRY RUN] Sample record: {daily_data_df.iloc[0].to_dict()}")
+    # Fetch market cap and join onto the latest date only
+    mcap_df = fetch_market_cap()
+    if not mcap_df.empty:
+        latest_date = daily_data_df["date"].max()
+        latest_df = daily_data_df[daily_data_df["date"] == latest_date].copy()
+        latest_df = latest_df.merge(mcap_df, on="symbol", how="left")
+        logging.info(f"Joined market cap for {latest_df['market_cap'].notna().sum()} symbols on latest date {latest_date}.")
     else:
+        latest_date = daily_data_df["date"].max()
+        latest_df = daily_data_df[daily_data_df["date"] == latest_date].copy()
+        latest_df["market_cap"] = None
+
+    if args.csv:
+        csv_path = "sgx_daily_data_preview.csv"
+        latest_df.to_csv(csv_path, index=False)
+        logging.info(f"[CSV] Saved {len(latest_df)} records ({latest_date}) to '{csv_path}'.")
+    elif args.dry_run:
+        logging.info(f"[DRY RUN] Would have upserted {len(daily_data_df)} records to '{Config.DAILY_DATA_TABLE}'.")
+        logging.info(f"[DRY RUN] Sample record: {daily_data_df.iloc[0].to_dict()}")
+    else:
+        # Upsert all daily data, then upsert latest_df to update market_cap on today's rows
         upsert_in_batches(supabase_client, Config.DAILY_DATA_TABLE, daily_data_df)
+        upsert_in_batches(supabase_client, Config.DAILY_DATA_TABLE, latest_df)
     
     logging.info(f"--- SGX Daily Data Importer Finished Successfully (Mode: {args.mode.upper()}) ---")
 
