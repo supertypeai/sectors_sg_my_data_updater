@@ -31,11 +31,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Step 4: Run the SGX Daily Data Scraper
-      # This is the main step that executes your Python script.
-      - name: Run SGX Daily Data Scraper
+      # Step 4: Run the SGX Daily Combined Scraper (metrics + price/volume)
+      - name: Run SGX Daily Combined Scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          python sgx_daily_data_scraper.py --mode daily
+          python sgx_scrape/sgx_screener_scraper_daily.py --mode daily
