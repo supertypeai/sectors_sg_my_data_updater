@@ -186,6 +186,7 @@ def build_metrics_df(base_df: pd.DataFrame) -> pd.DataFrame:
 
 def upsert_metrics(df: pd.DataFrame, client: Client):
     df = df.replace([np.inf, -np.inf], np.nan)
+    df = df.drop_duplicates(subset=["symbol"], keep="last")
     records = [
         {k: (None if isinstance(v, float) and (np.isnan(v) or np.isinf(v)) else v)
          for k, v in row.items()}
@@ -264,6 +265,8 @@ def build_daily_df(base_df: pd.DataFrame, mode: str) -> tuple:
 
 
 def upsert_daily(price_df: pd.DataFrame, latest_df: pd.DataFrame, client: Client):
+    price_df = price_df.drop_duplicates(subset=["symbol", "date"], keep="last")
+    latest_df = latest_df.drop_duplicates(subset=["symbol", "date"], keep="last")
     records = price_df.to_dict(orient="records")
     total = len(records)
     for i in range(0, total, BATCH_SIZE):
