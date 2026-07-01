@@ -1,4 +1,4 @@
-name: Daily MAS Exchange Rate Update
+name: Daily Exchange Rate Update
 
 on:
   schedule:
@@ -28,9 +28,9 @@ jobs:
           pip install -r requirements.txt
 
       # Step 4: Execute the scraper script to generate/update the JSON file
-      - name: Execute MAS scraper script
+      - name: Execute currency scraper script
         run: |
-          python mas_scraper.py --mode daily
+          python currency_scraper.py --mode daily
 
       # Step 5: Commit the updated data file back to the repository
       - name: Commit updated exchange rates
@@ -41,7 +41,7 @@ jobs:
           git add compact_rates.json
           # This command checks if there are any changes to commit.
           # If there are no changes, it does nothing, preventing empty commits.
-          git diff-index --quiet HEAD || git commit -m "ci: daily update of MAS exchange rates"
+          git diff-index --quiet HEAD || git commit -m "ci: daily update of exchange rates"
 
       # Step 6: Push the committed changes to the main branch
       - name: Push changes
