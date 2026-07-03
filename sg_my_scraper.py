@@ -89,17 +89,20 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                     rate = float(rate)
 
             desired_values = {
-                "marketCap": "market_cap",
-                "volume": "volume",
-                "trailingPE": "pe",
-                "priceToSalesTrailing12Months": "ps_ttm",
-                "priceToBook": "pb",
-                "beta": "beta",
-                "operatingCashflow": "ocf",
                 "fiveYearAvgDividendYield": "dividend_yield_5y_avg"
             }
             if country == "sg":
                 desired_values["shortName"] = "short_name"
+            elif country == "my":
+                desired_values.update({
+                    "marketCap": "market_cap",
+                    "volume": "volume",
+                    "trailingPE": "pe",
+                    "priceToSalesTrailing12Months": "ps_ttm",
+                    "priceToBook": "pb",
+                    "beta": "beta",
+                    "operatingCashflow": "ocf",
+                })
 
             for key_dv, col in desired_values.items():
                 try:
@@ -411,8 +414,9 @@ def update_change_data(data_prep: pd.DataFrame, country):
                     return np.nan
                 return (latest - past) / past
 
-            data_prep.loc[index, "change_ytd"] = compute_change(latest_close, ytd_close)
-            data_prep.loc[index, "change_1y"]  = compute_change(latest_close, close_1y)
+            if country != "sg":
+                data_prep.loc[index, "change_ytd"] = compute_change(latest_close, ytd_close)
+                data_prep.loc[index, "change_1y"]  = compute_change(latest_close, close_1y)
             data_prep.loc[index, "change_3y"]  = compute_change(latest_close, close_3y)
 
         except Exception as e:
@@ -529,13 +533,10 @@ def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.Dat
             ticker = yf.Ticker(symbol + ext)
 
             ge = ticker.growth_estimates
-            re = ticker.revenue_estimate
 
             eps_1y = ge.at["+1y", "stockTrend"] if "+1y" in ge.index else np.nan
-            sales_1y = re.at["+1y", "growth"] if "+1y" in re.index else np.nan
 
             data_prep.loc[idx, "one_year_eps_growth"] = eps_1y
-            data_prep.loc[idx, "one_year_sales_growth"] = sales_1y
 
         except Exception as e:
             print(f"[DEBUG] Failed to fetch estimates for {symbol}: {e}")
