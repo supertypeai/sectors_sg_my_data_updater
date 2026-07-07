@@ -429,12 +429,12 @@ def employee_updater(data_final, country):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
     iv_data_dict = {
-        "investing_symbol": [],
+        "symbol": [],
         "status": [],
         "employee_num_sgx": []
     }
     yf_data_dict = {
-        "investing_symbol": [],
+        "symbol": [],
         "employee_num": []
     }
     special_case = {
@@ -460,16 +460,16 @@ def employee_updater(data_final, country):
         'CKFC.SI': '0834.HK',
         'COMB.SI': '2342.HK'
     }
-    for iv_symbol in data_final["investing_symbol"].tolist():
-        iv_data_dict["investing_symbol"].append(iv_symbol)
+    for sym in data_final["symbol"].tolist():
+        iv_data_dict["symbol"].append(sym)
         ticker_extension = ".KL" if country == "my" else ".SI"
-        iv_symbol = iv_symbol + ticker_extension
-        if iv_symbol in special_case.keys():
+        sym_with_ext = sym + ticker_extension
+        if sym_with_ext in special_case.keys():
             for key, value in zip(special_case.keys(), special_case.values()):
-                if iv_symbol == key:
+                if sym_with_ext == key:
                     url = f"https://api.sgx.com/companygeneralinformation/v1.0/countryCode/SG/ricCode/{value}?lang=en-US&params=companyDescription%2CstreetAddress1%2CstreetAddress2%2CstreetAddress3%2Ccity%2Cstate%2CpostalCode%2Ccountry%2Cemail%2Cwebsite%2CincorporatedDate%2CincorporatedCountry%2CpublicDate%2CnoOfEmployees%2CnoOfEmployeesLastUpdated"
         else:
-            url = f"https://api.sgx.com/companygeneralinformation/v1.0/countryCode/SG/ricCode/{iv_symbol}?lang=en-US&params=companyDescription%2CstreetAddress1%2CstreetAddress2%2CstreetAddress3%2Ccity%2Cstate%2CpostalCode%2Ccountry%2Cemail%2Cwebsite%2CincorporatedDate%2CincorporatedCountry%2CpublicDate%2CnoOfEmployees%2CnoOfEmployeesLastUpdated"
+            url = f"https://api.sgx.com/companygeneralinformation/v1.0/countryCode/SG/ricCode/{sym_with_ext}?lang=en-US&params=companyDescription%2CstreetAddress1%2CstreetAddress2%2CstreetAddress3%2Ccity%2Cstate%2CpostalCode%2Ccountry%2Cemail%2Cwebsite%2CincorporatedDate%2CincorporatedCountry%2CpublicDate%2CnoOfEmployees%2CnoOfEmployeesLastUpdated"
         response = requests.get(url)
         if response.status_code == 200:
             iv_data_dict["status"].append(response.status_code)
@@ -481,10 +481,10 @@ def employee_updater(data_final, country):
         else:
             iv_data_dict["status"].append(response.status_code)
             iv_data_dict["employee_num_sgx"].append(np.nan)
-    for iv_symbol, yf_symbol in zip(data_final["investing_symbol"].tolist(), data_final["symbol"].tolist()):
-        yf_data_dict["investing_symbol"].append(iv_symbol)
+    for sym in data_final["symbol"].tolist():
+        yf_data_dict["symbol"].append(sym)
         try:
-            temp = yf.Ticker(yf_symbol + ".SI")
+            temp = yf.Ticker(sym + ".SI")
             employee = temp.info["fullTimeEmployees"]
             yf_data_dict["employee_num"].append(employee)
         except:

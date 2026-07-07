@@ -35,9 +35,9 @@ SECTOR_MAPPING = {
     "Industrial Goods": "Industrials",
     "Industrial Services": "Industrials",
     "Transportation": "Industrials",
-    "Retailers": "Consumer Cyclical",
-    "Cyclical Consumer Services": "Consumer Cyclical",
-    "Retail Trade": "Consumer Cyclical",
+    "Retailers": "Consumer Cyclicals",
+    "Cyclical Consumer Services": "Consumer Cyclicals",
+    "Retail Trade": "Consumer Cyclicals",
     "Personal & Household Products & Services": "Consumer Defensive",
     "Holding Companies": "Financial Services",
     "Energy Minerals": "Energy",
@@ -108,7 +108,7 @@ def normalize_sub_sector(sub: str) -> str:
         return sub.replace(' - Regional', '')
     
     sub_map = {
-        'Consumer Cyclicals': 'Consumer Cyclical', 
+        'Consumer Cyclicals': 'Consumer Cyclicals', 
         'Construction & Engineering': 'Engineering & Construction',
         'Software & IT Services': 'Software - Application'
     }
@@ -226,11 +226,10 @@ def fetch_enrichment_data(symbols_to_insert: set) -> list:
             if base_code in symbols_to_insert:
                 insert_payloads[base_code] = {
                     "symbol": base_code,
-                    "name": item.get('companyName'), # Might be None
-                    "sector": item.get('sector'),    # Might be None
-                    "currency": item.get('priceCurrCode'), # Might be None
+                    "name": item.get('companyName'),
+                    "sector": item.get('sector'),
+                    "currency": item.get('priceCurrCode'),
                     "is_active": True,
-                    "investing_symbol": base_code
                 }
     except Exception as e:
         global_errors.append(f"API 2 (Screener) Error: {str(e)}")
@@ -239,8 +238,8 @@ def fetch_enrichment_data(symbols_to_insert: set) -> list:
     for sym in symbols_to_insert:
         if sym not in insert_payloads:
             insert_payloads[sym] = {
-                "symbol": sym, "name": None, "sector": None, 
-                "currency": None, "is_active": True, "investing_symbol": sym
+                "symbol": sym, "name": None, "sector": None,
+                "currency": None, "is_active": True,
             }
 
     # 2. Fetch from API 3 (Snapshot) concurrently
