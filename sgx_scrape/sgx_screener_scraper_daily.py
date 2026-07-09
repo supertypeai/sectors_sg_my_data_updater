@@ -55,7 +55,7 @@ SCREENER_URL = (
     "%2CnetProfitMargin%2CtotalDebtToTotalEquityRatio"
 )
 
-MCAP_URL = "https://api.sgx.com/stockscreener/v2.0/all?params=stockCode,marketCapitalization,currencyIdForMarketCap"
+MCAP_URL = "https://api.sgx.com/stockscreener/v2.0/all?params=stockCode%2CmarketCapitalization"
 
 RATIOS_URL = (
     "https://api.sgx.com/ratiosreports/v2.0/countryCode/SGP/stockCode/{symbol}"
@@ -64,8 +64,17 @@ RATIOS_URL = (
     "%2Ceps5YearGrowth%2CrevenueShare5YearGrowth%2CassetTurnover"
 )
 
+SNAPSHOT_URL = (
+    "https://api.sgx.com/snapshotreports/v2.0/countryCode/SGP/stockCode/{symbol}"
+    "?params=stockCode%2CcurrencyIdForMarketCap%2CtradedCurrency"
+)
+
 HISTORIC_URL = (
     "https://api.sgx.com/securities/v1.1//charts/historic/stocks/code/{symbol}/{period}"
+    "?params=trading_time,vl,lt"
+)
+HISTORIC_REIT_URL = (
+    "https://api.sgx.com/securities/v1.1//charts/historic/reits/code/{symbol}/{period}"
     "?params=trading_time,vl,lt"
 )
 
@@ -115,12 +124,13 @@ def create_supabase() -> Client:
 
 
 def fetch_symbols() -> pd.DataFrame:
-    """Fetch active symbols from sgx_companies. Returns df with symbol + api_symbol (no .SI)."""
+    """Fetch active symbols from sgx_companies. Returns df with symbol + api_symbol (no .SI) + is_reit + currency."""
     client = create_supabase()
-    rows = client.table("sgx_companies").select("symbol").eq("is_active", True).execute().data
+    rows = client.table("sgx_companies").select("symbol,sector").eq("is_active", True).execute().data
     df = pd.DataFrame(rows)
     df["api_symbol"] = df["symbol"].str.replace(r"\.SI$", "", regex=True)
-    logger.info(f"Loaded {len(df)} active symbols from sgx_companies.")
+    df["is_reit"] = df["sector"].str.upper() == "REIT"
+    logger.info(f"Loaded {len(df)} active symbols from sgx_companies ({df['is_reit'].sum()} REITs).")
     return df
 
 
@@ -168,7 +178,7 @@ def build_metrics_df(base_df: pd.DataFrame) -> pd.DataFrame:
 
     df = base_df.merge(screener_df, left_on="api_symbol", right_on="symbol", how="left")
     df["symbol"] = df["symbol_x"]
-    df.drop(columns=["symbol_x", "symbol_y", "api_symbol"], inplace=True, errors="ignore")
+    df.drop(columns=["symbol_x", "symbol_y", "api_symbol", "sector", "currency", "is_reit"], inplace=True, errors="ignore")
 
     df = df.merge(ratios_df, on="symbol", how="left", suffixes=("", "_r"))
 
@@ -203,9 +213,22 @@ def upsert_metrics(df: pd.DataFrame, client: Client):
 # ==========================================
 # PIPELINE 2: PRICE + MCAP → sgx_daily_data
 # ==========================================
-def _fetch_historic_single(symbol: str, period: str) -> pd.DataFrame:
+def _fetch_currency_single(symbol: str) -> tuple[str, str | None, str | None]:
     try:
-        resp = requests.get(HISTORIC_URL.format(symbol=symbol, period=period), headers=SGX_HEADERS, timeout=15)
+        resp = requests.get(SNAPSHOT_URL.format(symbol=symbol), headers=SGX_HEADERS, timeout=15)
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        if data:
+            return symbol, data[0].get("currencyIdForMarketCap"), data[0].get("tradedCurrency")
+    except Exception:
+        pass
+    return symbol, None, None
+
+
+def _fetch_historic_single(symbol: str, period: str, is_reit: bool = False) -> pd.DataFrame:
+    try:
+        url_template = HISTORIC_REIT_URL if is_reit else HISTORIC_URL
+        resp = requests.get(url_template.format(symbol=symbol, period=period), headers=SGX_HEADERS, timeout=15)
         resp.raise_for_status()
         records = resp.json().get("data", {}).get("historic", [])
         if not records:
@@ -227,10 +250,11 @@ def build_daily_df(base_df: pd.DataFrame, mode: str) -> tuple:
     api_symbols = base_df["api_symbol"].tolist()
     period = "1y" if mode == "full" else "1m"
 
-    logger.info(f"Fetching historic prices ({period}) for {len(api_symbols)} symbols...")
+    reit_set = set(base_df.loc[base_df["is_reit"], "api_symbol"].tolist())
+    logger.info(f"Fetching historic prices ({period}) for {len(api_symbols)} symbols ({len(reit_set)} via REIT endpoint)...")
     frames = []
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(_fetch_historic_single, s, period): s for s in api_symbols}
+        futures = {executor.submit(_fetch_historic_single, s, period, s in reit_set): s for s in api_symbols}
         for i, future in enumerate(as_completed(futures), 1):
             df = future.result()
             if not df.empty:
@@ -251,21 +275,38 @@ def build_daily_df(base_df: pd.DataFrame, mode: str) -> tuple:
     resp = requests.get(MCAP_URL, headers=SGX_HEADERS, timeout=30)
     resp.raise_for_status()
     mcap_data = resp.json().get("data", [])
-    mcap_df = pd.DataFrame(mcap_data)[["stockCode", "marketCapitalization", "currencyIdForMarketCap"]]
-    mcap_df.columns = ["symbol", "market_cap", "currency"]
+    if not mcap_data:
+        logger.warning("Market cap API returned no data.")
+        return price_df, price_df[price_df["date"] == price_df["date"].max()].copy()
+    mcap_df = pd.DataFrame(mcap_data)[["stockCode", "marketCapitalization"]]
+    mcap_df.columns = ["symbol", "market_cap"]
     mcap_df["market_cap"] = pd.to_numeric(mcap_df["market_cap"], errors="coerce")
+
+    # Fetch currencyIdForMarketCap + tradedCurrency per symbol from snapshotreports
+    logger.info(f"Fetching market cap currency for {len(api_symbols)} symbols...")
+    mcap_currency_map = {}
+    traded_currency_map = {}
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        for sym, mcap_cur, traded_cur in executor.map(_fetch_currency_single, api_symbols):
+            if mcap_cur:
+                mcap_currency_map[sym] = mcap_cur
+            if traded_cur:
+                traded_currency_map[sym] = traded_cur
+    logger.info(f"Currency fetched for {len(mcap_currency_map)} symbols.")
+    mcap_df["currency_for_market_cap"] = mcap_df["symbol"].map(mcap_currency_map)
+    mcap_df["traded_currency"] = mcap_df["symbol"].map(traded_currency_map)
 
     # Convert non-SGD market caps to SGD using compact_rates.json
     try:
         import json as _json
         with open("compact_rates.json", "r") as f:
             rates = _json.load(f)
-        non_sgd = mcap_df["currency"].notna() & (mcap_df["currency"] != "SGD")
+        non_sgd = mcap_df["currency_for_market_cap"].notna() & (mcap_df["currency_for_market_cap"] != "SGD")
         if non_sgd.any():
             def _convert(row):
-                if pd.isna(row["market_cap"]) or pd.isna(row["currency"]) or row["currency"] == "SGD":
+                if pd.isna(row["market_cap"]) or pd.isna(row["currency_for_market_cap"]) or row["currency_for_market_cap"] == "SGD":
                     return row["market_cap"]
-                rate = rates.get(row["currency"], {}).get("SGD")
+                rate = rates.get(row["currency_for_market_cap"], {}).get("SGD")
                 return row["market_cap"] * rate if rate else row["market_cap"]
             mcap_df.loc[non_sgd, "market_cap"] = mcap_df[non_sgd].apply(_convert, axis=1)
             logger.info(f"Converted {non_sgd.sum()} non-SGD market caps to SGD.")
@@ -273,7 +314,7 @@ def build_daily_df(base_df: pd.DataFrame, mode: str) -> tuple:
         logger.warning(f"Could not apply currency conversion for market cap: {e}")
 
     mcap_df["market_cap"] = mcap_df["market_cap"].round(0).astype("Int64")
-    mcap_df = mcap_df.drop(columns=["currency"])
+    mcap_df = mcap_df.drop(columns=["currency_for_market_cap", "traded_currency"])
     logger.info(f"Market cap fetched for {len(mcap_df)} symbols.")
 
     latest_date = price_df["date"].max()
