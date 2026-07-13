@@ -87,7 +87,7 @@ def reclassify_to_enum(symbol: str, sector: str, sub_sector: str) -> tuple[str, 
     stats['flagged_unresolved'] = stats.get('flagged_unresolved', 0) + 1
     print(f"  [FLAG] unresolved classification: symbol:{symbol} sector:{sector} sub_sector:{sub_sector}")
     
-    return sector, sub_sector
+    return normalised_sector, sub_sector
 
 def apply_enum_classification(payloads: list) -> list:
     for payload in payloads:
