@@ -51,7 +51,9 @@ VALID_PAIRS = frozenset(
         ("REIT", "REIT - Office"),
         ("REIT", "REIT - Diversified"),
         ("REIT", "REIT - Retail"),
-        ("REIT", "REIT - Specialty & Healthcare"),
+        ("REIT", "REIT - Healthcare"),
+        ("REIT", "REIT - Hospitality"),
+        ("REIT", "REIT - Data Centre"),
         ("Technology", "Hardware & Electronics"),
         ("Technology", "Software & IT Services"),
         ("Technology", "Semiconductors & Equipment"),
@@ -62,6 +64,69 @@ VALID_PAIRS = frozenset(
         ("Utilities", "Utilities - Independent & Diversified"),
     }
 )
+
+
+# S-REIT sub-sector per REITAS (https://www.reitas.sg/singapore-reits/s-reit-sectors/).
+# REITAS classifies by investment mandate, which SGX's industryName does not encode
+# (e.g. Keppel DC and Digital Core are both data centre REITs but report differently),
+# so these are keyed by symbol and take precedence over the string maps below.
+SG_REIT_OVERRIDES = {
+    # Office
+    "K71U": "REIT - Office",        # Keppel REIT
+    "OXMU": "REIT - Office",        # Prime US REIT
+    "CMOU": "REIT - Office",        # Keppel Pacific Oak US REIT
+    "BTOU": "REIT - Office",        # Manulife US REIT
+    "MXNU": "REIT - Office",        # Elite UK REIT (GBP counter)
+    "MENU": "REIT - Office",        # Elite UK REIT (SGD counter)
+    # Industrial
+    "A17U": "REIT - Industrial",    # CapitaLand Ascendas REIT
+    "M44U": "REIT - Industrial",    # Mapletree Logistics Trust
+    "ME8U": "REIT - Industrial",    # Mapletree Industrial Trust
+    "9A4U": "REIT - Industrial",    # ESR-REIT
+    "J91U": "REIT - Industrial",    # ESR-REIT (delisted counter)
+    "O5RU": "REIT - Industrial",    # AIMS APAC REIT
+    "UIBU": "REIT - Industrial",    # UI Boustead REIT
+    "M1GU": "REIT - Industrial",    # Alpha Integrated REIT (ex-Sabana)
+    "DHLU": "REIT - Industrial",    # Daiwa House Logistics Trust
+    "BWCU": "REIT - Industrial",    # EC World REIT (suspended)
+    # Retail
+    "J69U": "REIT - Retail",        # Frasers Centrepoint Trust
+    "P40U": "REIT - Retail",        # Starhill Global REIT
+    "CRPU": "REIT - Retail",        # Sasseur REIT
+    "ODBU": "REIT - Retail",        # United Hampshire US REIT
+    "BMGU": "REIT - Retail",        # BHG Retail REIT
+    "D5IU": "REIT - Retail",        # Landmark REIT (ex-Lippo Malls Indonesia)
+    "SK6U": "REIT - Retail",        # Paragon REIT (delisted)
+    # Healthcare
+    "C2PU": "REIT - Healthcare",    # Parkway Life REIT
+    "AW9U": "REIT - Healthcare",    # First REIT
+    # Hospitality / Lodging
+    "HMN": "REIT - Hospitality",    # CapitaLand Ascott Trust
+    "8C8U": "REIT - Hospitality",   # Centurion Accommodation REIT
+    "J85": "REIT - Hospitality",    # CDL Hospitality Trusts
+    "Q5T": "REIT - Hospitality",    # Far East Hospitality Trust
+    "XZL": "REIT - Hospitality",    # Acrophyte Hospitality Trust
+    "LIW": "REIT - Hospitality",    # Eagle Hospitality Trust (suspended)
+    "ACV": "REIT - Hospitality",    # Frasers Hospitality Trust (delisted)
+    # Data Centre
+    "AJBU": "REIT - Data Centre",   # Keppel DC REIT
+    "NTDU": "REIT - Data Centre",   # NTT DC REIT
+    "DCRU": "REIT - Data Centre",   # Digital Core REIT
+    # Diversified
+    "C38U": "REIT - Diversified",   # CapitaLand Integrated Commercial Trust
+    "N2IU": "REIT - Diversified",   # Mapletree Pan Asia Commercial Trust
+    "T82U": "REIT - Diversified",   # Suntec REIT
+    "BUOU": "REIT - Diversified",   # Frasers Logistics & Commercial Trust
+    "TS0U": "REIT - Diversified",   # OUE REIT
+    "AU8U": "REIT - Diversified",   # CapitaLand China Trust
+    "JYEU": "REIT - Diversified",   # Lendlease Global Commercial REIT
+    "SEB": "REIT - Diversified",    # Stoneweg Europe Stapled Trust (SGD counter)
+    "SET": "REIT - Diversified",    # Stoneweg Europe Stapled Trust (EUR counter)
+    "CWBU": "REIT - Diversified",   # Stoneweg European REIT (delisted counter)
+    "CWCU": "REIT - Diversified",   # Stoneweg Europe Stapled Trust (delisted counter)
+    "UD1U": "REIT - Diversified",   # IREIT Global
+    "8U7U": "REIT - Diversified",   # IREIT Global (secondary counter)
+}
 
 
 SECTOR_REMAP = {
@@ -144,9 +209,10 @@ DIRECT_SUBSECTOR_MAP = {
     "Pollution & Treatment Controls": ("Industrials", "Waste Management & Pollution Control"),
     "Integrated Oil": ("Energy", "Oil & Gas Operations & Services"),
     "Oil & Gas Refining & Marketing": ("Energy", "Oil & Gas Operations & Services"),
-    "REIT - Specialty": ("REIT", "REIT - Specialty & Healthcare"),
+    "REIT - Specialty": ("REIT", "REIT - Diversified"),
+    "REIT - Hotel & Motel": ("REIT", "REIT - Hospitality"),
     "Packaged Foods": ("Consumer Defensive", "Food & Beverage Production"),
-    "REIT - Healthcare Facilities": ("REIT", "REIT - Specialty & Healthcare"),
+    "REIT - Healthcare Facilities": ("REIT", "REIT - Healthcare"),
     "Utilities - Renewable": ("Utilities", "Utilities - Renewable"),
     "Pharmaceuticals & Health Care Research": ("Healthcare", "Pharmaceuticals & Research"),
     "Gold": ("Basic Materials", "Metals & Mining"),
@@ -174,7 +240,7 @@ DIRECT_SUBSECTOR_MAP = {
     "Apparel & Accessories Retailers": ("Consumer Cyclicals", "Apparel & Accessories"),
     "Marine Fishing & Aquaculture": ("Consumer Defensive", "Food & Beverage Production"),
     "Seafood Sourcing & Distribution": ("Consumer Defensive", "Food Distribution"),
-    "Hospitality REITs (Hotels)": ("REIT", "REIT - Specialty & Healthcare"),
+    "Hospitality REITs (Hotels)": ("REIT", "REIT - Hospitality"),
     "Communications & Networking Infrastructure": ("Technology", "Communication & Instruments"),
     "Shipbuilding & Marine Engineering": ("Industrials", "Industrial Machinery & Parts"),
     "Offshore Oil & Gas Services": ("Energy", "Oil & Gas Operations & Services"),
@@ -253,6 +319,6 @@ SECONDARY_PAIR_MAP = {
     # Tools & Accessories: default to Industrial Machinery when Industrials.
     ("Industrials", "Tools & Accessories"): ("Industrials", "Industrial Machinery & Parts"),
 
-    ("REIT", "REIT - Hotel & Motel"): ("REIT", "REIT - Specialty & Healthcare"),
+    ("REIT", "REIT - Hotel & Motel"): ("REIT", "REIT - Hospitality"),
     ("Basic Materials", "Basic Materials"): ("Basic Materials", "Basic Materials - Diversified")
 }

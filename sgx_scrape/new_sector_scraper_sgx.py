@@ -68,6 +68,10 @@ global_errors =[]
 # HELPER FUNCTIONS
 # ==========================================
 def reclassify_to_enum(symbol: str, sector: str, sub_sector: str) -> tuple[str, str]:
+    # Curated S-REIT classification (REITAS) so this uniform with sgx_reit_profile table => https://www.reitas.sg/singapore-reits/s-reit-sectors/
+    if symbol in SG_REIT_OVERRIDES:
+        return "REIT", SG_REIT_OVERRIDES[symbol]
+
     if sub_sector == "Unknown" or sector == "Unknown":
         return sector, sub_sector
 
