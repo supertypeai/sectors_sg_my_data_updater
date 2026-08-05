@@ -11,3 +11,5 @@ curl-cffi
 pyrate-limiter<3
 requests-cache
 requests-ratelimiter
+pdfplumber
+openai
