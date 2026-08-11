@@ -69,13 +69,14 @@ SNAPSHOT_URL = (
     "?params=stockCode%2CcurrencyIdForMarketCap%2CtradedCurrency"
 )
 
+# params=trading_time,vl,lt,o,h,l -> daily OHLCV: o=open, h=high, l=low, lt=last/close, vl=volume
 HISTORIC_URL = (
     "https://api.sgx.com/securities/v1.1//charts/historic/stocks/code/{symbol}/{period}"
-    "?params=trading_time,vl,lt"
+    "?params=trading_time,vl,lt,o,h,l"
 )
 HISTORIC_REIT_URL = (
     "https://api.sgx.com/securities/v1.1//charts/historic/reits/code/{symbol}/{period}"
-    "?params=trading_time,vl,lt"
+    "?params=trading_time,vl,lt,o,h,l"
 )
 
 # ==========================================
@@ -236,10 +237,11 @@ def _fetch_historic_single(symbol: str, period: str, is_reit: bool = False) -> p
         df = pd.DataFrame(records)
         df["symbol"] = symbol
         df["date"] = pd.to_datetime(df["trading_time"].str[:8], format="%Y%m%d").dt.strftime("%Y-%m-%d")
-        df = df.rename(columns={"lt": "close", "vl": "volume"})
-        df["close"] = pd.to_numeric(df["close"], errors="coerce").round(6)
+        df = df.rename(columns={"o": "open", "h": "high", "l": "low", "lt": "close", "vl": "volume"})
+        for col in ("open", "high", "low", "close"):
+            df[col] = pd.to_numeric(df[col], errors="coerce").round(6)
         df["volume"] = (pd.to_numeric(df["volume"], errors="coerce").fillna(0) * 1000).astype("int64")
-        return df[["symbol", "date", "close", "volume"]]
+        return df[["symbol", "date", "open", "high", "low", "close", "volume"]]
     except Exception as e:
         logger.warning(f"[{symbol}] historic fetch failed: {e}")
         return pd.DataFrame()
