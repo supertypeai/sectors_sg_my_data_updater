@@ -7,7 +7,7 @@ the top-N issuers by market cap:
     symbol,date,income_statement,balance_sheet,cash_flow,period
 
   * `date`   — last day of the half, taken from the report itself (period_end).
-  * `period` — "half 1" or "half 2".
+  * `period` — "H1" or "H2".
   * the three statement columns hold the extracted metrics as a JSON object.
 
 Scope rules:
@@ -18,7 +18,7 @@ Scope rules:
     skipped — they announce or discuss results without presenting them.
   * Only half-yearly periods. Full-year filings are read on their second-half
     column (see financial_statement_rag.as_second_half), half-year filings give
-    half 1. Q1/Q3 filings are skipped: a quarter is not a half.
+    H1. Q1/Q3 filings are skipped: a quarter is not a half.
 
 Currency: every value is converted to SGD using the MAS quarterly rates in
 ../quarterly_rates.json, at the quarter-end on or before the period end. Reports
@@ -58,11 +58,11 @@ RESULT_CACHE = HERE / "sgx_financials_cache.jsonl"
 DEFAULT_OUT = HERE / "sgx_half_yearly_financials.csv"
 
 # sub_title values that carry actual statements, mapped to the half they report.
-# Full-year filings are extracted on their second-half column, so they are half 2.
+# Full-year filings are extracted on their second-half column, so they are H2.
 HALF_BY_SUB_TITLE = {
-    "Full Yearly Results": "half 2",
-    "Half Yearly Results": "half 1",
-    "Second Quarter and/ or Half Yearly Results": "half 1",
+    "Full Yearly Results": "H2",
+    "Half Yearly Results": "H1",
+    "Second Quarter and/ or Half Yearly Results": "H1",
 }
 
 # Extraction is an API call, so several can be in flight; PDF downloads are not.
@@ -228,7 +228,7 @@ def financial_year(date: str | None, period: str) -> int | None:
     its own year. Singtel closing 31 Mar 2026 is therefore FY2025, and OCBC
     closing 31 Dec 2025 is also FY2025.
 
-    A "half 1" row is six months before the close, so the year-end is derived
+    A "H1" row is six months before the close, so the year-end is derived
     first — which keeps both halves of one financial year under one label.
     """
     parsed = parse_date(date)
@@ -236,7 +236,7 @@ def financial_year(date: str | None, period: str) -> int | None:
         return None
     year, month, _ = parsed
 
-    if period == "half 1":
+    if period == "H1":
         month += 6
         if month > 12:
             month -= 12
