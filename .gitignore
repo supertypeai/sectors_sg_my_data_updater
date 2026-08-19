@@ -12,3 +12,9 @@ venv
 
 # YFinance cache
 yfinance.cache
+
+# Temp/backfill scripts + local scraper runtime output (large, regenerated)
+sgx_scrape/sgx_daily_backfill_5y.py
+sgx_scrape/sgx_daily_all_to_json.py
+data/sgx_daily/
+data/sgx_daily_raw_backup/

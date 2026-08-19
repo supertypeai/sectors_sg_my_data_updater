@@ -525,22 +525,69 @@ def convert_to_number(x):
         return np.nan
 
 
+# Verified home/primary listings for SGX secondary/DRC lines whose .SI quote carries no
+# +1y analyst estimate on Yahoo. All entries identity-checked: same legal entity (income
+# statements identical within 1%) and same security (share ratio 1.0000 where quoted).
+# Do NOT add unverified guesses (e.g. 7995.T is Valqua, not Maruwa; 0867.HK needs the zero).
+HOME_TICKER_MAP = {
+    "TATD": "AOT.BK",    # Airports of Thailand PCL DRC
+    "TPED": "PTTEP.BK",  # PTT Exploration & Production PCL DRC
+    "TCPD": "CPALL.BK",  # CP All PCL DRC
+    "O6Z": "LONN.SW",    # Lonza Group
+    "K6S": "PRU.L",      # Prudential plc
+    "N33": "8604.T",     # Nomura Holdings
+    "NIO": "NIO",        # NIO Inc (NYSE primary)
+    "M12": "5344.T",     # Maruwa Co Ltd
+    "8A8": "0867.HK",    # China Medical System Holdings (zero-padded HK code)
+    "T14": "600329.SS",  # Tianjin Pharmaceutical Da Ren Tang (A-shares)
+    "Z77": "Z74.SI",     # Singtel secondary line (primary Z74)
+    "SO7": "BS6.SI",     # Yangzijiang secondary line (primary BS6)
+}
+
+
+def _growth_1y(ticker_str: str):
+    """+1y forward analyst EPS growth (stockTrend) for a Yahoo ticker, or np.nan."""
+    ge = yf.Ticker(ticker_str).growth_estimates
+    if isinstance(ge, pd.DataFrame) and "+1y" in ge.index:
+        val = ge.at["+1y", "stockTrend"]
+        if pd.notna(val):
+            return val
+    return np.nan
+
+
 def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.DataFrame:
     for idx, row in data_prep.iterrows():
         symbol = row["symbol"]
         ext = ".KL" if country.lower() == "my" else ".SI"
+
+        eps_1y = np.nan
+        source = None
+
+        # 1) PRIMARY: +1y forward estimate on the local line (.SI / .KL)
         try:
-            ticker = yf.Ticker(symbol + ext)
-
-            ge = ticker.growth_estimates
-
-            eps_1y = ge.at["+1y", "stockTrend"] if "+1y" in ge.index else np.nan
-
-            data_prep.loc[idx, "one_year_eps_growth"] = eps_1y
-
+            eps_1y = _growth_1y(symbol + ext)
+            source = "si"
         except Exception as e:
-            print(f"[DEBUG] Failed to fetch estimates for {symbol}: {e}")
+            print(f"[DEBUG] Failed to fetch estimates for {symbol + ext}: {e}")
+
+        # 2) FALLBACK: verified home/primary listing for secondary/DRC lines
+        if pd.isna(eps_1y):
+            home = HOME_TICKER_MAP.get(symbol)
+            if home:
+                try:
+                    eps_1y = _growth_1y(home)
+                    source = f"home:{home}"
+                except Exception as e:
+                    print(f"[DEBUG] Failed to fetch estimates for {symbol} via home {home}: {e}")
+                    source = f"home:{home}:error"
+
+        # 3) NO forward estimate anywhere: keep the previous DB value (never write NULL over it)
+        if pd.isna(eps_1y):
+            print(f"[growth] {symbol}: no +1y forward estimate (.SI -> {source}) - keeping previous value")
             continue
+
+        data_prep.loc[idx, "one_year_eps_growth"] = eps_1y
+        print(f"[growth] {symbol}: +1y eps growth = {eps_1y} (source={source})")
 
     return data_prep
 
