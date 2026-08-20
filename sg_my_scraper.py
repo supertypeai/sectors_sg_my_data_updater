@@ -259,6 +259,9 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
 
     return data_prep
 
+HISTORY_YEARS = 5       # keep only the most recent 5 calendar years of dividends
+
+
 def update_historical_dividends(data_prep: pd.DataFrame, country):
     date_format = "%Y-%m-%d"
     if "historical_dividends" not in data_prep.columns:
@@ -267,42 +270,50 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
     for index, row in data_prep.iterrows():
         symbol = row["symbol"]
         try:
-            ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(row["symbol"] + ticker_extension)
-
-            full_history = ticker.history(period="max").reset_index()
-            if full_history.empty:
-                raise ValueError("No historical data available")
-            full_history["Date"] = pd.to_datetime(full_history["Date"])
-            full_history.sort_values("Date", inplace=True)
-            latest_close = full_history.iloc[-1]["Close"]
-
+            ticker = yf.Ticker(row["symbol"] + (".KL" if country == "my" else ".SI"))
+            # Dividends (Yahoo): yfinance returns the full series; no range param.
             dividends_series = ticker.dividends
-            if not dividends_series.empty:
-                dividends_df = dividends_series.reset_index()
-                dividends_df.columns = ["Date", "Dividend"]
-                dividends_df["year"] = dividends_df["Date"].dt.year
-                dividends_df["yield"] = dividends_df["Dividend"] / latest_close if latest_close else np.nan
-                historical_dividends = []
-                for year, group in dividends_df.groupby("year"):
-                    breakdown = []
-                    total_dividend = group["Dividend"].sum()
-                    total_yield = total_dividend / latest_close if latest_close else np.nan
-                    for _, row_div in group.iterrows():
-                        breakdown.append({
-                            "date": row_div["Date"].strftime(date_format),
-                            "total": row_div["Dividend"],
-                            "yield": row_div["yield"]
-                        })
-                    historical_dividends.append({
-                        "year": int(year),
-                        "breakdown": breakdown,
-                        "total_yield": total_yield,
-                        "total_dividend": total_dividend
-                    })
-                data_prep.at[index, "historical_dividends"] = historical_dividends
-            else:
+            if dividends_series.empty:
                 continue
+            dividends_df = dividends_series.reset_index()
+            dividends_df.columns = ["Date", "Dividend"]
+            dividends_df["year"] = dividends_df["Date"].dt.year
+            # Cap history to the last 5 calendar years.
+            min_year = datetime.now().year - (HISTORY_YEARS - 1)
+            dividends_df = dividends_df[dividends_df["year"] >= min_year]
+
+            # Closes (Yahoo): same split-adjusted basis as the dividends -> yield is always
+            # unit-consistent. auto_adjust=False -> "Close" is split-adjusted ONLY (not
+            # dividend-adjusted), matching .dividends basis. Fetch only the 5y span needed.
+            hist = ticker.history(start=f"{min_year}-01-01", auto_adjust=False)
+            close_map = {} if hist.empty else {
+                d.strftime(date_format): float(c) for d, c in zip(hist.index, hist["Close"])
+            }
+
+            historical_dividends = []
+            for year, group in dividends_df.groupby("year"):
+                breakdown = []
+                year_yields = []
+                total_dividend = round(group["Dividend"].sum(), 5)
+                for _, row_div in group.iterrows():
+                    ex_date = row_div["Date"].strftime(date_format)
+                    close = close_map.get(ex_date)
+                    div_yield = round(row_div["Dividend"] / close, 5) if close else np.nan
+                    if pd.notna(div_yield):
+                        year_yields.append(div_yield)
+                    breakdown.append({
+                        "date": ex_date,
+                        "total": round(row_div["Dividend"], 5),
+                        "yield": div_yield
+                    })
+                historical_dividends.append({
+                    "year": int(year),
+                    "breakdown": breakdown,
+                    "total_yield": round(sum(year_yields), 5) if year_yields else np.nan,
+                    "total_dividend": total_dividend
+                })
+            # null (not empty list) when no dividends in the 5y window
+            data_prep.at[index, "historical_dividends"] = historical_dividends if historical_dividends else None
 
         except Exception as e:
             print(f"[DEBUG] Error processing historical_dividends for {symbol}: {e}")
