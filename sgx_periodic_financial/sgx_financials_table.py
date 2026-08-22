@@ -68,6 +68,16 @@ HALF_BY_SUB_TITLE = {
 # Extraction is an API call, so several can be in flight; PDF downloads are not.
 EXTRACT_WORKERS = 4
 
+# Symbols are stored with the exchange suffix, matching how SGX tickers are
+# written elsewhere (Yahoo-style "D05.SI").
+SYMBOL_SUFFIX = ".SI"
+
+
+def with_suffix(symbol: str) -> str:
+    """Adds the exchange suffix, leaving an already-suffixed symbol alone."""
+    symbol = str(symbol)
+    return symbol if symbol.endswith(SYMBOL_SUFFIX) else symbol + SYMBOL_SUFFIX
+
 
 def top_symbols(limit: int) -> pd.DataFrame:
     """Top `limit` issuers by market cap from Supabase, nulls excluded."""
@@ -315,7 +325,7 @@ def build_table(records: list[dict]) -> pd.DataFrame:
         metrics = record["metrics"]
         rows.append(
             {
-                "symbol": record["symbol"],
+                "symbol": with_suffix(record["symbol"]),
                 "date": record["date"],
                 "income_statement": json.dumps(metrics.get("income_statement", {})),
                 "balance_sheet": json.dumps(metrics.get("balance_sheet", {})),

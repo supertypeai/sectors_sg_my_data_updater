@@ -324,6 +324,16 @@ def build_daily_df(base_df: pd.DataFrame, mode: str) -> tuple:
     latest_df = latest_df.merge(mcap_df, on="symbol", how="left")
     logger.info(f"Market cap joined for {latest_df['market_cap'].notna().sum()} symbols on {latest_date}.")
 
+    # Everything above joins on the bare API code, but the table stores the same
+    # suffixed form as sgx_companies — map back before the rows are written.
+    stored = dict(zip(base_df["api_symbol"], base_df["symbol"]))
+    for frame in (price_df, latest_df):
+        # Fall back to suffixing directly, so a code missing from base_df can
+        # never be written back in the bare form.
+        frame["symbol"] = frame["symbol"].map(
+            lambda code: stored.get(code, f"{code}.SI" if not str(code).endswith(".SI") else code)
+        )
+
     return price_df, latest_df
 
 

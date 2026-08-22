@@ -12,6 +12,20 @@ from new_sector_scraper_sgx import chunked_list, init_supabase
 
 from utils.constant import *
 
+# SG_REIT_OVERRIDES is keyed by bare code; sgx_companies stores the suffixed
+# form, so queries and updates are re-suffixed at the DB boundary.
+SYMBOL_SUFFIX = ".SI"
+
+
+def stored_symbols(symbols) -> list:
+    return [s if str(s).endswith(SYMBOL_SUFFIX) else f"{s}{SYMBOL_SUFFIX}" for s in symbols]
+
+
+def bare_symbol(symbol) -> str:
+    symbol = str(symbol)
+    return symbol[: -len(SYMBOL_SUFFIX)] if symbol.endswith(SYMBOL_SUFFIX) else symbol
+
+
 import sys
 import traceback
 from collections import defaultdict
@@ -37,9 +51,9 @@ def fetch_reit_state(supabase) -> dict:
 
     try:
         for chunk in chunked_list(symbols, 100):
-            response = supabase.table("sgx_companies").select("symbol, sector, sub_sector").in_("symbol", chunk).execute()
+            response = supabase.table("sgx_companies").select("symbol, sector, sub_sector").in_("symbol", stored_symbols(chunk)).execute()
             for r in response.data:
-                current[r['symbol']] = (r.get('sector'), r.get('sub_sector'))
+                current[bare_symbol(r['symbol'])] = (r.get('sector'), r.get('sub_sector'))
 
         stats['found_in_db'] = len(current)
         stats['missing_in_db'] = len(symbols) - len(current)
@@ -115,7 +129,7 @@ def main():
                 payload = {"sector": "REIT", "sub_sector": target_sub_sector}
                 for chunk in chunked_list(symbols, 100):
                     try:
-                        supabase.table("sgx_companies").update(payload).in_("symbol", chunk).execute()
+                        supabase.table("sgx_companies").update(payload).in_("symbol", stored_symbols(chunk)).execute()
                         stats['updated'] += len(chunk)
                     except Exception as e:
                         global_errors.append(f"Backfill DB Error ({target_sub_sector}): {str(e)}")

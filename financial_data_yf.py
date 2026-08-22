@@ -15,6 +15,21 @@ warnings.filterwarnings('ignore')
 import time
 from random import uniform
 
+# Symbols are stored with their exchange suffix ("D05.SI"); Yahoo tickers are
+# built from the bare code, so strip before re-appending one.
+EXCHANGE_SUFFIXES = (".SI", ".KL")
+
+
+def bare_symbol(symbol) -> str:
+    """The ticker code without its exchange suffix."""
+    symbol = str(symbol)
+    for suffix in EXCHANGE_SUFFIXES:
+        if symbol.endswith(suffix):
+            return symbol[: -len(suffix)]
+    return symbol
+
+
+
 def fetch_existing_symbol(country,supabase):
     if country == "SG":
         data = supabase.table("sgx_companies").select("symbol").eq("is_active", True).execute()
@@ -55,7 +70,7 @@ def upsert_db(update_data, supabase, country):
 
 def fetch_div_ttm(stock, currency, symbol, curr,resp):
     try:
-        ticker = yf.Ticker(f"{stock}.{symbol}")
+        ticker = yf.Ticker(f"{bare_symbol(stock)}.{symbol}")
 
         div = pd.DataFrame(ticker.dividends).reset_index()
         div.columns = div.columns.str.lower()
@@ -208,7 +223,7 @@ def update_historical_data(country, country_data, supabase,resp):
 
     for stock in country_data.symbol.unique():
 
-        ticker = yf.Ticker(f"{stock}.SI") if country == "SG" else yf.Ticker(f"{stock}.KL")
+        ticker = yf.Ticker(f"{bare_symbol(stock)}.SI") if country == "SG" else yf.Ticker(f"{bare_symbol(stock)}.KL")
 
         currency = "SGD" if country == "SG" else "MYR"
 

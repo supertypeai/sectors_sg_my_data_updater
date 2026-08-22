@@ -55,8 +55,7 @@ def get_active_symbols(client: Client) -> list[str]:
     logging.info(f"Fetching active symbols from table '{Config.COMPANY_SOURCE_TABLE}'...")
     try:
         # REMOVE .limit(10) FOR PRODUCTION RUNS.
-        response = client.table(Config.COMPANY_SOURCE_TABLE).select("symbol, market_cap").eq("is_active", True).execute()
-        # response = client.table(Config.COMPANY_SOURCE_TABLE).select("symbol, market_cap").eq("is_active", True).order("market_cap", desc=True).limit(100).execute()
+        response = client.table(Config.COMPANY_SOURCE_TABLE).select("symbol").eq("is_active", True).execute()
 
         if not response.data:
             logging.warning(f"No active symbols found in '{Config.COMPANY_SOURCE_TABLE}'.")
@@ -72,9 +71,19 @@ def get_active_symbols(client: Client) -> list[str]:
 SGX_HISTORIC_URL = "https://api.sgx.com/securities/v1.1//charts/historic/stocks/code/{symbol}/{period}?params=trading_time,vl,lt"
 SGX_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
+# sgx_companies stores symbols suffixed ("D05.SI"); the SGX API wants the bare
+# code, but the rows written back keep the stored form.
+SYMBOL_SUFFIX = ".SI"
+
+
+def bare_symbol(symbol) -> str:
+    symbol = str(symbol)
+    return symbol[: -len(SYMBOL_SUFFIX)] if symbol.endswith(SYMBOL_SUFFIX) else symbol
+
+
 def fetch_sgx_historic_single(symbol: str, period: str) -> pd.DataFrame:
     """Fetch historic price/volume data for one symbol from the SGX API."""
-    url = SGX_HISTORIC_URL.format(symbol=symbol, period=period)
+    url = SGX_HISTORIC_URL.format(symbol=bare_symbol(symbol), period=period)
     try:
         resp = requests.get(url, headers=SGX_HEADERS, timeout=15)
         resp.raise_for_status()
@@ -148,18 +157,46 @@ def upsert_in_batches(client: Client, table_name: str, df: pd.DataFrame):
 
     logging.info(f"Successfully upserted all {total_records} records.")
 
+def load_exchange_rates() -> dict:
+    """Load exchange rates from compact_rates.json."""
+    try:
+        with open("compact_rates.json", "r") as f:
+            import json
+            return json.load(f)
+    except Exception as e:
+        logging.warning(f"Could not load compact_rates.json: {e}. No currency conversion will be applied.")
+        return {}
+
 def fetch_market_cap() -> pd.DataFrame:
-    """Fetches stockCode and marketCapitalization from the SGX screener API."""
+    """Fetches stockCode, marketCapitalization and currencyIdForMarketCap from the SGX screener API,
+    then converts non-SGD market caps to SGD using compact_rates.json."""
     url = "https://api.sgx.com/stockscreener/v2.0/all"
-    params = {"params": "stockCode,marketCapitalization"}
+    params = {"params": "stockCode,marketCapitalization,currencyIdForMarketCap"}
     logging.info("Fetching market cap data from SGX API...")
     try:
         resp = requests.get(url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
         resp.raise_for_status()
         data = resp.json().get("data", [])
-        df = pd.DataFrame(data)[["stockCode", "marketCapitalization"]]
-        df.columns = ["symbol", "market_cap"]
-        df["market_cap"] = pd.to_numeric(df["market_cap"], errors="coerce").round(0).astype("Int64")
+        df = pd.DataFrame(data)[["stockCode", "marketCapitalization", "currencyIdForMarketCap"]]
+        df.columns = ["symbol", "market_cap", "currency"]
+        df["market_cap"] = pd.to_numeric(df["market_cap"], errors="coerce")
+
+        rates = load_exchange_rates()
+        non_sgd = df["currency"].notna() & (df["currency"] != "SGD")
+        if non_sgd.any() and rates:
+            def convert(row):
+                if pd.isna(row["market_cap"]) or row["currency"] == "SGD" or pd.isna(row["currency"]):
+                    return row["market_cap"]
+                rate = rates.get(row["currency"], {}).get("SGD")
+                if rate:
+                    return row["market_cap"] * rate
+                logging.warning(f"No SGD rate found for currency {row['currency']}, skipping conversion.")
+                return row["market_cap"]
+            df.loc[non_sgd, "market_cap"] = df[non_sgd].apply(convert, axis=1)
+            logging.info(f"Converted {non_sgd.sum()} non-SGD market caps to SGD.")
+
+        df["market_cap"] = df["market_cap"].round(0).astype("Int64")
+        df = df.drop(columns=["currency"])
         logging.info(f"Fetched market cap for {len(df)} symbols.")
         return df
     except Exception as e:

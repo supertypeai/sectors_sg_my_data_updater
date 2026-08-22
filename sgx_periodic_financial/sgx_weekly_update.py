@@ -44,6 +44,7 @@ from sgx_financials_table import (
     sgd_rate,
     to_sgd,
     top_symbols,
+    with_suffix,
 )
 from sgx_pipeline import attachments_of, choose_pdf
 
@@ -256,7 +257,8 @@ def main() -> int:
 
     pending = []
     for _, row in work.iterrows():
-        key = (row["stock_code"], expected_date(row))
+        # Stored symbols carry the exchange suffix; compare on the same form.
+        key = (with_suffix(row["stock_code"]), expected_date(row))
         if key[1] and key in done_keys:
             print(f"  skip {row['stock_code']} {key[1]} {row['period']} — already stored")
             continue

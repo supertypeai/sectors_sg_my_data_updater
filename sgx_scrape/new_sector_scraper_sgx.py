@@ -3,6 +3,28 @@ from supabase import create_client, Client
 
 from utils.constant import *
 
+# sgx_companies stores symbols with the exchange suffix ("D05.SI") while the SGX
+# APIs return the bare code. All the diffing below is done in bare space, so DB
+# symbols are stripped on read and re-suffixed at the write boundary — otherwise
+# every SGX symbol looks new and every DB symbol looks delisted.
+SYMBOL_SUFFIX = ".SI"
+
+
+def bare_symbol(symbol) -> str:
+    symbol = str(symbol)
+    return symbol[: -len(SYMBOL_SUFFIX)] if symbol.endswith(SYMBOL_SUFFIX) else symbol
+
+
+def with_suffix(symbol) -> str:
+    symbol = str(symbol)
+    return symbol if symbol.endswith(SYMBOL_SUFFIX) else symbol + SYMBOL_SUFFIX
+
+
+def stored_symbols(symbols) -> list:
+    """Bare codes -> the form stored in sgx_companies."""
+    return [with_suffix(s) for s in symbols]
+
+
 import os
 import sys
 import json
@@ -159,12 +181,13 @@ def fetch_db_state(supabase: Client) -> tuple:
                 break
 
             for r in data:
-                all_symbols.add(r['symbol'])
+                symbol = bare_symbol(r['symbol'])
+                all_symbols.add(symbol)
                 if r['is_active']:
-                    active_symbols.add(r['symbol'])
+                    active_symbols.add(symbol)
 
                 if r.get('is_suspended'):
-                    suspended_db_symbols.add(r['symbol'])
+                    suspended_db_symbols.add(symbol)
 
             if len(data) < page_size:
                 break
@@ -229,7 +252,7 @@ def fetch_enrichment_data(symbols_to_insert: set) -> list:
             
             if base_code in symbols_to_insert:
                 insert_payloads[base_code] = {
-                    "symbol": base_code,
+                    "symbol": with_suffix(base_code),
                     "name": item.get('companyName'),
                     "sector": item.get('sector'),
                     "currency": item.get('priceCurrCode'),
@@ -408,7 +431,7 @@ def main():
             if to_deactivate:
                 for chunk in chunked_list(list(to_deactivate), 100):
                     try:
-                        supabase.table("sgx_companies").update({"is_active": False}).in_("symbol", chunk).execute()
+                        supabase.table("sgx_companies").update({"is_active": False}).in_("symbol", stored_symbols(chunk)).execute()
                         stats['deactivated'] += len(chunk)
                     except Exception as e:
                         global_errors.append(f"Deactivation DB Error: {str(e)}")
@@ -417,7 +440,7 @@ def main():
             if to_reactivate:
                 for chunk in chunked_list(list(to_reactivate), 100):
                     try:
-                        supabase.table("sgx_companies").update({"is_active": True}).in_("symbol", chunk).execute()
+                        supabase.table("sgx_companies").update({"is_active": True}).in_("symbol", stored_symbols(chunk)).execute()
                         stats['reactivated'] += len(chunk)
                     except Exception as e:
                         global_errors.append(f"Reactivation DB Error: {str(e)}")
@@ -435,7 +458,7 @@ def main():
             if to_suspend:
                 for chunk in chunked_list(list(to_suspend), 100):
                     try:
-                        supabase.table("sgx_companies").update({"is_suspended": True}).in_("symbol", chunk).execute()
+                        supabase.table("sgx_companies").update({"is_suspended": True}).in_("symbol", stored_symbols(chunk)).execute()
                         stats['suspended'] += len(chunk)
                     except Exception as e:
                         global_errors.append(f"Suspend DB Error: {str(e)}")
@@ -443,7 +466,7 @@ def main():
             if to_unsuspend:
                 for chunk in chunked_list(list(to_unsuspend), 100):
                     try:
-                        supabase.table("sgx_companies").update({"is_suspended": False}).in_("symbol", chunk).execute()
+                        supabase.table("sgx_companies").update({"is_suspended": False}).in_("symbol", stored_symbols(chunk)).execute()
                         stats['unsuspended'] += len(chunk)
                     except Exception as e:
                         global_errors.append(f"Unsuspend DB Error: {str(e)}")

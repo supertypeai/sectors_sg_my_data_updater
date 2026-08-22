@@ -14,6 +14,21 @@ from supabase import create_client
 import yf_custom as yf
 import re
 
+# Symbols are stored with their exchange suffix ("D05.SI", "1155.KL"), while
+# Yahoo tickers and the SGX APIs are built from the bare code. Strip before
+# re-appending an extension so a stored symbol never becomes "D05.SI.SI".
+EXCHANGE_SUFFIXES = (".SI", ".KL")
+
+
+def bare_symbol(symbol) -> str:
+    """The ticker code without its exchange suffix."""
+    symbol = str(symbol)
+    for suffix in EXCHANGE_SUFFIXES:
+        if symbol.endswith(suffix):
+            return symbol[: -len(suffix)]
+    return symbol
+
+
 def recursively_clean_nans(obj):
     if isinstance(obj, dict):
         return {k: recursively_clean_nans(v) for k, v in obj.items()}
@@ -74,7 +89,7 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(symbol + ticker_extension)
+            ticker = yf.Ticker(bare_symbol(symbol) + ticker_extension)
             info = ticker.info
 
             currency_info = info.get("currency")
@@ -184,7 +199,7 @@ def update_dividend_growth_rate(data_prep: pd.DataFrame, country):
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(symbol + ticker_extension)
+            ticker = yf.Ticker(bare_symbol(symbol) + ticker_extension)
 
             current_year = datetime.now().year
             dividend_last_1_year = ticker.history(
@@ -219,7 +234,7 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(row["symbol"] + ticker_extension)
+            ticker = yf.Ticker(bare_symbol(row["symbol"]) + ticker_extension)
             currency_info = ticker.info.get("currency", None)
             currency = currency_info or row.get("currency")
             country_currency = "MYR" if country == "my" else "SGD"
@@ -268,7 +283,7 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(row["symbol"] + ticker_extension)
+            ticker = yf.Ticker(bare_symbol(row["symbol"]) + ticker_extension)
 
             full_history = ticker.history(period="max").reset_index()
             if full_history.empty:
@@ -316,7 +331,7 @@ def update_all_time_price(data_prep: pd.DataFrame, country: str):
     for index, row in data_prep.iterrows():
         symbol = row["symbol"]
         ticker_extension = ".KL" if country.lower() == "my" else ".SI"
-        ticker_full = symbol + ticker_extension
+        ticker_full = bare_symbol(symbol) + ticker_extension
 
         try:
             ticker = yf.Ticker(ticker_full)
@@ -388,7 +403,7 @@ def update_change_data(data_prep: pd.DataFrame, country):
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(row["symbol"] + ticker_extension)
+            ticker = yf.Ticker(bare_symbol(row["symbol"]) + ticker_extension)
 
             full_history = ticker.history(period="max").reset_index()
             if full_history.empty:
@@ -463,7 +478,7 @@ def employee_updater(data_final, country):
     for sym in data_final["symbol"].tolist():
         iv_data_dict["symbol"].append(sym)
         ticker_extension = ".KL" if country == "my" else ".SI"
-        sym_with_ext = sym + ticker_extension
+        sym_with_ext = bare_symbol(sym) + ticker_extension
         if sym_with_ext in special_case.keys():
             for key, value in zip(special_case.keys(), special_case.values()):
                 if sym_with_ext == key:
@@ -484,7 +499,7 @@ def employee_updater(data_final, country):
     for sym in data_final["symbol"].tolist():
         yf_data_dict["symbol"].append(sym)
         try:
-            temp = yf.Ticker(sym + ".SI")
+            temp = yf.Ticker(bare_symbol(sym) + ".SI")
             employee = temp.info["fullTimeEmployees"]
             yf_data_dict["employee_num"].append(employee)
         except:
@@ -530,7 +545,7 @@ def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.Dat
         symbol = row["symbol"]
         ext = ".KL" if country.lower() == "my" else ".SI"
         try:
-            ticker = yf.Ticker(symbol + ext)
+            ticker = yf.Ticker(bare_symbol(symbol) + ext)
 
             ge = ticker.growth_estimates
 
@@ -617,7 +632,8 @@ if __name__ == "__main__":
 
     invalid_yf_symbol = ['KIPR', 'PREI', 'YTLR', 'IGRE', 'ALQA', 'TWRE', 'AMFL', 'UOAR', 'AMRY', 'HEKR', 'SENT', 'AXSR',
                          'CAMA', 'SUNW', 'ATRL', 'PROL', 'KLCC', '5270']
-    data_final = data_final[~data_final["symbol"].isin(invalid_yf_symbol)]
+    # The blocklist is written as bare codes; stored symbols are suffixed.
+    data_final = data_final[~data_final["symbol"].map(bare_symbol).isin(invalid_yf_symbol)]
     data_final.to_csv("data_my.csv", index=False) if args.malaysia else data_final.to_csv("data_sg.csv", index=False)
 
     records_before_cleaning = data_final.to_dict("records")
