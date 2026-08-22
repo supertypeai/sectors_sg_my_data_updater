@@ -274,6 +274,9 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
 
     return data_prep
 
+HISTORY_YEARS = 5       # keep only the most recent 5 calendar years of dividends
+
+
 def update_historical_dividends(data_prep: pd.DataFrame, country):
     date_format = "%Y-%m-%d"
     if "historical_dividends" not in data_prep.columns:
@@ -283,7 +286,7 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(bare_symbol(row["symbol"]) + ticker_extension)
+            ticker = yf.Ticker(row["symbol"] + ticker_extension)
 
             full_history = ticker.history(period="max").reset_index()
             if full_history.empty:
@@ -293,31 +296,47 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
             latest_close = full_history.iloc[-1]["Close"]
 
             dividends_series = ticker.dividends
-            if not dividends_series.empty:
-                dividends_df = dividends_series.reset_index()
-                dividends_df.columns = ["Date", "Dividend"]
-                dividends_df["year"] = dividends_df["Date"].dt.year
-                dividends_df["yield"] = dividends_df["Dividend"] / latest_close if latest_close else np.nan
-                historical_dividends = []
-                for year, group in dividends_df.groupby("year"):
-                    breakdown = []
-                    total_dividend = group["Dividend"].sum()
-                    total_yield = total_dividend / latest_close if latest_close else np.nan
-                    for _, row_div in group.iterrows():
-                        breakdown.append({
-                            "date": row_div["Date"].strftime(date_format),
-                            "total": row_div["Dividend"],
-                            "yield": row_div["yield"]
-                        })
-                    historical_dividends.append({
-                        "year": int(year),
-                        "breakdown": breakdown,
-                        "total_yield": total_yield,
-                        "total_dividend": total_dividend
-                    })
-                data_prep.at[index, "historical_dividends"] = historical_dividends
-            else:
+            if dividends_series.empty:
                 continue
+            dividends_df = dividends_series.reset_index()
+            dividends_df.columns = ["Date", "Dividend"]
+            dividends_df["year"] = dividends_df["Date"].dt.year
+            # Cap history to the last 5 calendar years.
+            min_year = datetime.now().year - (HISTORY_YEARS - 1)
+            dividends_df = dividends_df[dividends_df["year"] >= min_year]
+
+            # Closes (Yahoo): same split-adjusted basis as the dividends -> yield is always
+            # unit-consistent. auto_adjust=False -> "Close" is split-adjusted ONLY (not
+            # dividend-adjusted), matching .dividends basis. Fetch only the 5y span needed.
+            hist = ticker.history(start=f"{min_year}-01-01", auto_adjust=False)
+            close_map = {} if hist.empty else {
+                d.strftime(date_format): float(c) for d, c in zip(hist.index, hist["Close"])
+            }
+
+            historical_dividends = []
+            for year, group in dividends_df.groupby("year"):
+                breakdown = []
+                year_yields = []
+                total_dividend = round(group["Dividend"].sum(), 5)
+                for _, row_div in group.iterrows():
+                    ex_date = row_div["Date"].strftime(date_format)
+                    close = close_map.get(ex_date)
+                    div_yield = round(row_div["Dividend"] / close, 5) if close else np.nan
+                    if pd.notna(div_yield):
+                        year_yields.append(div_yield)
+                    breakdown.append({
+                        "date": ex_date,
+                        "total": round(row_div["Dividend"], 5),
+                        "yield": div_yield
+                    })
+                historical_dividends.append({
+                    "year": int(year),
+                    "breakdown": breakdown,
+                    "total_yield": round(sum(year_yields), 5) if year_yields else np.nan,
+                    "total_dividend": total_dividend
+                })
+            # null (not empty list) when no dividends in the 5y window
+            data_prep.at[index, "historical_dividends"] = historical_dividends if historical_dividends else None
 
         except Exception as e:
             print(f"[DEBUG] Error processing historical_dividends for {symbol}: {e}")
@@ -540,12 +559,47 @@ def convert_to_number(x):
         return np.nan
 
 
+# Verified home/primary listings for SGX secondary/DRC lines whose .SI quote carries no
+# +1y analyst estimate on Yahoo. All entries identity-checked: same legal entity (income
+# statements identical within 1%) and same security (share ratio 1.0000 where quoted).
+# Do NOT add unverified guesses (e.g. 7995.T is Valqua, not Maruwa; 0867.HK needs the zero).
+HOME_TICKER_MAP = {
+    "TATD": "AOT.BK",    # Airports of Thailand PCL DRC
+    "TPED": "PTTEP.BK",  # PTT Exploration & Production PCL DRC
+    "TCPD": "CPALL.BK",  # CP All PCL DRC
+    "O6Z": "LONN.SW",    # Lonza Group
+    "K6S": "PRU.L",      # Prudential plc
+    "N33": "8604.T",     # Nomura Holdings
+    "NIO": "NIO",        # NIO Inc (NYSE primary)
+    "M12": "5344.T",     # Maruwa Co Ltd
+    "8A8": "0867.HK",    # China Medical System Holdings (zero-padded HK code)
+    "T14": "600329.SS",  # Tianjin Pharmaceutical Da Ren Tang (A-shares)
+    "Z77": "Z74.SI",     # Singtel secondary line (primary Z74)
+    "SO7": "BS6.SI",     # Yangzijiang secondary line (primary BS6)
+}
+
+
+def _growth_1y(ticker_str: str):
+    """+1y forward analyst EPS growth (stockTrend) for a Yahoo ticker, or np.nan."""
+    ge = yf.Ticker(ticker_str).growth_estimates
+    if isinstance(ge, pd.DataFrame) and "+1y" in ge.index:
+        val = ge.at["+1y", "stockTrend"]
+        if pd.notna(val):
+            return val
+    return np.nan
+
+
 def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.DataFrame:
     for idx, row in data_prep.iterrows():
         symbol = row["symbol"]
         ext = ".KL" if country.lower() == "my" else ".SI"
+
+        eps_1y = np.nan
+        source = None
+
+        # 1) PRIMARY: +1y forward estimate on the local line (.SI / .KL)
         try:
-            ticker = yf.Ticker(bare_symbol(symbol) + ext)
+            ticker = yf.Ticker(symbol + ext)
 
             ge = ticker.growth_estimates
 
@@ -554,8 +608,26 @@ def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.Dat
             data_prep.loc[idx, "one_year_eps_growth"] = eps_1y
 
         except Exception as e:
-            print(f"[DEBUG] Failed to fetch estimates for {symbol}: {e}")
+            print(f"[DEBUG] Failed to fetch estimates for {symbol + ext}: {e}")
+
+        # 2) FALLBACK: verified home/primary listing for secondary/DRC lines
+        if pd.isna(eps_1y):
+            home = HOME_TICKER_MAP.get(symbol)
+            if home:
+                try:
+                    eps_1y = _growth_1y(home)
+                    source = f"home:{home}"
+                except Exception as e:
+                    print(f"[DEBUG] Failed to fetch estimates for {symbol} via home {home}: {e}")
+                    source = f"home:{home}:error"
+
+        # 3) NO forward estimate anywhere: keep the previous DB value (never write NULL over it)
+        if pd.isna(eps_1y):
+            print(f"[growth] {symbol}: no +1y forward estimate (.SI -> {source}) - keeping previous value")
             continue
+
+        data_prep.loc[idx, "one_year_eps_growth"] = eps_1y
+        print(f"[growth] {symbol}: +1y eps growth = {eps_1y} (source={source})")
 
     return data_prep
 
