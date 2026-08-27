@@ -2,27 +2,12 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 from utils.constant import *
+from symbol_utils import bare_symbol, with_suffix, stored_symbols
 
 # sgx_companies stores symbols with the exchange suffix ("D05.SI") while the SGX
 # APIs return the bare code. All the diffing below is done in bare space, so DB
 # symbols are stripped on read and re-suffixed at the write boundary — otherwise
 # every SGX symbol looks new and every DB symbol looks delisted.
-SYMBOL_SUFFIX = ".SI"
-
-
-def bare_symbol(symbol) -> str:
-    symbol = str(symbol)
-    return symbol[: -len(SYMBOL_SUFFIX)] if symbol.endswith(SYMBOL_SUFFIX) else symbol
-
-
-def with_suffix(symbol) -> str:
-    symbol = str(symbol)
-    return symbol if symbol.endswith(SYMBOL_SUFFIX) else symbol + SYMBOL_SUFFIX
-
-
-def stored_symbols(symbols) -> list:
-    """Bare codes -> the form stored in sgx_companies."""
-    return [with_suffix(s) for s in symbols]
 
 
 import os
@@ -265,7 +250,7 @@ def fetch_enrichment_data(symbols_to_insert: set) -> list:
     for sym in symbols_to_insert:
         if sym not in insert_payloads:
             insert_payloads[sym] = {
-                "symbol": sym, "name": None, "sector": None,
+                "symbol": with_suffix(sym), "name": None, "sector": None,
                 "currency": None, "is_active": True,
             }
 
@@ -374,7 +359,8 @@ def main():
             new_payloads = apply_enum_classification(new_payloads)
             
             for payload in new_payloads:
-                payload['is_suspended'] = payload['symbol'] in suspended_symbols
+                # suspended_symbols are bare codes from the SGX API; payload symbol is suffixed
+                payload['is_suspended'] = bare_symbol(payload['symbol']) in suspended_symbols
 
         # =========================================================================
         # PREVIEW / SNIPPET OF UPCOMING CHANGES

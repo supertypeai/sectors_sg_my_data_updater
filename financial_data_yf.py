@@ -14,19 +14,10 @@ import warnings
 warnings.filterwarnings('ignore')
 import time
 from random import uniform
+from symbol_utils import bare_symbol, with_suffix
 
 # Symbols are stored with their exchange suffix ("D05.SI"); Yahoo tickers are
 # built from the bare code, so strip before re-appending one.
-EXCHANGE_SUFFIXES = (".SI", ".KL")
-
-
-def bare_symbol(symbol) -> str:
-    """The ticker code without its exchange suffix."""
-    symbol = str(symbol)
-    for suffix in EXCHANGE_SUFFIXES:
-        if symbol.endswith(suffix):
-            return symbol[: -len(suffix)]
-    return symbol
 
 
 
@@ -45,6 +36,10 @@ def upsert_db(update_data, supabase, country):
         table = "sgx_companies"
     elif country == "MY":
         table = "klse_companies"
+
+    # Normalize symbols to the stored (suffixed) form so a bare source never writes bare.
+    update_data = update_data.copy()
+    update_data["symbol"] = update_data["symbol"].map(lambda s: with_suffix(s, country))
 
     for i in update_data.columns.drop('symbol'):
         df = update_data[["symbol",i]]
@@ -249,7 +244,7 @@ def update_historical_data(country, country_data, supabase,resp):
 def fetch_highlight_data(stock, currency, country_code,resp):
     row_list = [stock]
 
-    ticker = yf.Ticker(f"{stock}.{country_code}")
+    ticker = yf.Ticker(f"{bare_symbol(stock)}.{country_code}")
 
     try:
         data_currency = ticker.info['currency']

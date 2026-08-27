@@ -21,6 +21,7 @@ import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from symbol_utils import with_suffix
 
 # ==========================================
 # ENV & LOGGING
@@ -191,6 +192,9 @@ def build_metrics_df(base_df: pd.DataFrame) -> pd.DataFrame:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    # Normalize to the stored (suffixed) form before write — bare source can never write bare.
+    df["symbol"] = df["symbol"].map(with_suffix)
+
     logger.info(f"Metrics dataset: {len(df)} records, {len(df.columns)} columns.")
     return df
 
@@ -331,7 +335,7 @@ def build_daily_df(base_df: pd.DataFrame, mode: str) -> tuple:
         # Fall back to suffixing directly, so a code missing from base_df can
         # never be written back in the bare form.
         frame["symbol"] = frame["symbol"].map(
-            lambda code: stored.get(code, f"{code}.SI" if not str(code).endswith(".SI") else code)
+            lambda code: stored.get(code) or with_suffix(code)
         )
 
     return price_df, latest_df

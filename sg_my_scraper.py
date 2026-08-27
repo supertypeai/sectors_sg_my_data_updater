@@ -13,20 +13,11 @@ from supabase import create_client
 
 import yf_custom as yf
 import re
+from symbol_utils import bare_symbol, with_suffix
 
 # Symbols are stored with their exchange suffix ("D05.SI", "1155.KL"), while
 # Yahoo tickers and the SGX APIs are built from the bare code. Strip before
 # re-appending an extension so a stored symbol never becomes "D05.SI.SI".
-EXCHANGE_SUFFIXES = (".SI", ".KL")
-
-
-def bare_symbol(symbol) -> str:
-    """The ticker code without its exchange suffix."""
-    symbol = str(symbol)
-    for suffix in EXCHANGE_SUFFIXES:
-        if symbol.endswith(suffix):
-            return symbol[: -len(suffix)]
-    return symbol
 
 
 def recursively_clean_nans(obj):
@@ -286,7 +277,7 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(row["symbol"] + ticker_extension)
+            ticker = yf.Ticker(bare_symbol(row["symbol"]) + ticker_extension)
 
             full_history = ticker.history(period="max").reset_index()
             if full_history.empty:
@@ -599,7 +590,7 @@ def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.Dat
 
         # 1) PRIMARY: +1y forward estimate on the local line (.SI / .KL)
         try:
-            ticker = yf.Ticker(symbol + ext)
+            ticker = yf.Ticker(bare_symbol(symbol) + ext)
 
             ge = ticker.growth_estimates
 
@@ -725,6 +716,9 @@ if __name__ == "__main__":
     for col in json_like_cols:
         if col in data_final.columns:
             data_final[col] = data_final[col].apply(recursively_clean_nans)
+
+    # Normalize symbols to the stored (suffixed) form before writing.
+    data_final["symbol"] = data_final["symbol"].map(lambda s: with_suffix(s, country))
 
     records = data_final.to_dict("records")
 

@@ -9,22 +9,12 @@ alone leaves existing rows untouched. Run this once after the mapping change:
 """
 
 from new_sector_scraper_sgx import chunked_list, init_supabase
+from symbol_utils import bare_symbol, stored_symbols
 
 from utils.constant import *
 
 # SG_REIT_OVERRIDES is keyed by bare code; sgx_companies stores the suffixed
 # form, so queries and updates are re-suffixed at the DB boundary.
-SYMBOL_SUFFIX = ".SI"
-
-
-def stored_symbols(symbols) -> list:
-    return [s if str(s).endswith(SYMBOL_SUFFIX) else f"{s}{SYMBOL_SUFFIX}" for s in symbols]
-
-
-def bare_symbol(symbol) -> str:
-    symbol = str(symbol)
-    return symbol[: -len(SYMBOL_SUFFIX)] if symbol.endswith(SYMBOL_SUFFIX) else symbol
-
 
 import sys
 import traceback

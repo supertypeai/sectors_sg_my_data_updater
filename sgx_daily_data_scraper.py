@@ -7,6 +7,7 @@ import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from symbol_utils import bare_symbol, with_suffix
 
 # --- 1. Configuration Class ---
 class Config:
@@ -73,12 +74,6 @@ SGX_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # sgx_companies stores symbols suffixed ("D05.SI"); the SGX API wants the bare
 # code, but the rows written back keep the stored form.
-SYMBOL_SUFFIX = ".SI"
-
-
-def bare_symbol(symbol) -> str:
-    symbol = str(symbol)
-    return symbol[: -len(SYMBOL_SUFFIX)] if symbol.endswith(SYMBOL_SUFFIX) else symbol
 
 
 def fetch_sgx_historic_single(symbol: str, period: str) -> pd.DataFrame:
@@ -91,7 +86,7 @@ def fetch_sgx_historic_single(symbol: str, period: str) -> pd.DataFrame:
         if not records:
             return pd.DataFrame()
         df = pd.DataFrame(records)
-        df["symbol"] = symbol
+        df["symbol"] = with_suffix(symbol, "SG")
         df["date"] = pd.to_datetime(df["trading_time"].str[:8], format="%Y%m%d").dt.strftime("%Y-%m-%d")
         df = df.rename(columns={"lt": "close", "vl": "volume"})
         df["close"] = pd.to_numeric(df["close"], errors="coerce").round(6)
