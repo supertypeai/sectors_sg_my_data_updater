@@ -1,5 +1,4 @@
 import pandas as pd
-import yfinance as yf
 from supabase import create_client
 import os
 import requests
@@ -13,8 +12,20 @@ from dotenv import load_dotenv
 import warnings
 warnings.filterwarnings('ignore')
 import time
-from random import uniform
+import concurrent.futures
 from symbol_utils import bare_symbol, with_suffix
+
+# Parallel Yahoo fetches (shared 8-thread pool, same as sg_my_scraper).
+_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+
+# Transient-failure retries (429 / network drops).
+_MAX_RETRIES = 3
+
+# curl_cffi (impersonate=chrome) session so the pool shares one connection pool.
+import yf_custom  # noqa: E402
+
+# Alias: all `yf.Ticker(...)` below use the session-wired Ticker.
+yf = yf_custom
 
 # Symbols are stored with their exchange suffix ("D05.SI"); Yahoo tickers are
 # built from the bare code, so strip before re-appending one.
@@ -37,29 +48,42 @@ def upsert_db(update_data, supabase, country):
     elif country == "MY":
         table = "klse_companies"
 
-    # Normalize symbols to the stored (suffixed) form so a bare source never writes bare.
+    # Normalize to stored (suffixed) form.
     update_data = update_data.copy()
     update_data["symbol"] = update_data["symbol"].map(lambda s: with_suffix(s, country))
+    # Dedupe: bare + suffixed rows for the same company would collide on the conflict key.
+    update_data = update_data.drop_duplicates(subset=["symbol"], keep="last")
 
+    # Only upsert columns the table actually has (avoids 400s, e.g. SG monthly
+    # highlight cols absent on sgx_companies).
+    try:
+        existing = list(supabase.table(table).select("*").limit(1).execute().data[0].keys())
+    except Exception:
+        existing = None  # fall back to attempting all
+
+    # BATCH: one upsert per column (was N*M per-ticker round-trips).
     for i in update_data.columns.drop('symbol'):
-        df = update_data[["symbol",i]]
+        if existing is not None and i not in existing:
+            print(f"Skipping column {i}: not present on {table}")
+            continue
+        df = update_data[["symbol", i]]
 
-        df_na = df[df[i].isna()]
-        df_na[i] = None
+        # Upsert only real values: NaN rows (failed fetch) leave the stored DB
+        # value untouched instead of NULLing it.
+        df_not_na = df[~df[i].isna()].copy()
 
-        df_not_na = df[~df[i].isna()]
-
-        if i in ['historical_earnings','historical_revenue']:
+        if i in ['historical_earnings', 'historical_revenue']:
             df_not_na[i] = df_not_na[i].apply(json.loads)
 
-        for df in [df_not_na,df_na]:
-            for ticker in df.symbol.unique():
-                try:
-                    supabase.table(table).update(
-                        {i: df[df.symbol == ticker].iloc[0][i]}
-                    ).eq("symbol", ticker).execute()
-                except:
-                    print(f"Failed to update {i} for {ticker}.")
+        if df_not_na.empty:
+            print(f"Finish updating data for column {i} (no values)")
+            continue
+        records = df_not_na.to_dict("records")
+        # ON CONFLICT DO UPDATE preserves columns absent from the payload.
+        try:
+            supabase.table(table).upsert(records, on_conflict="symbol").execute()
+        except Exception as e:
+            print(f"Failed to update {i}: {e}")
 
         print(f"Finish updating data for column {i}")
 
@@ -68,22 +92,29 @@ def fetch_div_ttm(stock, currency, symbol, curr,resp):
         ticker = yf.Ticker(f"{bare_symbol(stock)}.{symbol}")
 
         div = pd.DataFrame(ticker.dividends).reset_index()
-        div.columns = div.columns.str.lower()
-        div['date'] = pd.to_datetime(div['date'])
+        div_rate = 0
+        if not div.empty:
+            div.columns = div.columns.str.lower()
+            div['date'] = pd.to_datetime(div['date'], utc=True)
 
-        one_year_ago = datetime.now(pytz.timezone('Asia/Singapore')) - timedelta(days=365)
-        recent_dividends = div[div.date >= one_year_ago]
-        div_rate = recent_dividends['dividends'].sum()
+            one_year_ago = datetime.now(pytz.timezone('Asia/Singapore')) - timedelta(days=365)
+            # Convert the cutoff to tz-aware UTC so the comparison is safe whether
+            # yfinance returns tz-naive or tz-aware dates.
+            one_year_ago_utc = one_year_ago.astimezone(pytz.utc)
+            recent_dividends = div[div.date >= one_year_ago_utc]
+            div_rate = recent_dividends['dividends'].sum()
 
-        data_currency = ticker.info.get('currency', None)
+            data_currency = ticker.info.get('currency', None)
 
-        if data_currency != curr:
-            if data_currency in resp and currency in resp[data_currency]:
-                curr_value = resp[data_currency][currency]
-                div_rate = div_rate * curr_value
+            if data_currency != curr:
+                if data_currency in resp and currency in resp[data_currency]:
+                    curr_value = resp[data_currency][currency]
+                    div_rate = div_rate * curr_value
 
     except Exception as e:
-        div_rate = 0
+        # Re-raise: caller's retry/backoff handles transient failures. Empty
+        # dividends df (no divs -> div_rate=0 -> None below) is NOT an exception.
+        raise
 
     if div_rate == 0:
         div_rate = None
@@ -94,8 +125,6 @@ def fetch_div_ttm(stock, currency, symbol, curr,resp):
 def update_div_ttm(country, country_data, supabase, resp):
     div_ttm = pd.DataFrame()
     base_delay = 2
-    max_delay = 60
-    current_delay = base_delay
 
     if country == "SG":
         curr = "SGD"
@@ -106,33 +135,38 @@ def update_div_ttm(country, country_data, supabase, resp):
 
     stocks = country_data.symbol.unique()
 
-    for stock in stocks:
+    def _div_one(stock):
         retry_count = 0
         max_retries = 3
-        success = False
-
-        while not success and retry_count < max_retries:
+        while True:
             try:
-                data = fetch_div_ttm(stock, curr, symbol, curr,resp)
-                div_ttm = pd.concat([div_ttm, data], ignore_index=True)
-                success = True
-                current_delay = base_delay
-
-                sleep_time = uniform(1, 3)
-                time.sleep(sleep_time)
-
+                data = fetch_div_ttm(stock, curr, symbol, curr, resp)
+                return data
             except Exception as e:
                 retry_count += 1
                 error_message = str(e).lower()
-
-                if "rate limit" in error_message:
-                    if retry_count < max_retries:
-                        time.sleep(current_delay)
-                        current_delay = min(current_delay * 2, max_delay)
+                # Retry transient errors (429 / HTTPError / connection / timeout /
+                # JSONDecode — yfinance's typical 429 symptom: HTML/empty body).
+                # String matching covers requests/urllib3 (their ConnectionError
+                # is not builtin); JSONDecodeError never appears in the message.
+                is_transient = ("rate limit" in error_message or "429" in error_message
+                                or "too many requests" in error_message
+                                or "connection" in error_message
+                                or "timeout" in error_message
+                                or "http error" in error_message
+                                or "server error" in error_message
+                                or isinstance(e, json.JSONDecodeError))
+                if retry_count < max_retries and is_transient:
+                    time.sleep(base_delay * (2 ** (retry_count - 1)))
                     continue
+                if is_transient:
+                    print(f"Rate-limited/transient on {stock} after {max_retries} retries")
                 else:
                     print(f"Error fetching {stock}: {e}")
-                    break
+                return pd.DataFrame(data={'symbol': [stock], 'dividend_ttm': [None]})
+
+    results = list(_POOL.map(_div_one, stocks))
+    div_ttm = pd.concat(results, ignore_index=True) if results else pd.DataFrame(columns=["symbol", "dividend_ttm"])
 
     upsert_db(div_ttm, supabase, country)
 
@@ -147,17 +181,19 @@ def earnings_fetcher(ticker, currency, stock, country,resp):
             return CURRENCY_OVERRIDES[stock]
         try:
             data_currency = ticker.info["financialCurrency"]
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             print(f"Error fetching financialCurrency: {e}. Trying secondary method.")
             try:
                 data_currency = ticker.info["currency"]
-            except Exception as e2:
+            except (KeyError, TypeError, ValueError) as e2:
                 print(f"Error fetching currency: {e2}. Using default currency based on country.")
                 data_currency = "SGD" if country == "SG" else "MYR"
                 print(f"Defaulting to {data_currency} for country {country}.")
         return data_currency
 
     def extract_financials(ticker):
+        # Network errors (429/HTTPError) from ticker.financials MUST propagate
+        # so _hist_one's retry re-fetches; only missing-data falls back to NaN.
         try:
             yearly_financials = ticker.financials.loc[["Total Revenue", "Net Income"]]
             yearly_financials = yearly_financials.T
@@ -177,7 +213,7 @@ def earnings_fetcher(ticker, currency, stock, country,resp):
                     'revenue': quarterly_rev.sum(),
                     'earnings': quarterly_net.sum()
                 }, index=[0])
-            except Exception as e:
+            except (KeyError, TypeError, ValueError) as e:
                 print(f"Error computing TTM financials from quarterly data for stock {stock}: {e}. Using latest yearly data as TTM.")
                 ttm_net_income = last_financial.copy()
                 ttm_net_income['period'] = 'TTM'
@@ -185,7 +221,7 @@ def earnings_fetcher(ticker, currency, stock, country,resp):
             financial_all = pd.concat([ttm_net_income, yearly_financials], ignore_index=True)
 
             return financial_all, last_financial
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             print(f"No Net Income and Revenue data for ticker {ticker}: {e}")
             return np.nan, np.nan
 
@@ -195,7 +231,7 @@ def earnings_fetcher(ticker, currency, stock, country,resp):
     if data_currency != currency:
         try:
             conversion_rate = resp[data_currency][currency]
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             print(f"Error finding conversion rate: {e}. Using default conversion rate of 1.0")
 
     financial_all, last_financial = extract_financials(ticker)
@@ -213,95 +249,105 @@ def earnings_fetcher(ticker, currency, stock, country,resp):
 
     return net_income_json, revenue_json, last_financial
 
-def update_historical_data(country, country_data, supabase,resp):
+def update_historical_data(country, country_data, supabase, resp):
     df_earnings = pd.DataFrame()
 
-    for stock in country_data.symbol.unique():
+    def _hist_one(stock):
+        try:
+            # Retry fetch (HTTP) with exponential backoff.
+            net_income = revenue = last_data = None
+            for attempt in range(1, _MAX_RETRIES + 1):
+                try:
+                    ticker = yf.Ticker(f"{bare_symbol(stock)}.SI") if country == "SG" else yf.Ticker(f"{bare_symbol(stock)}.KL")
+                    currency = "SGD" if country == "SG" else "MYR"
+                    net_income, revenue, last_data = earnings_fetcher(ticker, currency, stock, country, resp)
+                    break
+                except Exception:
+                    if attempt == _MAX_RETRIES:
+                        raise
+                    time.sleep(2 ** (attempt - 1))
 
-        ticker = yf.Ticker(f"{bare_symbol(stock)}.SI") if country == "SG" else yf.Ticker(f"{bare_symbol(stock)}.KL")
+            data = pd.DataFrame(data={'symbol': stock, 'historical_earnings': net_income, 'historical_revenue': revenue}, index=[0])
+            # Attach last-year row directly: merge on symbol is fragile (dtype
+            # mismatch / NaN key silently drops the row when financials fail).
+            if isinstance(last_data, pd.DataFrame) and last_data.shape[0] > 0:
+                last = last_data.iloc[0]
+                data["revenue"] = last.get("revenue")
+                data["earnings"] = last.get("earnings")
+            else:
+                data["revenue"] = np.nan
+                data["earnings"] = np.nan
+            return data
+        except Exception as e:
+            print(f"Error fetching historical data for {stock}: {e}")
+            # NaN row -> upsert_db skips it (DB keeps its stored value).
+            return pd.DataFrame(data={'symbol': stock, 'historical_earnings': np.nan,
+                                      'historical_revenue': np.nan, 'revenue': np.nan,
+                                      'earnings': np.nan}, index=[0])
 
-        currency = "SGD" if country == "SG" else "MYR"
+    results = list(_POOL.map(_hist_one, country_data.symbol.unique()))
+    df_earnings = pd.concat(results, ignore_index=True) if results else df_earnings
 
-        net_income,revenue, last_data = earnings_fetcher(ticker,currency, stock, country,resp)
-
-        if type(last_data) == float:
-            last_data = pd.DataFrame(data={'symbol':np.nan, "period": np.nan,'earnings':np.nan,'revenue':np.nan}, index=[0])
-        elif last_data.shape[0] == 0:
-            nan_row = pd.DataFrame([[np.nan]*last_data.shape[1]], columns=last_data.columns)
-            last_data = pd.concat([last_data, nan_row], ignore_index=True)
-
-        last_data["symbol"] = stock
-
-        data = pd.DataFrame(data={'symbol':stock, 'historical_earnings':net_income,'historical_revenue':revenue}, index=[0])
-
-        data = data.merge(last_data,on="symbol").drop('period',axis=1)
-
-        df_earnings = pd.concat([df_earnings,data])
-
-    upsert_db(df_earnings,supabase,country)
+    upsert_db(df_earnings, supabase, country)
 
 
-def fetch_highlight_data(stock, currency, country_code,resp):
+def fetch_highlight_data(stock, currency, country_code, resp):
     row_list = [stock]
 
     ticker = yf.Ticker(f"{bare_symbol(stock)}.{country_code}")
 
+    # Network errors (429/HTTPError) from ticker.info MUST propagate so the
+    # caller's retry re-fetches; only missing keys are caught and defaulted.
+    data_currency = ticker.info.get('currency', currency)
+
     try:
-        data_currency = ticker.info['currency']
+        dividend = ticker.info['dividendRate']
 
+        if data_currency != currency:
+            curr_value = resp[data_currency][currency]
+            dividend = dividend * curr_value
+    except (KeyError, TypeError, ValueError):
         try:
-            dividend = ticker.info['dividendRate']
+            last_dividend_date = datetime.utcfromtimestamp(ticker.info['lastDividendDate']).year
+        except (KeyError, TypeError, ValueError):
+            last_dividend_date = np.nan
 
-            if data_currency != currency:
-                curr_value = resp[data_currency][currency]
-                dividend = dividend * curr_value
-        except Exception as e:
-            try:
-                last_dividend_date = datetime.utcfromtimestamp(ticker.info['lastDividendDate']).year
-            except Exception as le:
-                last_dividend_date = np.nan
+        if np.isnan(last_dividend_date):
+            dividend = np.nan
+        elif last_dividend_date < datetime.now().year:
+            dividend = 0
+        else:
+            dividend = np.nan
 
-            if np.isnan(last_dividend_date):
-                dividend = np.nan
-            elif last_dividend_date < datetime.now().year:
-                dividend = 0
-            else:
-                dividend = np.nan
+    row_list.append(dividend)
 
-        row_list.append(dividend)
+    try:
+        dividend_yield = ticker.info['dividendYield'] / 100
+    except (KeyError, TypeError, ValueError):
+        if np.isnan(dividend):
+            dividend_yield = np.nan
+        elif dividend == 0:
+            dividend_yield = 0
+        else:
+            dividend_yield = np.nan
 
+    row_list.append(dividend_yield)
+
+    for metrics in ['profitMargins', "operatingMargins", "grossMargins", "quickRatio", "currentRatio", "debtToEquity", "payoutRatio", "trailingEps"]:
         try:
-            dividend_yield = ticker.info['dividendYield'] / 100
-        except Exception as de:
-            if np.isnan(dividend):
-                dividend_yield = np.nan
-            elif dividend == 0:
-                dividend_yield = 0
-            else:
-                dividend_yield = np.nan
+            metrics_value = ticker.info[metrics]
+        except (KeyError, TypeError, ValueError):
+            metrics_value = np.nan
 
-        row_list.append(dividend_yield)
+        if metrics == "debtToEquity":
+            metrics_value = metrics_value / 100
 
-        for metrics in ['profitMargins', "operatingMargins", "grossMargins", "quickRatio", "currentRatio", "debtToEquity", "payoutRatio", "trailingEps"]:
-            try:
-                metrics_value = ticker.info[metrics]
-            except Exception as me:
-                metrics_value = np.nan
+        row_list.append(metrics_value)
 
-            if metrics == "debtToEquity":
-                metrics_value = metrics_value / 100
-
-            row_list.append(metrics_value)
-
-        data = pd.DataFrame([row_list])
-        data.columns = ['symbol', 'forward_dividend', 'forward_dividend_yield', 'net_profit_margin',
-                        "operating_margin", "gross_margin", "quick_ratio", "current_ratio",
-                        "debt_to_equity", "payout_ratio", "eps"]
-    except Exception as main_e:
-        data = pd.DataFrame([[stock, None, None, None, None, None, None, None, None, None, None]])
-        data.columns = ['symbol', 'forward_dividend', 'forward_dividend_yield', 'net_profit_margin',
-                        "operating_margin", "gross_margin", "quick_ratio", "current_ratio",
-                        "debt_to_equity", "payout_ratio", "eps"]
+    data = pd.DataFrame([row_list])
+    data.columns = ['symbol', 'forward_dividend', 'forward_dividend_yield', 'net_profit_margin',
+                    "operating_margin", "gross_margin", "quick_ratio", "current_ratio",
+                    "debt_to_equity", "payout_ratio", "eps"]
 
     return data
 
@@ -319,13 +365,21 @@ def update_financial_data(country, country_data, supabase,resp):
 
     stocks = country_data.symbol.unique()
 
-    for stock in stocks:
-        try:
-            data = fetch_highlight_data(stock, curr, symbol,resp)
-        except Exception as e:
-            continue
+    def _fin_one(stock):
+        # Retry fetch (HTTP) with exponential backoff; log final failure.
+        last_err = None
+        for attempt in range(1, _MAX_RETRIES + 1):
+            try:
+                return fetch_highlight_data(stock, curr, symbol, resp)
+            except Exception as e:
+                last_err = e
+                if attempt < _MAX_RETRIES:
+                    time.sleep(2 ** (attempt - 1))
+        print(f"Failed to fetch highlight for {stock} after {_MAX_RETRIES} retries: {last_err}")
+        return None
 
-        highlight_data = pd.concat([highlight_data, data], ignore_index=True)
+    results = [r for r in _POOL.map(_fin_one, stocks) if r is not None]
+    highlight_data = pd.concat(results, ignore_index=True) if results else pd.DataFrame()
 
     upsert_db(highlight_data, supabase, country)
 
