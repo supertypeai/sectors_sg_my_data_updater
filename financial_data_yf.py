@@ -13,7 +13,7 @@ import warnings
 warnings.filterwarnings('ignore')
 import time
 import concurrent.futures
-from symbol_utils import bare_symbol, with_suffix
+from symbol_utils import bare_symbol, db_symbol
 
 # Parallel Yahoo fetches (shared 8-thread pool, same as sg_my_scraper).
 _POOL = concurrent.futures.ThreadPoolExecutor(max_workers=8)
@@ -48,9 +48,10 @@ def upsert_db(update_data, supabase, country):
     elif country == "MY":
         table = "klse_companies"
 
-    # Normalize to stored (suffixed) form.
+    # Normalize symbols before writing. SGX stores suffixed form ("D05.SI");
+    # KLSE stores the bare Bursa code ("1155", no suffix).
     update_data = update_data.copy()
-    update_data["symbol"] = update_data["symbol"].map(lambda s: with_suffix(s, country))
+    update_data["symbol"] = update_data["symbol"].map(lambda s: db_symbol(s, country))
     # Dedupe: bare + suffixed rows for the same company would collide on the conflict key.
     update_data = update_data.drop_duplicates(subset=["symbol"], keep="last")
 

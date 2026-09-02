@@ -35,7 +35,7 @@ from supabase import create_client
 
 import yf_custom as yf
 import re
-from symbol_utils import bare_symbol, with_suffix
+from symbol_utils import bare_symbol, db_symbol, is_valid_number
 
 # Symbols are stored with their exchange suffix ("D05.SI", "1155.KL"), while
 # Yahoo tickers and the SGX APIs are built from the bare code. Strip before
@@ -168,7 +168,7 @@ def yf_data_updater(data_prep: pd.DataFrame, country, rates=None):
                     raw_val = info.get(key_dv, np.nan)
 
                     if col == "market_cap":
-                        if raw_val is not None and raw_val is not np.nan:
+                        if is_valid_number(raw_val):
                             if currency and currency != country_currency and rate is not None:
                                 data_prep.at[index, col] = raw_val * rate
                             else:
@@ -181,9 +181,17 @@ def yf_data_updater(data_prep: pd.DataFrame, country, rates=None):
 
                     elif col == "ocf":
                         ocf_val = raw_val
-                        if ocf_val not in [None, 0, np.nan]:
+                        # None/NaN/0/str excluded via is_valid_number (the old
+                        # ``in [None, 0, np.nan]`` missed some dtypes and crashed
+                        # on ``/``).
+                        if is_valid_number(ocf_val) and ocf_val != 0:
                             mcap = info.get("marketCap")
-                            data_prep.at[index, "pcf"] = mcap / ocf_val
+                            # mcap may be None/NaN for newly-listed/delisted
+                            # tickers: guard before division (NoneType/int crash).
+                            if is_valid_number(mcap) and mcap != 0:
+                                data_prep.at[index, "pcf"] = mcap / ocf_val
+                            else:
+                                data_prep.at[index, "pcf"] = np.nan
                         else:
                             data_prep.at[index, "pcf"] = np.nan
 
@@ -260,14 +268,18 @@ def update_dividend_growth_rate(data_prep: pd.DataFrame, country):
             dividend_last_1_year = dividend_current = None
             for attempt in range(1, _MAX_RETRIES + 1):
                 try:
-                    dividend_last_1_year = ticker.history(
+                    hist_last = ticker.history(
                         start=f"{current_year - 1}-01-01",
                         end=f"{current_year - 1}-12-31"
-                    )["Dividends"].sum()
-                    dividend_current = ticker.history(
+                    )
+                    hist_current = ticker.history(
                         start=f"{current_year}-01-01",
                         end=f"{current_year}-12-31"
-                    )["Dividends"].sum()
+                    )
+                    # Empty df (dead/delisted ticker) has no "Dividends" column
+                    # -> indexing raises KeyError; treat as no dividends.
+                    dividend_last_1_year = hist_last["Dividends"].sum() if not hist_last.empty else 0
+                    dividend_current = hist_current["Dividends"].sum() if not hist_current.empty else 0
                     break
                 except Exception:
                     if attempt == _MAX_RETRIES:
@@ -938,8 +950,15 @@ if __name__ == "__main__":
         if col in data_final.columns:
             data_final[col] = data_final[col].apply(recursively_clean_nans)
 
-    # Normalize symbols to the stored (suffixed) form before writing.
-    data_final["symbol"] = data_final["symbol"].map(lambda s: with_suffix(s, country))
+    # Normalize symbols before writing. SGX stores suffixed form ("D05.SI");
+    # KLSE stores the bare Bursa code ("1155", no suffix). db_symbol() applies
+    # the per-country rule (SG -> ".SI", MY -> bare); a593372's suffix-for-MY
+    # duplicated every KLSE symbol into bare + suffixed rows (the 21000
+    # duplicate-conflict-key crash).
+    data_final["symbol"] = data_final["symbol"].map(lambda s: db_symbol(s, country))
+    # Keep one row per symbol (defensive: stale bare+.KL rows in DB would still
+    # collide if a future write re-adds a suffix).
+    data_final = data_final.drop_duplicates(subset=["symbol"], keep="last")
 
     # Symbols with no +1y estimate must NOT have one_year_eps_growth in their
     # payload (writing NULL would wipe the existing DB value).
