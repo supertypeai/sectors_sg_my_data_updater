@@ -19,21 +19,15 @@ if _proxy:
     if _yd is not None:
         _yd._session.verify = False
 
-import random as _random
-import time as _time
-_MIN_DELAY = 0.2
-_MAX_DELAY = 0.8
 
-
-class YFSession(curl_requests.Session):
-    def get(self, *args, **kwargs):
-        _time.sleep(_random.uniform(_MIN_DELAY, _MAX_DELAY))
-        return super().get(*args, **kwargs)
+# class YFSession(CacheMixin, LimiterMixin, Session):
+class YFSession(curl_requests.Session):    
+    pass
 
 
 _session = YFSession(
     impersonate="chrome",                               # curl_cffi argument
-    verify=not bool(_proxy),
+    verify=not bool(_proxy),                            # proxy presents its own CA
     # limiter=Limiter(RequestRate(30, Duration.MINUTE)),  # ~0.5 requests/sec
     # backend=SQLiteCache("yfinance.cache", expire_after=86400),
 )
