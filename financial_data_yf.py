@@ -15,8 +15,8 @@ import time
 import concurrent.futures
 from symbol_utils import bare_symbol, db_symbol
 
-# Parallel Yahoo fetches (shared 8-thread pool, same as sg_my_scraper).
-_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+# Parallel Yahoo fetches (shared 4-thread pool, same as sg_my_scraper).
+_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 # Transient-failure retries (429 / network drops).
 _MAX_RETRIES = 3

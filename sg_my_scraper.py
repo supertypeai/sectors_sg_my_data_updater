@@ -8,9 +8,8 @@ import time
 import urllib.request
 from datetime import datetime, timedelta
 
-# Parallel Yahoo fetches (8 workers, shared pool). Keeps under Yahoo's per-IP
-# rate limit while cutting wall time ~3x vs sequential (measured PoC).
-_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+# Parallel Yahoo fetches (4 workers) + per-request jitter in YFSession.get.
+_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 # Transient-failure retries (429 / network drops).
 _MAX_RETRIES = 3
@@ -821,7 +820,7 @@ def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.Dat
             eps_1y = ge.at["+1y", "stockTrend"] if "+1y" in ge.index else np.nan
 
         except Exception as e:
-            print(f"[DEBUG] Failed to fetch estimates for {symbol + ext} after {_MAX_RETRIES} retries: {e}")
+            print(f"[DEBUG] Failed to fetch estimates for {bare_symbol(symbol) + ext} after {_MAX_RETRIES} retries: {e}")
             # Network failure (429/etc), NOT "no estimate": mark failed so the
             # column is stripped (DB preserved) without polluting _NO_ESTIMATE_SYMBOLS.
             _FAILED_SYMBOLS.add(bare_symbol(symbol))

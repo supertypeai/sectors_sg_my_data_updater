@@ -9,22 +9,31 @@ from curl_cffi import requests as curl_requests
 
 load_dotenv()
 
-# CI sets PROXY secret; apply it so Yahoo calls go through the proxy (datacenter
-# IPs without it get 401/429-blocked at scale). Two transport layers need it:
-#  1. yfinance's internal requests session (info/dividends/crumb) -> set_config
-#  2. the curl_cffi session used by ticker.history() -> session.proxies
+# PROXY secret: proxy TLS-intercepts, so verify off when proxied (like
+# sector_scraper_klse.py). Wire both yfinance transport layers.
 _proxy = os.environ.get("PROXY") or None
 if _proxy:
     yf.set_config(proxy=_proxy)
+    from yfinance.data import YfData
+    _yd = YfData._instances.get(YfData)
+    if _yd is not None:
+        _yd._session.verify = False
+
+import random as _random
+import time as _time
+_MIN_DELAY = 0.2
+_MAX_DELAY = 0.8
 
 
-# class YFSession(CacheMixin, LimiterMixin, Session):
-class YFSession(curl_requests.Session):    
-    pass
+class YFSession(curl_requests.Session):
+    def get(self, *args, **kwargs):
+        _time.sleep(_random.uniform(_MIN_DELAY, _MAX_DELAY))
+        return super().get(*args, **kwargs)
 
 
 _session = YFSession(
     impersonate="chrome",                               # curl_cffi argument
+    verify=not bool(_proxy),
     # limiter=Limiter(RequestRate(30, Duration.MINUTE)),  # ~0.5 requests/sec
     # backend=SQLiteCache("yfinance.cache", expire_after=86400),
 )
