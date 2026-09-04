@@ -1,4 +1,5 @@
 import argparse
+import concurrent.futures
 import datetime
 import json
 import logging
@@ -14,6 +15,18 @@ from supabase import create_client
 import yf_custom as yf
 import re
 from symbol_utils import bare_symbol, db_symbol, is_valid_number
+
+# Threaded Yahoo fetches (4 workers) for the daily pipeline. Direct connection
+# (no proxy) - validated ~3x faster than sequential with no 401/429 rate limits.
+_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+# No +1y analyst estimate: strip one_year_eps_growth from the payload
+# (DB keeps its existing value).
+_NO_ESTIMATE_SYMBOLS = set()
+
+# Yahoo fetch failed/empty (network/dead ticker): strip recomputed columns
+# from the payload so NaN/None -> NULL never wipes the stored DB value.
+_FAILED_SYMBOLS = set()
 
 # Symbols are stored with their exchange suffix ("D05.SI", "1155.KL"), while
 # Yahoo tickers and the SGX APIs are built from the bare code. Strip before
@@ -38,6 +51,21 @@ def safe_relative_diff(num1: float, num2: float):
 
 
 def yf_data_updater(data_prep: pd.DataFrame, country):
+    """Daily SG/MY info fetch, threaded 4 workers (direct, no proxy).
+    ``data`` (rates) is a module global set in main() before this runs.
+    """
+    # PRE-CREATE written columns: concurrent .at must not race on column
+    # creation (GIL does NOT make new-key insertion atomic).
+    write_cols = ["dividend_yield_5y_avg"]
+    if country == "sg":
+        if "short_name" not in data_prep.columns:
+            data_prep["short_name"] = None  # object dtype
+    elif country == "my":
+        # ocf is also written via .at; dropped after the pool.
+        write_cols += ["market_cap", "volume", "pe", "ps_ttm", "pb", "beta", "pcf", "ocf"]
+    for col in write_cols:
+        if col not in data_prep.columns:
+            data_prep[col] = np.nan
 
     def clean_short_name(name: str) -> str | None:
         if not isinstance(name, str) or pd.isna(name):
@@ -76,7 +104,8 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
         cleaned_name = cleaned_name.strip()
         return cleaned_name if cleaned_name else None
 
-    for index, row in data_prep.iterrows():
+    def _update_one(index_row):
+        index, row = index_row
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
@@ -90,7 +119,10 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             if currency and currency != country_currency:
                 rate = data.get(currency, {}).get(country_currency)
                 if rate is None:
-                    continue
+                    # No conversion rate: mark failed so main() strips cols
+                    # instead of NULL-wiping stored values.
+                    _FAILED_SYMBOLS.add(bare_symbol(symbol))
+                    return
                 else:
                     rate = float(rate)
 
@@ -187,6 +219,11 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
 
         except Exception as e:
             print(f"Error updating symbol {symbol}: {e}")
+            # Transient fetch failure: mark failed so main() strips recomputed
+            # cols (no NaN -> NULL wipe).
+            _FAILED_SYMBOLS.add(bare_symbol(symbol))
+
+    list(_POOL.map(_update_one, data_prep.iterrows()))
 
     if "ocf" in data_prep.columns:
         data_prep = data_prep.drop(columns=["ocf"])
@@ -194,7 +231,12 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
     return data_prep
 
 def update_dividend_growth_rate(data_prep: pd.DataFrame, country):
-    for index, row in data_prep.iterrows():
+    # PRE-CREATE the column: concurrent writes must not race on column creation.
+    if "dividend_growth_rate" not in data_prep.columns:
+        data_prep["dividend_growth_rate"] = np.nan
+
+    def _div_growth_one(index_row):
+        index, row = index_row
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
@@ -218,7 +260,9 @@ def update_dividend_growth_rate(data_prep: pd.DataFrame, country):
 
         except Exception as e:
             print(f"error updating dividend growth rate for symbol {symbol} : ", e)
-            continue
+            _FAILED_SYMBOLS.add(bare_symbol(symbol))
+
+    list(_POOL.map(_div_growth_one, data_prep.iterrows()))
 
     return data_prep
 
@@ -231,9 +275,12 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
         for i in range(1, 32)
     ]
 
-    new_close = []
+    # Pre-sized list; workers write by row position (thread-safe index writes).
+    new_close = [None] * len(data_prep)
+    sym_pos = {row["symbol"]: pos for pos, (_, row) in enumerate(data_prep.iterrows())}
 
-    for index, row in data_prep.iterrows():
+    def _close_one(index_row):
+        index, row = index_row
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
@@ -262,10 +309,13 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
                     })
 
             close_data = [close for close in close_data if close["date"] > last_date]
-            new_close.append(close_data if close_data else row["close"])
+            new_close[sym_pos[symbol]] = close_data if close_data else row["close"]
         except Exception as e:
             print(f"error in symbol {symbol} : ", e)
-            new_close.append(row["close"])
+            _FAILED_SYMBOLS.add(bare_symbol(symbol))
+            new_close[sym_pos[symbol]] = row["close"]
+
+    list(_POOL.map(_close_one, data_prep.iterrows()))
 
     try:
         data_prep = data_prep.assign(close=new_close)
@@ -285,7 +335,8 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
     if "historical_dividends" not in data_prep.columns:
         data_prep["historical_dividends"] = None
 
-    for index, row in data_prep.iterrows():
+    def _hist_div_one(index_row):
+        index, row = index_row
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
@@ -300,7 +351,11 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
 
             dividends_series = ticker.dividends
             if dividends_series.empty:
-                continue
+                # Genuinely none, or transient empty from a rate-limited Yahoo.
+                # Pre-created col holds None here -> NULL would wipe stored
+                # history: mark failed so main() strips cols (DB keeps value).
+                _FAILED_SYMBOLS.add(bare_symbol(symbol))
+                return
             dividends_df = dividends_series.reset_index()
             dividends_df.columns = ["Date", "Dividend"]
             dividends_df["year"] = dividends_df["Date"].dt.year
@@ -343,14 +398,19 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
 
         except Exception as e:
             print(f"[DEBUG] Error processing historical_dividends for {symbol}: {e}")
-            continue
+            # Fetch failed: mark failed so main() strips cols (no NULL wipe).
+            _FAILED_SYMBOLS.add(bare_symbol(symbol))
 
+    list(_POOL.map(_hist_div_one, data_prep.iterrows()))
     return data_prep
 
 def update_all_time_price(data_prep: pd.DataFrame, country: str):
     date_format = "%Y-%m-%d"
+    if "all_time_price" not in data_prep.columns:
+        data_prep["all_time_price"] = None
 
-    for index, row in data_prep.iterrows():
+    def _alltime_one(index_row):
+        index, row = index_row
         symbol = row["symbol"]
         ticker_extension = ".KL" if country.lower() == "my" else ".SI"
         ticker_full = bare_symbol(symbol) + ticker_extension
@@ -416,12 +476,21 @@ def update_all_time_price(data_prep: pd.DataFrame, country: str):
 
         except Exception as e:
             print(f"[DEBUG] Error processing all_time_price for {ticker_full}: {e}")
-            continue
+            # Fetch failed: mark failed so main() strips cols (no NULL wipe).
+            _FAILED_SYMBOLS.add(bare_symbol(symbol))
 
+    list(_POOL.map(_alltime_one, data_prep.iterrows()))
     return data_prep
 
 def update_change_data(data_prep: pd.DataFrame, country):
-    for index, row in data_prep.iterrows():
+    # PRE-CREATE written columns (concurrent .loc needs them to exist).
+    write_cols = ["change_3y"] + (["change_ytd", "change_1y"] if country != "sg" else [])
+    for col in write_cols:
+        if col not in data_prep.columns:
+            data_prep[col] = np.nan
+
+    def _change_one(index_row):
+        index, row = index_row
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
@@ -447,19 +516,29 @@ def update_change_data(data_prep: pd.DataFrame, country):
             close_3y = get_close_on_or_before(latest_date - timedelta(days=3 * 365))
 
             def compute_change(latest, past):
-                if past is None or past == 0:
-                    return np.nan
+                # None when not computable (NaN in-progress close, zero/missing
+                # base): caller skips the write so the stored DB value survives
+                # (NaN here would NULL-wipe it on upsert).
+                if not is_valid_number(latest) or not is_valid_number(past) or past == 0:
+                    return None
                 return (latest - past) / past
 
             if country != "sg":
-                data_prep.loc[index, "change_ytd"] = compute_change(latest_close, ytd_close)
-                data_prep.loc[index, "change_1y"]  = compute_change(latest_close, close_1y)
-            data_prep.loc[index, "change_3y"]  = compute_change(latest_close, close_3y)
+                _c = compute_change(latest_close, ytd_close)
+                if _c is not None:
+                    data_prep.loc[index, "change_ytd"] = _c
+                _c = compute_change(latest_close, close_1y)
+                if _c is not None:
+                    data_prep.loc[index, "change_1y"] = _c
+            _c = compute_change(latest_close, close_3y)
+            if _c is not None:
+                data_prep.loc[index, "change_3y"] = _c
 
         except Exception as e:
             print(f"[DEBUG] Error calculating change metrics for {symbol}: {e}")
-            continue
+            _FAILED_SYMBOLS.add(bare_symbol(symbol))
 
+    list(_POOL.map(_change_one, data_prep.iterrows()))
     return data_prep
 
 def employee_updater(data_final, country):
@@ -593,7 +672,16 @@ def _growth_1y(ticker_str: str):
 
 
 def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.DataFrame:
-    for idx, row in data_prep.iterrows():
+    # PRE-CREATE: workers write one_year_eps_growth concurrently.
+    if "one_year_eps_growth" not in data_prep.columns:
+        data_prep["one_year_eps_growth"] = np.nan
+    # Symbols with NO forward estimate anywhere: their column must be EXCLUDED
+    # from the upsert payload (never NULL-overwrite the existing DB value).
+    global _NO_ESTIMATE_SYMBOLS
+    _NO_ESTIMATE_SYMBOLS = set()
+
+    def _estimate_one(idx_row):
+        idx, row = idx_row
         symbol = row["symbol"]
         ext = ".KL" if country.lower() == "my" else ".SI"
 
@@ -608,14 +696,17 @@ def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.Dat
 
             eps_1y = ge.at["+1y", "stockTrend"] if "+1y" in ge.index else np.nan
 
-            data_prep.loc[idx, "one_year_eps_growth"] = eps_1y
-
         except Exception as e:
             print(f"[DEBUG] Failed to fetch estimates for {bare_symbol(symbol) + ext}: {e}")
+            # Network failure, NOT "no estimate": mark failed so the column is
+            # stripped (DB preserved) without polluting _NO_ESTIMATE_SYMBOLS.
+            _FAILED_SYMBOLS.add(bare_symbol(symbol))
+            return
 
-        # 2) FALLBACK: verified home/primary listing for secondary/DRC lines
+        # 2) FALLBACK: verified home/primary listing for secondary/DRC lines.
+        #    DB symbols are suffixed ("Z77.SI") but the map keys are bare ("Z77").
         if pd.isna(eps_1y):
-            home = HOME_TICKER_MAP.get(symbol)
+            home = HOME_TICKER_MAP.get(bare_symbol(symbol))
             if home:
                 try:
                     eps_1y = _growth_1y(home)
@@ -624,13 +715,17 @@ def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.Dat
                     print(f"[DEBUG] Failed to fetch estimates for {symbol} via home {home}: {e}")
                     source = f"home:{home}:error"
 
-        # 3) NO forward estimate anywhere: keep the previous DB value (never write NULL over it)
+        # 3) NO forward estimate anywhere: keep the previous DB value (never write
+        #    NULL over it). Record the symbol so main() strips its payload column.
         if pd.isna(eps_1y):
             print(f"[growth] {symbol}: no +1y forward estimate (.SI -> {source}) - keeping previous value")
-            continue
+            _NO_ESTIMATE_SYMBOLS.add(bare_symbol(symbol))
+            return
 
         data_prep.loc[idx, "one_year_eps_growth"] = eps_1y
         print(f"[growth] {symbol}: +1y eps growth = {eps_1y} (source={source})")
+
+    list(_POOL.map(_estimate_one, data_prep.iterrows()))
 
     return data_prep
 
@@ -686,6 +781,9 @@ if __name__ == "__main__":
         data_db = pd.DataFrame(data_db.data)
         data_final = employee_updater(data_db, country)
     elif args.daily:
+        # Reset per-run failure tracking (module globals persist across runs).
+        _FAILED_SYMBOLS.clear()
+        _NO_ESTIMATE_SYMBOLS.clear()
         db = "klse_companies" if args.malaysia else "sgx_companies"
         if args.singapore:
             data_db = supabase.table(db).select("*").eq("is_active", True).execute()
@@ -737,14 +835,40 @@ if __name__ == "__main__":
     # collide on the upsert conflict key).
     data_final = data_final.drop_duplicates(subset=["symbol"], keep="last")
 
+    # Symbols with no +1y estimate must NOT have one_year_eps_growth in their
+    # payload (writing NULL would wipe the existing DB value).
     records = data_final.to_dict("records")
+    if _NO_ESTIMATE_SYMBOLS:
+        est_col = "one_year_eps_growth"
+        for rec in records:
+            if bare_symbol(rec["symbol"]) in _NO_ESTIMATE_SYMBOLS:
+                rec.pop(est_col, None)
 
-    found_error_after_cleaning = False
+    # Symbols whose Yahoo fetch failed/empty (network/dead): strip recomputed
+    # columns so NaN/None -> NULL does NOT wipe stored values.
+    if _FAILED_SYMBOLS:
+        recomputed_cols = {"short_name", "dividend_yield_5y_avg", "change_3y",
+                           "change_ytd", "change_1y", "dividend_growth_rate",
+                           "market_cap", "volume", "pe", "ps_ttm", "pb", "beta",
+                           "pcf", "close", "historical_dividends", "all_time_price",
+                           "one_year_eps_growth"}
+        for rec in records:
+            if bare_symbol(rec["symbol"]) in _FAILED_SYMBOLS:
+                for col in recomputed_cols:
+                    rec.pop(col, None)
+
+    # NaN/Inf that survives cleaning (e.g. Yahoo raw inf for beta/volume) would
+    # make Postgres reject the whole batch. NULL non-finite floats in place.
+    clean_records = []
     for record in records:
+        for k, v in record.items():
+            if isinstance(v, float) and not np.isfinite(v):
+                record[k] = None
         try:
             json.dumps(record, allow_nan=False, default=str)
+            clean_records.append(record)
         except ValueError:
-            found_error_after_cleaning = True
+            print(f"Dropping record with NaN/Inf: {record.get('symbol')}")
 
-    supabase.table(db).upsert(records, returning='minimal').execute()
+    supabase.table(db).upsert(clean_records, returning='minimal').execute()
     print("Upsert operation successful.")
