@@ -4,6 +4,8 @@ import datetime
 import json
 import logging
 import os
+import random
+import time
 import urllib.request
 from datetime import datetime, timedelta
 
@@ -17,8 +19,35 @@ import re
 from symbol_utils import bare_symbol, db_symbol, is_valid_number
 
 # Threaded Yahoo fetches (4 workers) for the daily pipeline. Direct connection
-# (no proxy) - validated ~3x faster than sequential with no 401/429 rate limits.
+# (no proxy).
 _POOL = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+# 401/429 retry: Yahoo rate-limits per IP; a 401 often clears in seconds.
+# Retry with randomized backoff (avoid thundering-herd sync across the 4
+# workers). Persistent blocks (whole CI IP flagged) still fail - correctly
+# marked in _FAILED_SYMBOLS so no NULL-wipe.
+_MAX_RETRIES = 3
+
+
+def _transient_http(err) -> bool:
+    """True when the exception is a transient Yahoo 401/429/502/503."""
+    msg = str(err)
+    return any(code in msg for code in ("401", "429", "502", "503"))
+
+
+def _retry(fn, *args, **kwargs):
+    """Call fn(*args, **kwargs); on transient 401/429 retry up to _MAX_RETRIES
+    with randomized exponential backoff (2-4s, 4-8s, 8-16s). Non-transient
+    errors raise immediately. Returns fn's result."""
+    for attempt in range(_MAX_RETRIES):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            if not _transient_http(e) or attempt == _MAX_RETRIES - 1:
+                raise
+            # jittered backoff: 2-4s, 4-8s, 8-16s, randomized per attempt
+            time.sleep(random.uniform(2, 4) * (2 ** attempt))
+
 
 # No +1y analyst estimate: strip one_year_eps_growth from the payload
 # (DB keeps its existing value).
@@ -27,6 +56,27 @@ _NO_ESTIMATE_SYMBOLS = set()
 # Yahoo fetch failed/empty (network/dead ticker): strip recomputed columns
 # from the payload so NaN/None -> NULL never wipes the stored DB value.
 _FAILED_SYMBOLS = set()
+
+# Per-run cache of full (period="max") price history, keyed by ticker string.
+# update_change_data / update_historical_dividends / update_all_time_price each
+# fetch period="max" for the same symbol - fetch once, reuse across the three
+# SG phases (halves per-symbol history downloads). Filled by the first phase
+# that runs (change), read by later phases; cleared at run start. Pools run to
+# completion between phases, so no cross-phase write/read race.
+_MAX_HIST_CACHE = {}
+
+
+def _max_history(ticker, ticker_str: str):
+    """period="max" OHLCV for a ticker (Date as a column, post-reset_index),
+    cached per run. Returns a fresh copy; callers may sort/filter freely
+    without cross-phase aliasing. None when the fetch failed/empty."""
+    if ticker_str not in _MAX_HIST_CACHE:
+        df = _retry(ticker.history, period="max")
+        # cache the successful fetch only (empty/failed stays uncached)
+        if df is not None and not df.empty:
+            _MAX_HIST_CACHE[ticker_str] = df.reset_index()
+    cached = _MAX_HIST_CACHE.get(ticker_str)
+    return cached.copy() if cached is not None else None
 
 # Symbols are stored with their exchange suffix ("D05.SI", "1155.KL"), while
 # Yahoo tickers and the SGX APIs are built from the bare code. Strip before
@@ -109,12 +159,15 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
         symbol = row["symbol"]
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
-            ticker = yf.Ticker(bare_symbol(symbol) + ticker_extension)
-            info = ticker.info
+            info = _retry(lambda: yf.Ticker(bare_symbol(symbol) + ticker_extension).info)
 
             currency_info = info.get("currency")
             country_currency = "MYR" if country == "my" else "SGD"
             currency = currency_info or row.get("currency")
+            # Persist resolved currency into the df so later phases (close
+            # history) reuse it instead of re-fetching ticker.info per symbol.
+            if currency:
+                data_prep.at[index, "currency"] = currency
 
             if currency and currency != country_currency:
                 rate = data.get(currency, {}).get(country_currency)
@@ -156,7 +209,11 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                             data_prep.at[index, col] = np.nan
 
                     elif col == "short_name":
-                        data_prep.at[index, col] = clean_short_name(raw_val)
+                        new_name = clean_short_name(raw_val)
+                        # Only overwrite a stored name with a real one; missing
+                        # Yahoo shortName keeps the DB value (no NULL-wipe).
+                        if new_name is not None:
+                            data_prep.at[index, col] = new_name
 
                     elif col == "ocf":
                         ocf_val = raw_val
@@ -177,6 +234,7 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                     elif col == "dividend_yield_5y_avg":
                         if raw_val is not None and not pd.isna(raw_val):
                             data_prep.at[index, col] = raw_val / 100
+                        # missing/invalid: keep stored DB value (skip write)
 
                     elif col == "pe":
                         yf_pe = raw_val
@@ -243,18 +301,19 @@ def update_dividend_growth_rate(data_prep: pd.DataFrame, country):
             ticker = yf.Ticker(bare_symbol(symbol) + ticker_extension)
 
             current_year = datetime.now().year
-            # Empty df (dead/delisted ticker) has no "Dividends" column
-            # -> indexing raises KeyError; treat as no dividends.
-            hist_last = ticker.history(
-                start=f"{current_year - 1}-01-01",
-                end=f"{current_year - 1}-12-31"
-            )
-            hist_current = ticker.history(
-                start=f"{current_year}-01-01",
-                end=f"{current_year}-12-31"
-            )
-            dividend_last_1_year = hist_last["Dividends"].sum() if not hist_last.empty else 0
-            dividend_current = hist_current["Dividends"].sum() if not hist_current.empty else 0
+            # One fetch spanning both years, then split by year (halves the
+            # dividend-growth downloads: 1 call instead of 2 per symbol).
+            hist = _retry(ticker.history,
+                          start=f"{current_year - 1}-01-01",
+                          end=f"{current_year}-12-31")
+            if hist.empty:
+                dividend_last_1_year = dividend_current = 0
+            else:
+                hist = hist.reset_index()
+                # "Date" column comes from the DatetimeIndex after reset_index
+                hist["year"] = pd.to_datetime(hist["Date"]).dt.year
+                dividend_last_1_year = hist.loc[hist["year"] == current_year - 1, "Dividends"].sum()
+                dividend_current = hist.loc[hist["year"] == current_year, "Dividends"].sum()
             dividend_growth_rate = safe_relative_diff(dividend_current, dividend_last_1_year)
             data_prep.loc[index, "dividend_growth_rate"] = dividend_growth_rate
 
@@ -285,14 +344,15 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
         try:
             ticker_extension = ".KL" if country == "my" else ".SI"
             ticker = yf.Ticker(bare_symbol(row["symbol"]) + ticker_extension)
-            currency_info = ticker.info.get("currency", None)
-            currency = currency_info or row.get("currency")
+            # Currency comes from phase 1 (yf_data_updater persisted it into the
+            # df) - avoids a second ticker.info fetch per symbol (~1000 saved).
             country_currency = "MYR" if country == "my" else "SGD"
+            currency = row.get("currency") or country_currency
 
             try:
-                yf_data = ticker.history(period="1mo").reset_index()
+                yf_data = _retry(ticker.history, period="1mo").reset_index()
             except Exception as e:
-                yf_data = ticker.history(period="max").reset_index()
+                yf_data = _retry(ticker.history, period="max").reset_index()
 
             close_data = []
             for i in range(len(yf_data)):
@@ -342,14 +402,14 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
             ticker_extension = ".KL" if country == "my" else ".SI"
             ticker = yf.Ticker(bare_symbol(row["symbol"]) + ticker_extension)
 
-            full_history = ticker.history(period="max").reset_index()
-            if full_history.empty:
+            full_history = _max_history(ticker, bare_symbol(row["symbol"]) + ticker_extension)
+            if full_history is None or full_history.empty:
                 raise ValueError("No historical data available")
             full_history["Date"] = pd.to_datetime(full_history["Date"])
             full_history.sort_values("Date", inplace=True)
             latest_close = full_history.iloc[-1]["Close"]
 
-            dividends_series = ticker.dividends
+            dividends_series = _retry(lambda: ticker.dividends)
             if dividends_series.empty:
                 # Genuinely none, or transient empty from a rate-limited Yahoo.
                 # Pre-created col holds None here -> NULL would wipe stored
@@ -366,7 +426,7 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
             # Closes (Yahoo): same split-adjusted basis as the dividends -> yield is always
             # unit-consistent. auto_adjust=False -> "Close" is split-adjusted ONLY (not
             # dividend-adjusted), matching .dividends basis. Fetch only the 5y span needed.
-            hist = ticker.history(start=f"{min_year}-01-01", auto_adjust=False)
+            hist = _retry(ticker.history, start=f"{min_year}-01-01", auto_adjust=False)
             close_map = {} if hist.empty else {
                 d.strftime(date_format): float(c) for d, c in zip(hist.index, hist["Close"])
             }
@@ -418,7 +478,9 @@ def update_all_time_price(data_prep: pd.DataFrame, country: str):
         try:
             ticker = yf.Ticker(ticker_full)
 
-            full_history = ticker.history(period="max").reset_index()
+            full_history = _max_history(ticker, ticker_full)
+            if full_history is None or full_history.empty:
+                raise ValueError("No historical data available")
             full_history["Date"] = pd.to_datetime(full_history["Date"])
             full_history.sort_values("Date", inplace=True)
 
@@ -496,8 +558,8 @@ def update_change_data(data_prep: pd.DataFrame, country):
             ticker_extension = ".KL" if country == "my" else ".SI"
             ticker = yf.Ticker(bare_symbol(row["symbol"]) + ticker_extension)
 
-            full_history = ticker.history(period="max").reset_index()
-            if full_history.empty:
+            full_history = _max_history(ticker, bare_symbol(symbol) + ticker_extension)
+            if full_history is None or full_history.empty:
                 raise ValueError("No historical data available")
             full_history["Date"] = pd.to_datetime(full_history["Date"])
             full_history.sort_values("Date", inplace=True)
@@ -663,7 +725,7 @@ HOME_TICKER_MAP = {
 
 def _growth_1y(ticker_str: str):
     """+1y forward analyst EPS growth (stockTrend) for a Yahoo ticker, or np.nan."""
-    ge = yf.Ticker(ticker_str).growth_estimates
+    ge = _retry(lambda: yf.Ticker(ticker_str).growth_estimates)
     if isinstance(ge, pd.DataFrame) and "+1y" in ge.index:
         val = ge.at["+1y", "stockTrend"]
         if pd.notna(val):
@@ -692,7 +754,7 @@ def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.Dat
         try:
             ticker = yf.Ticker(bare_symbol(symbol) + ext)
 
-            ge = ticker.growth_estimates
+            ge = _retry(lambda: ticker.growth_estimates)
 
             eps_1y = ge.at["+1y", "stockTrend"] if "+1y" in ge.index else np.nan
 
@@ -784,6 +846,7 @@ if __name__ == "__main__":
         # Reset per-run failure tracking (module globals persist across runs).
         _FAILED_SYMBOLS.clear()
         _NO_ESTIMATE_SYMBOLS.clear()
+        _MAX_HIST_CACHE.clear()
         db = "klse_companies" if args.malaysia else "sgx_companies"
         if args.singapore:
             data_db = supabase.table(db).select("*").eq("is_active", True).execute()
