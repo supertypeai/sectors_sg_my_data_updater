@@ -154,13 +154,15 @@ def _fetch_ratios_single(symbol: str) -> dict:
         resp.raise_for_status()
         data = resp.json().get("data", [])
         if not data:
-            return {"symbol": symbol}
+            # No row: transient/unsupported. Flag so the stored row is kept,
+            # not NULL-wiped (see upsert_metrics).
+            return {"symbol": symbol, "_failed": True}
         row = {RATIOS_FIELD_MAP[k]: v for k, v in data[0].items() if k in RATIOS_FIELD_MAP}
         row["symbol"] = symbol
         return row
     except Exception as e:
         logger.warning(f"[{symbol}] ratios fetch failed: {e}")
-        return {"symbol": symbol}
+        return {"symbol": symbol, "_failed": True}
 
 
 def build_metrics_df(base_df: pd.DataFrame) -> pd.DataFrame:
@@ -176,6 +178,9 @@ def build_metrics_df(base_df: pd.DataFrame) -> pd.DataFrame:
             if i % 200 == 0:
                 logger.info(f"  Ratios: {i}/{len(api_symbols)} done...")
     ratios_df = pd.DataFrame(results)
+    # Ratios are keyed by the bare API code; df["symbol"] is the stored suffixed
+    # form. Normalise before the merge or every ratios column lands NULL.
+    ratios_df["symbol"] = ratios_df["symbol"].map(with_suffix)
     logger.info("Ratios: completed.")
 
     df = base_df.merge(screener_df, left_on="api_symbol", right_on="symbol", how="left")
@@ -202,6 +207,13 @@ def build_metrics_df(base_df: pd.DataFrame) -> pd.DataFrame:
 def upsert_metrics(df: pd.DataFrame, client: Client):
     df = df.replace([np.inf, -np.inf], np.nan)
     df = df.drop_duplicates(subset=["symbol"], keep="last")
+    # ponytail: a failed ratios fetch drops the whole row so its stored values
+    # survive; it refreshes on the next successful run instead of NULL-wiping.
+    if "_failed" in df.columns:
+        failed = df["_failed"].fillna(False).astype(bool)
+        if failed.any():
+            logger.warning(f"Keeping stored metrics for {int(failed.sum())} symbol(s) with failed ratios fetch.")
+        df = df[~failed].drop(columns=["_failed"])
     records = [
         {k: (None if isinstance(v, float) and (np.isnan(v) or np.isinf(v)) else v)
          for k, v in row.items()}

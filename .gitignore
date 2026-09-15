@@ -10,6 +10,9 @@ venv
 *.ipynb
 *.log
 
+# Scraper stdout dump (local run artifact, read by .validation_tmp scripts)
+/log.txt
+
 # YFinance cache
 yfinance.cache
 
