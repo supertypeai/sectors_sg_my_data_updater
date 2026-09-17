@@ -53,7 +53,8 @@ def _retry(fn, *args, **kwargs):
 # (DB keeps its existing value).
 _NO_ESTIMATE_SYMBOLS = set()
 
-# Yahoo info had no volume field: strip volume from the payload (no NULL-wipe).
+# No completed trading day in the price history: strip volume from the payload
+# (DB keeps its existing value).
 _NO_VOLUME_SYMBOLS = set()
 
 # Yahoo fetch failed/empty (network/dead ticker): strip recomputed columns
@@ -115,7 +116,7 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             data_prep["short_name"] = None  # object dtype
     elif country == "my":
         # ocf is also written via .at; dropped after the pool.
-        write_cols += ["market_cap", "volume", "pe", "ps_ttm", "pb", "beta", "pcf", "ocf"]
+        write_cols += ["market_cap", "pe", "ps_ttm", "pb", "beta", "pcf", "ocf"]
     for col in write_cols:
         if col not in data_prep.columns:
             data_prep[col] = np.nan
@@ -190,7 +191,6 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             elif country == "my":
                 desired_values.update({
                     "marketCap": "market_cap",
-                    "volume": "volume",
                     "trailingPE": "pe",
                     "priceToSalesTrailing12Months": "ps_ttm",
                     "priceToBook": "pb",
@@ -210,20 +210,6 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                                 data_prep.at[index, col] = raw_val
                         else:
                             data_prep.at[index, col] = np.nan
-
-                    elif col == "volume":
-                        # info["volume"] is the CURRENT session's volume. The
-                        # daily job runs before Bursa opens, when Yahoo can
-                        # report 0 for the new session - that zeroed ~90% of
-                        # KLSE rows and emptied the volume>0 screener pages.
-                        # A 10-day average is session-time independent.
-                        for vol_key in ("averageDailyVolume10Day", "averageVolume", "volume"):
-                            if is_valid_number(info.get(vol_key)):
-                                data_prep.at[index, col] = info[vol_key]
-                                break
-                        else:
-                            # No volume field at all: keep the stored value.
-                            _NO_VOLUME_SYMBOLS.add(bare_symbol(symbol))
 
                     elif col == "short_name":
                         new_name = clean_short_name(raw_val)
@@ -342,6 +328,28 @@ def update_dividend_growth_rate(data_prep: pd.DataFrame, country):
 
     return data_prep
 
+def last_completed_volume(history: pd.DataFrame, now: pd.Timestamp):
+    """Volume of the last FINISHED Bursa session in a daily history frame.
+
+    Yahoo's info["volume"] is the current session's running count, which is 0
+    before the open - and the daily job starts ~04:40 MYT. The daily bars carry
+    each finished day's full volume instead. Today's bar is partial until the
+    close (17:00 MYT), so it only counts from 18:00 MYT. Returns None when there
+    is no finished day.
+    """
+    if history is None or history.empty or "Volume" not in history:
+        return None
+    now_myt = now.tz_convert("Asia/Kuala_Lumpur")
+    dates = pd.to_datetime(history["Date"])
+    dates = dates.dt.tz_convert("Asia/Kuala_Lumpur") if dates.dt.tz else dates.dt.tz_localize("Asia/Kuala_Lumpur")
+    finished = dates.dt.date < now_myt.date()
+    if now_myt.hour >= 18:
+        finished |= dates.dt.date == now_myt.date()
+    volumes = history.loc[finished.values, "Volume"]
+    volumes = volumes[volumes.map(is_valid_number)]
+    return int(volumes.iloc[-1]) if not volumes.empty else None
+
+
 def update_close_history_data(data_prep: pd.DataFrame, country):
     date_format = "%Y-%m-%d"
     last_date = (datetime.now() - timedelta(days=31)).strftime(date_format)
@@ -353,6 +361,8 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
 
     # Pre-sized list; workers write by row position (thread-safe index writes).
     new_close = [None] * len(data_prep)
+    new_volume = [None] * len(data_prep)
+    now = pd.Timestamp.now(tz="UTC")
     sym_pos = {row["symbol"]: pos for pos, (_, row) in enumerate(data_prep.iterrows())}
 
     def _close_one(index_row):
@@ -370,6 +380,11 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
                 yf_data = _retry(ticker.history, period="1mo").reset_index()
             except Exception as e:
                 yf_data = _retry(ticker.history, period="max").reset_index()
+
+            volume = last_completed_volume(yf_data, now)
+            if volume is None:
+                _NO_VOLUME_SYMBOLS.add(bare_symbol(symbol))
+            new_volume[sym_pos[symbol]] = volume
 
             close_data = []
             for i in range(len(yf_data)):
@@ -394,6 +409,7 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
 
     list(_POOL.map(_close_one, data_prep.iterrows()))
 
+    data_prep = data_prep.assign(volume=new_volume)
     try:
         data_prep = data_prep.assign(close=new_close)
         if "ocf" in data_prep.columns:
