@@ -122,14 +122,13 @@ def create_supabase() -> Client:
 
 
 def fetch_symbols() -> pd.DataFrame:
-    """Fetch active symbols from sgx_companies. Returns df with symbol + api_symbol (no .SI) + is_reit + currency."""
+    """Fetch active symbols from sgx_companies. Returns df with symbol + api_symbol (no .SI) + is_reit."""
     client = create_supabase()
-    rows = client.table("sgx_companies").select("symbol,sector,market").eq("is_active", True).execute().data
+    rows = client.table("sgx_companies").select("symbol,sector").eq("is_active", True).execute().data
     df = pd.DataFrame(rows)
     df["api_symbol"] = df["symbol"].str.replace(r"\.SI$", "", regex=True)
     df["is_reit"] = df["sector"].str.upper() == "REIT"
-    df["is_dr"] = df["market"].fillna("").str.upper() == "GLOBAL_QUOTE"
-    logger.info(f"Loaded {len(df)} active symbols from sgx_companies ({df['is_reit'].sum()} REITs, {df['is_dr'].sum()} depositary receipts).")
+    logger.info(f"Loaded {len(df)} active symbols from sgx_companies ({df['is_reit'].sum()} REITs).")
     return df
 
 
@@ -239,31 +238,35 @@ def _fetch_currency_single(symbol: str) -> tuple[str, str | None, str | None]:
     return symbol, None, None
 
 
-def _historic_kinds(is_reit: bool, is_dr: bool) -> list[str]:
+def _historic_kinds(is_reit: bool) -> list[str]:
     """SGX serves history per security type and returns an empty list for the
     wrong one. Business and stapled trusts live under 'businesstrusts' whatever
-    their sector says, and depositary receipts under 'adrs'."""
-    if is_dr:
-        return ["adrs", "stocks"]
+    their sector says, and depositary receipts under 'adrs'. Sector only hints
+    at the likely type, so every type is tried before giving up."""
     if is_reit:
-        return ["reits", "businesstrusts"]
-    return ["stocks", "businesstrusts", "reits"]
+        return ["reits", "businesstrusts", "stocks", "adrs"]
+    return ["stocks", "businesstrusts", "reits", "adrs"]
 
 
-def _fetch_historic_single(symbol: str, period: str, is_reit: bool = False, is_dr: bool = False) -> pd.DataFrame:
+def _fetch_historic_single(symbol: str, period: str, is_reit: bool = False) -> pd.DataFrame:
     try:
         records = []
-        for kind in _historic_kinds(is_reit, is_dr):
-            resp = requests.get(
-                HISTORIC_URL.format(kind=kind, symbol=symbol, period=period),
-                headers=SGX_HEADERS,
-                timeout=15,
-            )
-            resp.raise_for_status()
-            records = resp.json().get("data", {}).get("historic", [])
+        for kind in _historic_kinds(is_reit):
+            try:
+                resp = requests.get(
+                    HISTORIC_URL.format(kind=kind, symbol=symbol, period=period),
+                    headers=SGX_HEADERS,
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                records = resp.json().get("data", {}).get("historic", [])
+            except Exception as e:
+                logger.warning(f"[{symbol}] {kind} fetch failed: {e}")
+                continue
             if records:
                 break
         if not records:
+            logger.warning(f"[{symbol}] no history on any security type")
             return pd.DataFrame()
         df = pd.DataFrame(records)
         df["symbol"] = symbol
@@ -284,11 +287,10 @@ def build_daily_df(base_df: pd.DataFrame, mode: str) -> tuple:
     period = "1y" if mode == "full" else "1m"
 
     reit_set = set(base_df.loc[base_df["is_reit"], "api_symbol"].tolist())
-    dr_set = set(base_df.loc[base_df["is_dr"], "api_symbol"].tolist())
-    logger.info(f"Fetching historic prices ({period}) for {len(api_symbols)} symbols ({len(reit_set)} REITs, {len(dr_set)} depositary receipts)...")
+    logger.info(f"Fetching historic prices ({period}) for {len(api_symbols)} symbols ({len(reit_set)} REITs)...")
     frames = []
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(_fetch_historic_single, s, period, s in reit_set, s in dr_set): s for s in api_symbols}
+        futures = {executor.submit(_fetch_historic_single, s, period, s in reit_set): s for s in api_symbols}
         for i, future in enumerate(as_completed(futures), 1):
             df = future.result()
             if not df.empty:
