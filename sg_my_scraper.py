@@ -53,6 +53,9 @@ def _retry(fn, *args, **kwargs):
 # (DB keeps its existing value).
 _NO_ESTIMATE_SYMBOLS = set()
 
+# Yahoo info had no volume field: strip volume from the payload (no NULL-wipe).
+_NO_VOLUME_SYMBOLS = set()
+
 # Yahoo fetch failed/empty (network/dead ticker): strip recomputed columns
 # from the payload so NaN/None -> NULL never wipes the stored DB value.
 _FAILED_SYMBOLS = set()
@@ -207,6 +210,20 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
                                 data_prep.at[index, col] = raw_val
                         else:
                             data_prep.at[index, col] = np.nan
+
+                    elif col == "volume":
+                        # info["volume"] is the CURRENT session's volume. The
+                        # daily job runs before Bursa opens, when Yahoo can
+                        # report 0 for the new session - that zeroed ~90% of
+                        # KLSE rows and emptied the volume>0 screener pages.
+                        # A 10-day average is session-time independent.
+                        for vol_key in ("averageDailyVolume10Day", "averageVolume", "volume"):
+                            if is_valid_number(info.get(vol_key)):
+                                data_prep.at[index, col] = info[vol_key]
+                                break
+                        else:
+                            # No volume field at all: keep the stored value.
+                            _NO_VOLUME_SYMBOLS.add(bare_symbol(symbol))
 
                     elif col == "short_name":
                         new_name = clean_short_name(raw_val)
@@ -846,6 +863,7 @@ if __name__ == "__main__":
         # Reset per-run failure tracking (module globals persist across runs).
         _FAILED_SYMBOLS.clear()
         _NO_ESTIMATE_SYMBOLS.clear()
+        _NO_VOLUME_SYMBOLS.clear()
         _MAX_HIST_CACHE.clear()
         db = "klse_companies" if args.malaysia else "sgx_companies"
         if args.singapore:
@@ -906,6 +924,9 @@ if __name__ == "__main__":
         for rec in records:
             if bare_symbol(rec["symbol"]) in _NO_ESTIMATE_SYMBOLS:
                 rec.pop(est_col, None)
+    for rec in records:
+        if bare_symbol(rec["symbol"]) in _NO_VOLUME_SYMBOLS:
+            rec.pop("volume", None)
 
     # Symbols whose Yahoo fetch failed/empty (network/dead): strip recomputed
     # columns so NaN/None -> NULL does NOT wipe stored values.
