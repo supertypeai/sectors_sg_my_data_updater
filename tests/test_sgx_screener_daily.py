@@ -74,6 +74,74 @@ def test_metrics_payload_only_has_columns_the_table_accepts(monkeypatch):
     assert df["symbol"].tolist() == ["D05.SI"]
 
 
+def test_clean_empties_are_not_retried(monkeypatch):
+    calls = []
+
+    def fake_get(url, headers=None, timeout=None):
+        calls.append(url)
+        return _Response([])
+
+    monkeypatch.setattr(scraper.requests, "get", fake_get)
+    assert scraper._fetch_historic_single("DEAD", "1m").empty
+    assert len(calls) == len(ALL_KINDS)
+
+
+def test_ladder_is_retried_after_an_error(monkeypatch):
+    calls = []
+
+    def fake_get(url, headers=None, timeout=None):
+        calls.append(url)
+        if len(calls) <= len(ALL_KINDS):
+            raise RuntimeError("503")
+        return _Response([_bar(close="3")])
+
+    monkeypatch.setattr(scraper.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(scraper.requests, "get", fake_get)
+    assert not scraper._fetch_historic_single("FLAKY", "1m").empty
+    assert len(calls) > len(ALL_KINDS)
+
+
+def test_latest_rows_without_market_cap_are_not_written():
+    client = _Client()
+    price = pd.DataFrame([{"symbol": "D05.SI", "date": "2026-09-16", "close": 1.0}])
+    latest = pd.DataFrame(
+        [{"symbol": "D05.SI", "date": "2026-09-16", "close": 1.0, "market_cap": 5.0},
+         {"symbol": "TCPD.SI", "date": "2026-09-16", "close": 2.0, "market_cap": float("nan")}]
+    )
+
+    scraper.upsert_daily(price, latest, client)
+
+    assert [r["symbol"] for r in client.upserts[-1]] == ["D05.SI"]
+    assert client.upserts[0][0]["symbol"] == "D05.SI"
+
+
+def test_missing_market_cap_column_does_not_crash_the_write():
+    """build_daily_df returns a latest frame with no market_cap column when the
+    market cap API answers empty."""
+    client = _Client()
+    price = pd.DataFrame([{"symbol": "D05.SI", "date": "2026-09-16", "close": 1.0}])
+
+    scraper.upsert_daily(price, price.copy(), client)
+
+    assert len(client.upserts) == 1
+    assert client.upserts[0][0]["symbol"] == "D05.SI"
+
+
+class _Client:
+    def __init__(self):
+        self.upserts = []
+
+    def table(self, _name):
+        return self
+
+    def upsert(self, records, **_kwargs):
+        self.upserts.append(records)
+        return self
+
+    def execute(self):
+        return self
+
+
 class _Response:
     def __init__(self, historic):
         self._historic = historic

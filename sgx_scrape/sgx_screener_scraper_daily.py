@@ -260,11 +260,13 @@ def _historic_kinds(is_reit: bool) -> list[str]:
 def _fetch_historic_single(symbol: str, period: str, is_reit: bool = False) -> pd.DataFrame:
     try:
         records = []
-        # An empty response is also how this API reports transient trouble, so
-        # a symbol is only given up on after a second pass over every type.
+        errors = 0
+        # A type that errored may have been the one holding this symbol's data,
+        # so the ladder is retried; four clean empties mean the symbol has none.
         for attempt in range(EMPTY_RETRIES + 1):
             if attempt:
                 time.sleep(2 * attempt)
+            errors = 0
             for kind in _historic_kinds(is_reit):
                 try:
                     resp = requests.get(
@@ -275,14 +277,18 @@ def _fetch_historic_single(symbol: str, period: str, is_reit: bool = False) -> p
                     resp.raise_for_status()
                     records = resp.json().get("data", {}).get("historic", [])
                 except Exception as e:
+                    errors += 1
                     logger.warning(f"[{symbol}] {kind} fetch failed: {e}")
                     continue
                 if records:
                     break
-            if records:
+            if records or not errors:
                 break
         if not records:
-            logger.warning(f"[{symbol}] no history on any security type")
+            logger.warning(
+                f"[{symbol}] no history on any security type"
+                + (f" ({errors} of 4 errored)" if errors else "")
+            )
             return pd.DataFrame()
         df = pd.DataFrame(records)
         df["symbol"] = symbol
@@ -295,6 +301,19 @@ def _fetch_historic_single(symbol: str, period: str, is_reit: bool = False) -> p
     except Exception as e:
         logger.warning(f"[{symbol}] historic fetch failed: {e}")
         return pd.DataFrame()
+
+
+def _to_stored_symbols(base_df: pd.DataFrame, *frames: pd.DataFrame) -> tuple:
+    """Everything above joins on the bare API code, but the table stores the same
+    suffixed form as sgx_companies — map back before the rows are written."""
+    stored = dict(zip(base_df["api_symbol"], base_df["symbol"]))
+    for frame in frames:
+        # Fall back to suffixing directly, so a code missing from base_df can
+        # never be written back in the bare form.
+        frame["symbol"] = frame["symbol"].map(
+            lambda code: stored.get(code) or with_suffix(code)
+        )
+    return frames
 
 
 def build_daily_df(base_df: pd.DataFrame, mode: str) -> tuple:
@@ -329,7 +348,11 @@ def build_daily_df(base_df: pd.DataFrame, mode: str) -> tuple:
     mcap_data = resp.json().get("data", [])
     if not mcap_data:
         logger.warning("Market cap API returned no data.")
-        return price_df, price_df[price_df["date"] == price_df["date"].max()].copy()
+        return _to_stored_symbols(
+            base_df,
+            price_df,
+            price_df[price_df["date"] == price_df["date"].max()].copy(),
+        )
     mcap_df = pd.DataFrame(mcap_data)[["stockCode", "marketCapitalization"]]
     mcap_df.columns = ["symbol", "market_cap"]
     mcap_df["market_cap"] = pd.to_numeric(mcap_df["market_cap"], errors="coerce")
@@ -374,17 +397,7 @@ def build_daily_df(base_df: pd.DataFrame, mode: str) -> tuple:
     latest_df = latest_df.merge(mcap_df, on="symbol", how="left")
     logger.info(f"Market cap joined for {latest_df['market_cap'].notna().sum()} symbols on {latest_date}.")
 
-    # Everything above joins on the bare API code, but the table stores the same
-    # suffixed form as sgx_companies — map back before the rows are written.
-    stored = dict(zip(base_df["api_symbol"], base_df["symbol"]))
-    for frame in (price_df, latest_df):
-        # Fall back to suffixing directly, so a code missing from base_df can
-        # never be written back in the bare form.
-        frame["symbol"] = frame["symbol"].map(
-            lambda code: stored.get(code) or with_suffix(code)
-        )
-
-    return price_df, latest_df
+    return _to_stored_symbols(base_df, price_df, latest_df)
 
 
 def upsert_daily(price_df: pd.DataFrame, latest_df: pd.DataFrame, client: Client):
@@ -398,11 +411,20 @@ def upsert_daily(price_df: pd.DataFrame, latest_df: pd.DataFrame, client: Client
         logger.info(f"  Daily upserted: {min(i + BATCH_SIZE, total)}/{total}")
 
     # Rows without a market cap carry nothing the price batch above hasn't
-    # written, and upserting them NULLs the stored market_cap.
-    latest_df = latest_df[latest_df["market_cap"].notna()]
+    # written, and upserting them NULLs the stored market_cap. The column is
+    # missing entirely when the market cap API returned nothing.
+    if "market_cap" in latest_df.columns:
+        dropped = int(latest_df["market_cap"].isna().sum())
+        if dropped:
+            logger.warning(f"Keeping stored market cap for {dropped} symbol(s) with none today.")
+        latest_df = latest_df[latest_df["market_cap"].notna()]
+    else:
+        latest_df = latest_df.iloc[0:0]
+
     latest_records = latest_df.where(pd.notna(latest_df), None).to_dict(orient="records")
-    client.table(DAILY_TABLE).upsert(latest_records).execute()
-    logger.info(f"Daily done. {total} records + market cap → '{DAILY_TABLE}'.")
+    if latest_records:
+        client.table(DAILY_TABLE).upsert(latest_records).execute()
+    logger.info(f"Daily done. {total} records + {len(latest_records)} market caps → '{DAILY_TABLE}'.")
 
 
 # ==========================================
@@ -427,8 +449,19 @@ def main():
         metrics_future = executor.submit(build_metrics_df, base_df.copy())
         daily_future   = executor.submit(build_daily_df,   base_df.copy(), args.mode)
 
-    metrics_df          = metrics_future.result()
-    price_df, latest_df = daily_future.result()
+    # One pipeline failing must not discard the other's data: that is the silent
+    # stall this scraper already shipped once.
+    failed = []
+    try:
+        metrics_df = metrics_future.result()
+    except Exception as e:
+        logger.error(f"Metrics pipeline failed: {e}")
+        metrics_df, failed = pd.DataFrame(), failed + ["metrics"]
+    try:
+        price_df, latest_df = daily_future.result()
+    except Exception as e:
+        logger.error(f"Price pipeline failed: {e}")
+        price_df, latest_df, failed = pd.DataFrame(), pd.DataFrame(), failed + ["price"]
 
     if args.csv:
         metrics_df.to_csv("sgx_metrics_preview.csv", index=False)
@@ -436,11 +469,14 @@ def main():
         logger.info("Saved: sgx_metrics_preview.csv, sgx_daily_data_preview.csv")
     else:
         client = create_supabase()
-        upsert_metrics(metrics_df, client)
+        if not metrics_df.empty:
+            upsert_metrics(metrics_df, client)
         if not price_df.empty:
             upsert_daily(price_df, latest_df, client)
 
     logger.info("=== SGX Daily Combined Scraper finished ===")
+    if failed:
+        sys.exit(f"Pipeline(s) failed: {', '.join(failed)}")
 
 
 if __name__ == "__main__":
