@@ -79,6 +79,13 @@ def with_suffix(symbol: str) -> str:
     return symbol if symbol.endswith(SYMBOL_SUFFIX) else symbol + SYMBOL_SUFFIX
 
 
+def bare_symbol(symbol: str) -> str:
+    """Strips the exchange suffix. Announcement `stock_code` is always bare, so
+    symbol sets read from Supabase are normalised through this before matching."""
+    symbol = str(symbol)
+    return symbol[: -len(SYMBOL_SUFFIX)] if symbol.endswith(SYMBOL_SUFFIX) else symbol
+
+
 def top_symbols(limit: int) -> pd.DataFrame:
     """Top `limit` issuers by market cap from Supabase, nulls excluded."""
     # Real environment first (that is all CI has), then the local .env.
@@ -105,7 +112,7 @@ def top_symbols(limit: int) -> pd.DataFrame:
 
 def candidates(df: pd.DataFrame, symbols: set[str]) -> pd.DataFrame:
     """Announcements in scope: top-N issuer, statements present, half-yearly."""
-    work = df[df["stock_code"].isin(symbols)].copy()
+    work = df[df["stock_code"].isin({bare_symbol(s) for s in symbols})].copy()
     work = work[work["sub_title"].isin(HALF_BY_SUB_TITLE)]
     work["period"] = work["sub_title"].map(HALF_BY_SUB_TITLE)
     work = work[work["attachment_count"].fillna(0) > 0]

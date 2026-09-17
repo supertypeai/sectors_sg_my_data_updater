@@ -27,6 +27,7 @@ import json
 import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -45,6 +46,7 @@ from sgx_financials_table import (
     to_sgd,
     top_symbols,
     with_suffix,
+    bare_symbol,
 )
 from sgx_pipeline import attachments_of, choose_pdf
 
@@ -53,6 +55,8 @@ TABLE = "sgx_periodic_financial"
 CONFLICT_KEY = "symbol,date"
 DEFAULT_TOP = 200
 DEFAULT_DAYS = 7
+# Rows written per upsert during a long backfill.
+UPSERT_CHUNK = 20
 # SGX days run 16:00 -> 15:59:59 SGT.
 DAY_START = "160000"
 DAY_END = "155959"
@@ -119,9 +123,15 @@ def window(days: int) -> tuple[str, str]:
     return f"{start:%Y%m%d}_{DAY_START}", f"{today:%Y%m%d}_{DAY_END}"
 
 
-def fetch_recent_announcements(days: int) -> pd.DataFrame:
-    """Scrapes the announcements API + detail pages for the window."""
-    start, end = window(days)
+def explicit_window(start: str, end: str) -> tuple[str, str]:
+    """SGX period bounds for an explicit YYYY-MM-DD range."""
+    return (f"{start.replace('-', '')}_{DAY_START}",
+            f"{end.replace('-', '')}_{DAY_END}")
+
+
+def fetch_recent_announcements(days: int = None, bounds: tuple = None) -> pd.DataFrame:
+    """Scrapes the announcements API for the window (detail pages come later)."""
+    start, end = bounds if bounds else window(days)
     print(f"Announcement window: {start} -> {end}")
 
     sgx_scraper.PARAMS.update({"periodstart": start, "periodend": end})
@@ -143,8 +153,17 @@ def fetch_recent_announcements(days: int) -> pd.DataFrame:
     df = pd.json_normalize(
         rows, "issuers", [c for c in rows[0] if c != "issuers"], meta_prefix="ann_"
     ).drop_duplicates(subset=["ann_ref_id", "stock_code"], ignore_index=True)
+    # The API title ends in the same sub-title the detail page reports
+    # ("...::Full Yearly Results"), so scope can be decided before fetching a
+    # single detail page — worth thousands of requests on a long backfill.
+    df["api_sub_title"] = df["ann_title"].str.split("::").str[-1].str.strip()
+    return df
 
-    # Detail pages carry sub_title and the attachment list.
+
+def enrich_with_details(df: pd.DataFrame) -> pd.DataFrame:
+    """Adds sub_title, financial_period_ended and attachments from detail pages."""
+    if df.empty:
+        return df
     details, attachments = sgx_scraper.scrape_details(
         df["ann_url"].drop_duplicates().tolist()
     )
@@ -174,11 +193,31 @@ def expected_date(row: pd.Series) -> str | None:
     return "{:04d}-{:02d}-{:02d}".format(*parsed)
 
 
+def prefilter(df: pd.DataFrame, symbols: set[str]) -> pd.DataFrame:
+    """Scope from the API payload alone: top-N issuer, half-yearly statements."""
+    if df.empty:
+        return df
+    bare = {bare_symbol(x) for x in symbols}
+    work = df[df["stock_code"].isin(bare)]
+    return work[work["api_sub_title"].isin(HALF_BY_SUB_TITLE)].reset_index(drop=True)
+
+
+def in_range(date: str | None, start: str | None, stop: str | None) -> bool:
+    """Whether a period end falls inside an inclusive YYYY-MM-DD range."""
+    if not date:
+        return False
+    if start and date < start:
+        return False
+    if stop and date > stop:
+        return False
+    return True
+
+
 def candidates(df: pd.DataFrame, symbols: set[str]) -> pd.DataFrame:
     """Top-N issuer, statements present, half-yearly period."""
     if df.empty:
         return df
-    work = df[df["stock_code"].isin(symbols)].copy()
+    work = df[df["stock_code"].isin({bare_symbol(x) for x in symbols})].copy()
     work = work[work["sub_title"].isin(HALF_BY_SUB_TITLE)]
     if work.empty:
         return work
@@ -227,10 +266,110 @@ def process(row: pd.Series, rates: dict, client, seen_urls: set) -> dict | None:
     }
 
 
+def to_payload(records: list[dict]) -> list[dict]:
+    """Table rows ready for PostgREST (statement columns as jsonb, not strings)."""
+    table = build_table(records)
+    payload = json.loads(table.to_json(orient="records"))
+    for row in payload:
+        for column in ("income_statement", "balance_sheet", "cash_flow"):
+            row[column] = json.loads(row[column])
+    return payload
+
+
+def choose_pdfs(rows: list, seen_urls: set) -> list:
+    """Phase 1 — pick each filing's statements PDF, serially.
+
+    Downloads stay single-threaded: links.sgx.com bans the IP for a burst.
+    """
+    chosen = []
+    for i, row in enumerate(rows, 1):
+        try:
+            pdf_path, _ = choose_pdf(attachments_of(row))
+        except Exception as e:
+            print(f"  [{i}/{len(rows)}] {row['stock_code']}: download failed — {e}",
+                  file=sys.stderr)
+            continue
+        if pdf_path is None:
+            print(f"  [{i}/{len(rows)}] {row['stock_code']}: no statements PDF",
+                  file=sys.stderr)
+            continue
+        source_url = next(
+            (a["url"] for a in attachments_of(row)
+             if safe_name(a["name"]) == pdf_path.name), None
+        )
+        if source_url in seen_urls:
+            continue
+        chosen.append((row, pdf_path, source_url))
+        if i % 50 == 0:
+            print(f"  [{i}/{len(rows)}] PDFs selected")
+    return chosen
+
+
+def extract_many(chosen: list, rates: dict, client, workers: int, flush) -> int:
+    """Phase 2 — extract concurrently, flushing to Supabase as results arrive.
+
+    A backfill runs for hours, so rows are written in chunks rather than in one
+    upsert at the end; an interrupted run keeps everything it had finished, and
+    re-running skips those filings.
+    """
+    done, buffer = 0, []
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(extract_one_row, row, pdf, url, rates, client): row
+            for row, pdf, url in chosen
+        }
+        for future in as_completed(futures):
+            row = futures[future]
+            done += 1
+            try:
+                record = future.result()
+            except Exception as e:
+                print(f"  ! {row['stock_code']} failed: {e}", file=sys.stderr)
+                continue
+            buffer.append(record)
+            kept = sum(v is not None for g in record["metrics"].values() for v in g.values())
+            print(f"  [{done}/{len(chosen)}] {record['symbol']} {record['date']} "
+                  f"{record['period']}: {kept}/33 ({record['source_currency']})")
+            if len(buffer) >= UPSERT_CHUNK:
+                flush(buffer); buffer = []
+    if buffer:
+        flush(buffer)
+    return done
+
+
+def extract_one_row(row, pdf_path, source_url, rates: dict, client) -> dict:
+    """Extraction half of `process`, for an already-chosen PDF."""
+    result = extract_financials(pdf_path, client=client)
+    period = result["period"]
+    rate, quarter = sgd_rate(rates, period.get("currency"), period.get("period_end"))
+    metrics = to_sgd(result["metrics"], rate) if rate else result["metrics"]
+    return {
+        "ann_ref_id": row["ann_ref_id"],
+        "stock_code": row["stock_code"],
+        "symbol": row["stock_code"],
+        "date": period.get("period_end"),
+        "period": row["period"],
+        "source_currency": period.get("currency"),
+        "fx_rate_to_sgd": rate,
+        "fx_quarter": quarter,
+        "converted": rate is not None,
+        "pdf": pdf_path.name,
+        "source_url": source_url,
+        "period_basis": period.get("period_basis", "as_reported"),
+        "metrics": metrics,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--days", type=int, default=DEFAULT_DAYS)
+    parser.add_argument("--start", help="backfill: earliest announcement date, YYYY-MM-DD")
+    parser.add_argument("--end", help="backfill: latest announcement date, YYYY-MM-DD")
+    parser.add_argument("--period-from", help="keep only periods ending on/after this date")
+    parser.add_argument("--period-to", help="keep only periods ending on/before this date")
     parser.add_argument("--top", type=int, default=DEFAULT_TOP)
+    parser.add_argument("--workers", type=int, default=1,
+                        help="concurrent extractions (downloads stay serial)")
     parser.add_argument("--dry-run", action="store_true",
                         help="extract but don't write to Supabase")
     parser.add_argument("--plan-only", action="store_true",
@@ -241,14 +380,30 @@ def main() -> int:
     print(f"=== SGX periodic financials weekly update "
           f"({datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}) ===")
 
-    announcements = fetch_recent_announcements(args.days)
+    bounds = explicit_window(args.start, args.end) if (args.start and args.end) else None
+    announcements = fetch_recent_announcements(args.days, bounds)
     if announcements.empty:
         print("Nothing announced in the window. Done.")
         return 0
 
     symbols = set(top_symbols(args.top)["symbol"])
-    work = candidates(announcements, symbols)
-    print(f"{len(work)} filings in scope (top {args.top} issuers, half-yearly statements)")
+    # Scope first from the API payload, so detail pages are only fetched for
+    # filings that can actually produce a row.
+    scoped = prefilter(announcements, symbols)
+    print(f"{len(announcements)} announcements -> {len(scoped)} in scope "
+          f"(top {args.top} issuers, half-yearly statements)")
+    if scoped.empty:
+        return 0
+
+    work = candidates(enrich_with_details(scoped), symbols)
+
+    if args.period_from or args.period_to:
+        before = len(work)
+        work = work[work.apply(
+            lambda r: in_range(expected_date(r), args.period_from, args.period_to), axis=1
+        )].reset_index(drop=True)
+        print(f"{len(work)} of {before} fall in "
+              f"{args.period_from or 'any'} .. {args.period_to or 'any'}")
     if work.empty:
         return 0
 
@@ -271,35 +426,30 @@ def main() -> int:
                   f"— {row['sub_title']}")
         return 0
 
-    rates, client, records = load_rates(), build_client(), []
-    for i, row in enumerate(pending, 1):
-        print(f"[{i}/{len(pending)}] {row['stock_code']} {row['period']}")
-        try:
-            record = process(row, rates, client, done_urls)
-        except Exception as e:
-            print(f"  ! {row['stock_code']} failed: {e}", file=sys.stderr)
-            continue
-        if record:
-            records.append(record)
-            done_urls.add(record["source_url"])
+    rates, client = load_rates(), build_client()
 
-    if not records:
-        print("Nothing new extracted. Done.")
+    print(f"\nPhase 1 — selecting statements PDFs for {len(pending)} filings (serial):")
+    chosen = choose_pdfs(pending, done_urls)
+    print(f"{len(chosen)} filings have a usable statements PDF")
+    if not chosen:
+        print("Nothing to extract. Done.")
         return 0
 
-    table = build_table(records)
-    payload = json.loads(table.to_json(orient="records"))
-    # The three statement columns are jsonb in Postgres, not strings.
-    for row in payload:
-        for column in ("income_statement", "balance_sheet", "cash_flow"):
-            row[column] = json.loads(row[column])
+    written = 0
 
-    if args.dry_run:
-        print(f"[dry run] would upsert {len(payload)} rows:")
-        print(table[["symbol", "date", "period", "financial_year"]].to_string(index=False))
-    else:
-        upsert(payload)
-        print(f"Upserted {len(payload)} rows into {TABLE}")
+    def flush(batch):
+        nonlocal written
+        payload = to_payload(batch)
+        if args.dry_run:
+            print(f"  [dry run] would upsert {len(payload)} rows")
+        else:
+            upsert(payload)
+            written += len(payload)
+            print(f"  -> upserted {len(payload)} ({written} so far)")
+
+    print(f"\nPhase 2 — extracting with {args.workers} worker(s):")
+    extract_many(chosen, rates, client, args.workers, flush)
+    print(f"\n{'Would have written' if args.dry_run else 'Wrote'} {written} rows to {TABLE}")
 
     print(f"Done in {(time.monotonic() - started) / 60:.1f} min")
     return 0
