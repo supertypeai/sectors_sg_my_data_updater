@@ -13,6 +13,7 @@ Usage:
 
 import os
 import sys
+import time
 import logging
 import argparse
 import numpy as np
@@ -43,6 +44,7 @@ logger = logging.getLogger(__name__)
 METRICS_TABLE = "sgx_metrics_daily"
 DAILY_TABLE   = "sgx_daily_data"
 BATCH_SIZE    = 500
+EMPTY_RETRIES = 1
 SGX_HEADERS   = {"User-Agent": "Mozilla/5.0"}
 
 # ==========================================
@@ -102,6 +104,10 @@ RATIOS_FIELD_MAP = {
     "revenueShare5YearGrowth": "five_year_sales_growth",
     "assetTurnover":           "asset_turnover",
 }
+
+# Columns sgx_metrics_daily accepts. Anything else in the payload fails the
+# upsert with PGRST204, so the frame is narrowed to these before writing.
+METRICS_COLUMNS = ["symbol"]
 
 NUMERIC_METRICS = [
     "revenue_ttm", "one_year_sales_growth",
@@ -196,6 +202,9 @@ def build_metrics_df(base_df: pd.DataFrame) -> pd.DataFrame:
     # Normalize to the stored (suffixed) form before write — bare source can never write bare.
     df["symbol"] = df["symbol"].map(with_suffix)
 
+    keep = METRICS_COLUMNS + NUMERIC_METRICS + ["_failed"]
+    df = df[[c for c in keep if c in df.columns]]
+
     logger.info(f"Metrics dataset: {len(df)} records, {len(df.columns)} columns.")
     return df
 
@@ -251,18 +260,25 @@ def _historic_kinds(is_reit: bool) -> list[str]:
 def _fetch_historic_single(symbol: str, period: str, is_reit: bool = False) -> pd.DataFrame:
     try:
         records = []
-        for kind in _historic_kinds(is_reit):
-            try:
-                resp = requests.get(
-                    HISTORIC_URL.format(kind=kind, symbol=symbol, period=period),
-                    headers=SGX_HEADERS,
-                    timeout=15,
-                )
-                resp.raise_for_status()
-                records = resp.json().get("data", {}).get("historic", [])
-            except Exception as e:
-                logger.warning(f"[{symbol}] {kind} fetch failed: {e}")
-                continue
+        # An empty response is also how this API reports transient trouble, so
+        # a symbol is only given up on after a second pass over every type.
+        for attempt in range(EMPTY_RETRIES + 1):
+            if attempt:
+                time.sleep(2 * attempt)
+            for kind in _historic_kinds(is_reit):
+                try:
+                    resp = requests.get(
+                        HISTORIC_URL.format(kind=kind, symbol=symbol, period=period),
+                        headers=SGX_HEADERS,
+                        timeout=15,
+                    )
+                    resp.raise_for_status()
+                    records = resp.json().get("data", {}).get("historic", [])
+                except Exception as e:
+                    logger.warning(f"[{symbol}] {kind} fetch failed: {e}")
+                    continue
+                if records:
+                    break
             if records:
                 break
         if not records:
@@ -381,6 +397,9 @@ def upsert_daily(price_df: pd.DataFrame, latest_df: pd.DataFrame, client: Client
         client.table(DAILY_TABLE).upsert(batch).execute()
         logger.info(f"  Daily upserted: {min(i + BATCH_SIZE, total)}/{total}")
 
+    # Rows without a market cap carry nothing the price batch above hasn't
+    # written, and upserting them NULLs the stored market_cap.
+    latest_df = latest_df[latest_df["market_cap"].notna()]
     latest_records = latest_df.where(pd.notna(latest_df), None).to_dict(orient="records")
     client.table(DAILY_TABLE).upsert(latest_records).execute()
     logger.info(f"Daily done. {total} records + market cap → '{DAILY_TABLE}'.")
