@@ -50,12 +50,11 @@ SGX_HEADERS   = {"User-Agent": "Mozilla/5.0"}
 # compact_rates.json lives at the repo root, one level above sgx_scrape/.
 RATES_FILE    = os.path.join(os.path.dirname(os.path.dirname(__file__)), "compact_rates.json")
 
-# A market cap is trusted over SGX's only when it disagrees with
-# units_in_issue x close by more than these factors (a per-leg double count);
-# smaller drift is logged and left alone.
-MARKET_CAP_FACTOR_HIGH = 1.5
-MARKET_CAP_FACTOR_LOW  = 0.67
-MARKET_CAP_DRIFT       = 0.15
+# Counters whose SGX market cap is known to not equal units_in_issue x close
+# (stapled/dual-leg trusts report ~2x; the EUR leg of a trust can sit below the
+# basis). Verified against live market data on 2026-10-08. Every other symbol
+# keeps SGX's reported value untouched.
+MARKET_CAP_OVERRIDE_SYMBOLS = {"SEB.SI", "SET.SI", "8U7U.SI"}
 
 
 def _load_rates() -> dict:
@@ -413,10 +412,10 @@ def _reit_units_by_symbol() -> dict:
 
 
 def _apply_market_cap_guard(latest_df: pd.DataFrame, base_df: pd.DataFrame) -> pd.DataFrame:
-    """SGX's market cap can be a multiple of units_in_issue x close — a per-leg
-    double count for stapled/dual-leg trusts (SERT is ~2x) or a stale value. When
-    it disagrees by a factor, trust the definitional units x close. Units are
-    annual, so only factor-level drift is overridden; smaller drift is logged."""
+    """Only the whitelisted counters (MARKET_CAP_OVERRIDE_SYMBOLS) get their SGX
+    market cap replaced with units_in_issue x close - a per-leg double count for
+    stapled/dual-leg trusts (SERT is ~2x), or a stale EUR-leg value. Every other
+    symbol keeps SGX's reported value unchanged."""
     if latest_df.empty or "market_cap" not in latest_df.columns:
         return latest_df
     try:
@@ -436,20 +435,18 @@ def _apply_market_cap_guard(latest_df: pd.DataFrame, base_df: pd.DataFrame) -> p
 
     corrected = 0
     for i, row in latest_df.iterrows():
-        close, mcap = row.get("close"), row.get("market_cap")
-        if pd.isna(close) or pd.isna(mcap) or close <= 0:
+        if row["symbol"] not in MARKET_CAP_OVERRIDE_SYMBOLS:
+            continue
+        close = row.get("close")
+        if pd.isna(close) or close <= 0:
             continue
         units = units_by_symbol.get(row["symbol"]) or units_by_name.get(name_by_symbol.get(row["symbol"]))
         if not units:
             continue
-        basis = units * close
-        ratio = mcap / basis
-        if ratio > MARKET_CAP_FACTOR_HIGH or ratio < MARKET_CAP_FACTOR_LOW:
-            latest_df.at[i, "market_cap"] = int(round(basis))
-            corrected += 1
-            logger.warning(f"[{row['symbol']}] market cap overridden: SGX {mcap:,.0f} -> units basis {basis:,.0f} (x{ratio:.2f})")
-        elif abs(ratio - 1) > MARKET_CAP_DRIFT:
-            logger.warning(f"[{row['symbol']}] market cap {mcap:,.0f} off units basis by x{ratio:.2f} (kept)")
+        basis = int(round(units * close))
+        latest_df.at[i, "market_cap"] = basis
+        corrected += 1
+        logger.warning(f"[{row['symbol']}] market cap overridden: SGX {row.get('market_cap'):,.0f} -> units basis {basis:,.0f}")
     if corrected:
         logger.info(f"Market cap guard corrected {corrected} symbol(s).")
     return latest_df

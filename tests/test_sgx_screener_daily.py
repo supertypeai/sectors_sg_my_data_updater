@@ -209,32 +209,37 @@ def test_historic_ohlc_is_scaled_to_sgd(monkeypatch):
     assert df["low"].tolist() == [3.0]
 
 
-def test_market_cap_guard_overrides_a_leg_double_count(monkeypatch):
-    monkeypatch.setattr(scraper, "_reit_units_by_symbol", lambda: {"SET.SI": 556_884_000})
+def test_market_cap_guard_overrides_whitelisted_counters(monkeypatch):
+    monkeypatch.setattr(scraper, "_reit_units_by_symbol",
+                        lambda: {"SET.SI": 556_884_000, "X.SI": 100})
     base = pd.DataFrame([
         {"symbol": "SEB.SI", "name": "Stoneweg Europe Stapled Trust"},
         {"symbol": "SET.SI", "name": "Stoneweg Europe Stapled Trust"},
+        {"symbol": "X.SI", "name": "Some REIT"},
         {"symbol": "D05.SI", "name": "DBS Group Holdings"},
     ])
     latest = pd.DataFrame([
         {"symbol": "SEB.SI", "close": 2.13, "market_cap": 2_386_034_577.0},
         {"symbol": "SET.SI", "close": 1.49, "market_cap": 829_757_160.0},
+        {"symbol": "X.SI", "close": 1.0, "market_cap": 250.0},
         {"symbol": "D05.SI", "close": 40.0, "market_cap": 100_000_000.0},
     ])
 
     out = scraper._apply_market_cap_guard(latest, base).set_index("symbol")
 
     # SEB has no units row of its own; it borrows SET's by company name.
-    assert out.loc["SEB.SI", "market_cap"] == 1_186_162_920
-    assert out.loc["SET.SI", "market_cap"] == 829_757_160.0
+    assert out.loc["SEB.SI", "market_cap"] == 1_186_162_920   # 556_884_000 * 2.13
+    assert out.loc["SET.SI", "market_cap"] == 829_757_160     # 556_884_000 * 1.49
+    # Not whitelisted: kept exactly as SGX reported, even with a basis available.
+    assert out.loc["X.SI", "market_cap"] == 250.0
     assert out.loc["D05.SI", "market_cap"] == 100_000_000.0
 
 
-def test_market_cap_guard_keeps_small_drift(monkeypatch):
+def test_market_cap_guard_leaves_non_whitelisted_symbols_alone(monkeypatch):
     monkeypatch.setattr(scraper, "_reit_units_by_symbol", lambda: {"X.SI": 100})
     base = pd.DataFrame([{"symbol": "X.SI", "name": "X"}])
-    latest = pd.DataFrame([{"symbol": "X.SI", "close": 1.0, "market_cap": 108.0}])
-    assert scraper._apply_market_cap_guard(latest, base).loc[0, "market_cap"] == 108.0
+    latest = pd.DataFrame([{"symbol": "X.SI", "close": 1.0, "market_cap": 2_000_000.0}])
+    assert scraper._apply_market_cap_guard(latest, base).loc[0, "market_cap"] == 2_000_000.0
 
 
 def test_market_cap_guard_skips_when_units_unavailable(monkeypatch):
@@ -242,9 +247,9 @@ def test_market_cap_guard_skips_when_units_unavailable(monkeypatch):
         raise RuntimeError("db down")
 
     monkeypatch.setattr(scraper, "_reit_units_by_symbol", boom)
-    base = pd.DataFrame([{"symbol": "X.SI", "name": "X"}])
-    latest = pd.DataFrame([{"symbol": "X.SI", "close": 1.0, "market_cap": 2_000_000.0}])
-    assert scraper._apply_market_cap_guard(latest, base).loc[0, "market_cap"] == 2_000_000.0
+    base = pd.DataFrame([{"symbol": "SEB.SI", "name": "Stoneweg Europe Stapled Trust"}])
+    latest = pd.DataFrame([{"symbol": "SEB.SI", "close": 2.14, "market_cap": 2_395_374_813.0}])
+    assert scraper._apply_market_cap_guard(latest, base).loc[0, "market_cap"] == 2_395_374_813.0
 
 
 def test_market_cap_guard_noop_without_market_cap_column():
