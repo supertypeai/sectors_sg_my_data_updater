@@ -67,11 +67,47 @@ def test_metrics_payload_only_has_columns_the_table_accepts(monkeypatch):
         lambda symbol: {"symbol": symbol, "beta": 0.9},
     )
 
-    df = scraper.build_metrics_df(base_df)
+    df = scraper.build_metrics_df(base_df, {})
 
     allowed = set(scraper.METRICS_COLUMNS) | set(scraper.NUMERIC_METRICS) | {"_failed"}
     assert set(df.columns) <= allowed
     assert df["symbol"].tolist() == ["D05.SI"]
+
+
+def test_currency_metrics_use_snapshot_reporting_currency(monkeypatch):
+    """revenue_ttm/eps arrive in the reporting currency; the snapshot
+    tradedCurrency must win over the DB trading currency (both NIO and D05 are
+    SGD-traded). Ratios are currency-independent and stay untouched."""
+    monkeypatch.setattr(scraper, "_load_rates", lambda: {"USD": {"SGD": 1.25}})
+    base_df = pd.DataFrame([
+        {"symbol": "NIO.SI", "api_symbol": "NIO", "sector": "Consumer Cyclicals",
+         "is_reit": False, "currency": "SGD"},
+        {"symbol": "D05.SI", "api_symbol": "D05", "sector": "Financial Services",
+         "is_reit": False, "currency": "SGD"},
+    ])
+    # NIO reports in USD (snapshot) even though it trades in SGD (DB).
+    currency_maps = {"NIO": ("USD", "USD"), "D05": ("SGD", "SGD")}
+    monkeypatch.setattr(
+        scraper, "_fetch_screener",
+        lambda: pd.DataFrame([
+            {"symbol": "NIO", "revenue_ttm": 1000.0, "pe": 12.0},
+            {"symbol": "D05", "revenue_ttm": 2000.0, "pe": 10.0},
+        ]),
+    )
+    monkeypatch.setattr(
+        scraper, "_fetch_ratios_single",
+        lambda symbol: {"symbol": symbol, "eps": 4.0, "beta": 1.0},
+    )
+
+    out = scraper.build_metrics_df(base_df, currency_maps).set_index("symbol")
+
+    assert out.loc["NIO.SI", "revenue_ttm"] == 1250.0
+    assert out.loc["NIO.SI", "eps"] == 5.0
+    assert out.loc["D05.SI", "revenue_ttm"] == 2000.0
+    assert out.loc["D05.SI", "eps"] == 4.0
+    # ratios are currency-independent and must be untouched
+    assert out.loc["NIO.SI", "pe"] == 12.0
+    assert out.loc["NIO.SI", "beta"] == 1.0
 
 
 def test_clean_empties_are_not_retried(monkeypatch):
@@ -151,3 +187,68 @@ class _Response:
 
     def json(self):
         return {"data": {"historic": self._historic}}
+
+
+def test_rate_is_one_for_sgd_and_scales_the_rest():
+    assert scraper._rate({"EUR": {"SGD": 1.5}}, "SGD") == 1.0
+    assert scraper._rate({"EUR": {"SGD": 1.5}}, "EUR") == 1.5
+    assert scraper._rate({}, "EUR") == 1.0
+    assert scraper._rate({"EUR": {"SGD": 1.5}}, None) == 1.0
+
+
+def test_historic_ohlc_is_scaled_to_sgd(monkeypatch):
+    """A EUR counter (fx != 1) must be stored in SGD like market_cap."""
+    monkeypatch.setattr(
+        scraper.requests, "get",
+        lambda url, headers=None, timeout=None: _Response([_bar(close="1.5")]),
+    )
+    df = scraper._fetch_historic_single("SET", "1m", False, 2.0)
+    assert df["close"].tolist() == [3.0]
+    assert df["open"].tolist() == [3.0]
+    assert df["high"].tolist() == [3.0]
+    assert df["low"].tolist() == [3.0]
+
+
+def test_market_cap_guard_overrides_a_leg_double_count(monkeypatch):
+    monkeypatch.setattr(scraper, "_reit_units_by_symbol", lambda: {"SET.SI": 556_884_000})
+    base = pd.DataFrame([
+        {"symbol": "SEB.SI", "name": "Stoneweg Europe Stapled Trust"},
+        {"symbol": "SET.SI", "name": "Stoneweg Europe Stapled Trust"},
+        {"symbol": "D05.SI", "name": "DBS Group Holdings"},
+    ])
+    latest = pd.DataFrame([
+        {"symbol": "SEB.SI", "close": 2.13, "market_cap": 2_386_034_577.0},
+        {"symbol": "SET.SI", "close": 1.49, "market_cap": 829_757_160.0},
+        {"symbol": "D05.SI", "close": 40.0, "market_cap": 100_000_000.0},
+    ])
+
+    out = scraper._apply_market_cap_guard(latest, base).set_index("symbol")
+
+    # SEB has no units row of its own; it borrows SET's by company name.
+    assert out.loc["SEB.SI", "market_cap"] == 1_186_162_920
+    assert out.loc["SET.SI", "market_cap"] == 829_757_160.0
+    assert out.loc["D05.SI", "market_cap"] == 100_000_000.0
+
+
+def test_market_cap_guard_keeps_small_drift(monkeypatch):
+    monkeypatch.setattr(scraper, "_reit_units_by_symbol", lambda: {"X.SI": 100})
+    base = pd.DataFrame([{"symbol": "X.SI", "name": "X"}])
+    latest = pd.DataFrame([{"symbol": "X.SI", "close": 1.0, "market_cap": 108.0}])
+    assert scraper._apply_market_cap_guard(latest, base).loc[0, "market_cap"] == 108.0
+
+
+def test_market_cap_guard_skips_when_units_unavailable(monkeypatch):
+    def boom():
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(scraper, "_reit_units_by_symbol", boom)
+    base = pd.DataFrame([{"symbol": "X.SI", "name": "X"}])
+    latest = pd.DataFrame([{"symbol": "X.SI", "close": 1.0, "market_cap": 2_000_000.0}])
+    assert scraper._apply_market_cap_guard(latest, base).loc[0, "market_cap"] == 2_000_000.0
+
+
+def test_market_cap_guard_noop_without_market_cap_column():
+    base = pd.DataFrame([{"symbol": "X.SI", "name": "X"}])
+    latest = pd.DataFrame([{"symbol": "X.SI", "close": 1.0}])
+    out = scraper._apply_market_cap_guard(latest, base)
+    assert "market_cap" not in out.columns
