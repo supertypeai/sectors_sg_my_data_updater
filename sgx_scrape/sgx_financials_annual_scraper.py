@@ -180,6 +180,24 @@ def transform_metrics(raw_data: dict, report_type: str, currency_id: str = None,
 
     return cleaned if cleaned else None
 
+def financial_year(date: str) -> int | None:
+    """FY label for a period end date, keyed off the book close.
+
+    A year ending in the first half of a calendar year is mostly made up of the
+    previous calendar year, so it is labelled year-1; one ending in the second
+    half keeps its own year. 31 Mar 2025 -> FY2024, 31 Dec 2025 -> FY2025.
+
+    Same rule as sgx_periodic_financial/sgx_financials_table.py:financial_year.
+    """
+    parts = date.split('-')
+    if len(parts) < 2:
+        return None
+    try:
+        year, month = int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+    return year - 1 if month <= 6 else year
+
 def fetch_symbols(limit: int = 750, specific_symbols: list = None) -> list:
     """Fetch symbols from database."""
     try:
@@ -229,7 +247,7 @@ def fetch_with_retry(session: requests.Session, report_type: str, stock_code: st
             logger.warning(f"[API RETRY] {stock_code} ({report_type}) - Attempt {attempt + 1} failed. Retrying in {delay:.2f}s... Reason: {e}")
             time.sleep(delay)
 
-def process_symbol(symbol: str, is_incremental: bool, updated_on: str):
+def process_symbol(symbol: str, is_incremental: bool, updated_on: str, dry_run: bool = False, stored_metrics: dict = None):
     """ Thread worker function to process a single company """
     stock_code = symbol.split('.')[0]
     
@@ -264,9 +282,8 @@ def process_symbol(symbol: str, is_incremental: bool, updated_on: str):
     # Construct payload for upsert
     upsert_payloads = []
     for date, metrics in combined_financials.items():
-        try:
-            financial_year = int(date.split('-')[0])
-        except (IndexError, ValueError):
+        fy = financial_year(date)
+        if fy is None:
             continue
 
         currency_id = (
@@ -277,7 +294,7 @@ def process_symbol(symbol: str, is_incremental: bool, updated_on: str):
 
         upsert_payloads.append({
             "symbol": symbol,
-            "financial_year": financial_year,
+            "financial_year": fy,
             "income_stmt_metrics": transform_metrics(metrics.get('income', {}), 'income', currency_id, date),
             "balance_sheet_metrics": transform_metrics(metrics.get('bs', {}), 'bs', currency_id, date),
             "cash_flow_metrics": transform_metrics(metrics.get('cf', {}), 'cf', currency_id, date),
@@ -285,8 +302,45 @@ def process_symbol(symbol: str, is_incremental: bool, updated_on: str):
             "date": date
         })
 
+    # The upsert key is (symbol, financial_year): a year-end change can put two period
+    # ends under one FY, so keep only the latest date per FY to avoid a duplicate key.
+    by_year = {}
+    for p in upsert_payloads:
+        prev = by_year.get(p["financial_year"])
+        if prev is None or p["date"] > prev["date"]:
+            by_year[p["financial_year"]] = p
+    upsert_payloads = sorted(by_year.values(), key=lambda p: p["date"])
+
     if not upsert_payloads:
         logger.info(f"[SKIP] No valid financial data found for {symbol}.")
+        return
+
+    # Never lose stored metrics: a missing blob (transient empty API response) keeps
+    # the stored value whole, and a partial blob is merged so keys the upstream parser
+    # dropped this run (e.g. capex/fcf when the API omits a field) are not wiped - a
+    # Supabase upsert replaces the whole JSONB column, it does not merge for us.
+    stored_metrics = stored_metrics or {}
+    for p in upsert_payloads:
+        prev = stored_metrics.get((symbol, p['financial_year']))
+        if not prev:
+            continue
+        for field in ('income_stmt_metrics', 'balance_sheet_metrics', 'cash_flow_metrics'):
+            stored_blob = prev.get(field)
+            if not stored_blob:
+                continue
+            if not p[field]:
+                p[field] = stored_blob
+            else:
+                merged = dict(stored_blob)
+                merged.update(p[field])
+                p[field] = merged
+
+    if dry_run:
+        for p in upsert_payloads:
+            logger.info(
+                f"[DRY RUN] {p['symbol']} date={p['date']} -> financial_year={p['financial_year']} "
+                f"(income={bool(p['income_stmt_metrics'])}, bs={bool(p['balance_sheet_metrics'])}, cf={bool(p['cash_flow_metrics'])})"
+            )
         return
 
     # Upsert with Retry Mechanism
@@ -310,6 +364,7 @@ def main():
     group.add_argument('--fullUpdate', action='store_true', help='Update all symbols for ALL years.')
     group.add_argument('--incremental', action='store_true', help='Update all symbols for LATEST year only.')
     group.add_argument('--specific', nargs='+', help='Update specific symbols (e.g., D05 U11).')
+    parser.add_argument('--dryRun', action='store_true', help='Compute payloads and log them without writing to Supabase.')
     args = parser.parse_args()
 
     logger.info("Initializing SGX Scraper...")
@@ -320,14 +375,28 @@ def main():
 
     total_symbols = len(symbols)
     mode = "Incremental Update (1 record/latest year per company)" if args.incremental else "Full Update (All historical years)"
-    logger.info(f"Starting execution for {total_symbols} symbols. MODE: {mode}")
+    logger.info(f"Starting execution for {total_symbols} symbols. MODE: {mode}{' [DRY RUN - no upsert]' if args.dryRun else ''}")
         
+    logger.info("Loading stored metrics for the merge guard...")
+    stored_metrics = {}
+    page_size, offset = 1000, 0
+    while True:
+        batch = supabase.table('sgx_financials_annual').select(
+            'symbol,financial_year,income_stmt_metrics,balance_sheet_metrics,cash_flow_metrics'
+        ).range(offset, offset + page_size - 1).execute().data or []
+        for r in batch:
+            stored_metrics[(r['symbol'], r['financial_year'])] = r
+        if not batch:
+            break
+        offset += len(batch)
+    logger.info(f"Loaded {len(stored_metrics)} stored rows.")
+
     updated_on = datetime.now(timezone.utc).isoformat()
     
     # Using ThreadPoolExecutor for concurrency (5 threads max)
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {
-            executor.submit(process_symbol, sym, args.incremental, updated_on): sym 
+            executor.submit(process_symbol, sym, args.incremental, updated_on, args.dryRun, stored_metrics): sym 
             for sym in symbols
         }
         
