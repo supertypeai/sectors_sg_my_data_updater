@@ -277,47 +277,6 @@ def candidates(df: pd.DataFrame, symbols: set[str]) -> pd.DataFrame:
     return work.reset_index(drop=True)
 
 
-def process(row: pd.Series, rates: dict, client, seen_urls: set) -> dict | None:
-    """Choose the statements PDF, extract it, convert to SGD."""
-    pdf_path, ranking = choose_pdf(attachments_of(row))
-    if pdf_path is None:
-        print(f"  {row['stock_code']}: no statements PDF, skipping", file=sys.stderr)
-        return None
-
-    source_url = next(
-        (a["url"] for a in attachments_of(row) if safe_name(a["name"]) == pdf_path.name),
-        None,
-    )
-    if source_url in seen_urls:
-        print(f"  {row['stock_code']}: already processed ({pdf_path.name}), skipping")
-        return None
-
-    result = extract_financials(pdf_path, client=client)
-    period = result["period"]
-    rate, quarter = sgd_rate(rates, period.get("currency"), period.get("period_end"))
-    metrics = to_sgd(result["metrics"], rate) if rate else result["metrics"]
-    if rate is None:
-        print(f"  ! {row['stock_code']}: no SGD rate for {period.get('currency')}",
-              file=sys.stderr)
-
-    return {
-        "ann_ref_id": row["ann_ref_id"],
-        "stock_code": row["stock_code"],
-        "symbol": row["stock_code"],
-        "date": period.get("period_end"),
-        "period": row["period"],
-        "source_currency": period.get("currency"),
-        "fx_rate_to_sgd": rate,
-        "fx_quarter": quarter,
-        "converted": rate is not None,
-        "pdf": pdf_path.name,
-        "source_url": source_url,
-        "period_basis": period.get("period_basis", "as_reported"),
-        "guard_issues": issues,
-        "metrics": metrics,
-    }
-
-
 def to_payload(records: list[dict]) -> list[dict]:
     """Table rows ready for PostgREST (statement columns as jsonb, not strings).
 
@@ -409,7 +368,7 @@ def extract_many(chosen: list, rates: dict, client, workers: int, flush) -> int:
 
 
 def extract_one_row(row, pdf_path, source_url, rates: dict, client) -> dict:
-    """Extraction half of `process`, for an already-chosen PDF."""
+    """Extract, convert to SGD and run the accounting guards for an already-chosen PDF."""
     result = extract_financials(pdf_path, client=client)
     period = result["period"]
     currency = period.get("currency")
