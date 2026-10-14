@@ -33,8 +33,11 @@ from pathlib import Path
 
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 import sgx_scraper
+import financial_guards
 from financial_statement_rag import build_client, extract_financials, parse_date
 from sgx_financials_table import (
     HALF_BY_SUB_TITLE,
@@ -62,6 +65,38 @@ DAY_START = "160000"
 DAY_END = "155959"
 
 
+# (connect, read) rather than a single number: a bare timeout only limits the
+# gap between packets, so a silently stalled connection hangs forever. A frozen
+# write blocks the whole extraction loop, which is exactly what happened on the
+# first backfill attempt.
+SUPABASE_TIMEOUT = (10, 90)
+SUPABASE_RETRIES = 4
+
+
+def supabase_session() -> requests.Session:
+    """Pooled session that retries transient failures instead of hanging."""
+    session = requests.Session()
+    retry = Retry(
+        total=SUPABASE_RETRIES,
+        backoff_factor=1.5,
+        status_forcelist=(500, 502, 503, 504, 520, 522, 524),
+        allowed_methods=frozenset({"GET", "POST"}),
+        raise_on_status=False,
+    )
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    return session
+
+
+_supabase = None
+
+
+def shared_session() -> requests.Session:
+    global _supabase
+    if _supabase is None:
+        _supabase = supabase_session()
+    return _supabase
+
+
 def supabase_headers() -> dict:
     url, key = os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY")
     if not url or not key:
@@ -82,11 +117,11 @@ def existing_rows() -> tuple[set, set]:
     keys, urls = set(), set()
     step, offset = 1000, 0
     while True:
-        resp = requests.get(
+        resp = shared_session().get(
             f"{conn['url']}/rest/v1/{TABLE}",
             headers={**conn["headers"], "Range": f"{offset}-{offset + step - 1}"},
             params={"select": "symbol,date,source_url"},
-            timeout=60,
+            timeout=SUPABASE_TIMEOUT,
         )
         resp.raise_for_status()
         batch = resp.json()
@@ -105,15 +140,31 @@ def upsert(rows: list[dict]) -> None:
     if not rows:
         return
     conn = supabase_headers()
-    resp = requests.post(
-        f"{conn['url']}/rest/v1/{TABLE}",
-        headers={**conn["headers"], "Prefer": "resolution=merge-duplicates"},
-        params={"on_conflict": CONFLICT_KEY},
-        data=json.dumps(rows),
-        timeout=120,
-    )
-    if resp.status_code >= 300:
-        raise RuntimeError(f"Upsert failed [{resp.status_code}]: {resp.text[:500]}")
+    try:
+        resp = shared_session().post(
+            f"{conn['url']}/rest/v1/{TABLE}",
+            headers={**conn["headers"], "Prefer": "resolution=merge-duplicates"},
+            params={"on_conflict": CONFLICT_KEY},
+            data=json.dumps(rows),
+            timeout=SUPABASE_TIMEOUT,
+        )
+    except requests.exceptions.RequestException as e:
+        # Never let a write failure stop extraction: the rows stay un-stored and
+        # the next run re-does just those filings.
+        print(f"  ! upsert failed after retries, skipping batch: {e}", file=sys.stderr)
+        return
+    if resp.status_code < 300:
+        return
+    if len(rows) == 1:
+        print(f"  ! upsert rejected {rows[0].get('symbol')} {rows[0].get('date')}: "
+              f"[{resp.status_code}] {resp.text[:200]}", file=sys.stderr)
+        return
+    # One bad row fails the whole batch in PostgREST. Write the rest one by one
+    # so a single malformed record costs one row, not twenty — or the run.
+    print(f"  ! batch rejected [{resp.status_code}], retrying {len(rows)} rows "
+          f"individually: {resp.text[:160]}", file=sys.stderr)
+    for row in rows:
+        upsert([row])
 
 
 def window(days: int) -> tuple[str, str]:
@@ -262,17 +313,37 @@ def process(row: pd.Series, rates: dict, client, seen_urls: set) -> dict | None:
         "pdf": pdf_path.name,
         "source_url": source_url,
         "period_basis": period.get("period_basis", "as_reported"),
+        "guard_issues": issues,
         "metrics": metrics,
     }
 
 
 def to_payload(records: list[dict]) -> list[dict]:
-    """Table rows ready for PostgREST (statement columns as jsonb, not strings)."""
-    table = build_table(records)
+    """Table rows ready for PostgREST (statement columns as jsonb, not strings).
+
+    `date` is half of the primary key, so a record whose period end could not
+    be read cannot be stored at all — it is dropped here with a warning. That
+    also matters for typing: a single missing date makes pandas widen the whole
+    `financial_year` column to float, and Postgres then rejects "2024.0" for a
+    bigint column, failing the entire batch.
+    """
+    keyed = []
+    for record in records:
+        if record.get("date") and financial_year(record["date"], record["period"]):
+            keyed.append(record)
+        else:
+            print(f"  ! {record.get('symbol')}: no readable period end "
+                  f"({record.get('date')!r}), not stored", file=sys.stderr)
+    if not keyed:
+        return []
+
+    table = build_table(keyed)
     payload = json.loads(table.to_json(orient="records"))
     for row in payload:
         for column in ("income_statement", "balance_sheet", "cash_flow"):
             row[column] = json.loads(row[column])
+        if row.get("financial_year") is not None:
+            row["financial_year"] = int(row["financial_year"])
     return payload
 
 
@@ -341,21 +412,42 @@ def extract_one_row(row, pdf_path, source_url, rates: dict, client) -> dict:
     """Extraction half of `process`, for an already-chosen PDF."""
     result = extract_financials(pdf_path, client=client)
     period = result["period"]
-    rate, quarter = sgd_rate(rates, period.get("currency"), period.get("period_end"))
-    metrics = to_sgd(result["metrics"], rate) if rate else result["metrics"]
+    currency = period.get("currency")
+    rate, quarter = sgd_rate(rates, currency, period.get("period_end"))
+    if rate is None:
+        # The table has no currency column -- every stored figure is
+        # implicitly SGD. Writing raw, unconverted figures would silently
+        # plant e.g. USD amounts looking exactly like genuine SGD ones, with
+        # nothing in the data itself to tell them apart. Treated as a failed
+        # extraction (skipped, not written), same as a missing core field.
+        raise RuntimeError(
+            f"no SGD rate for {currency!r} at {period.get('period_end')} -- "
+            "refusing to store unconverted figures as if they were SGD"
+        )
+    metrics = to_sgd(result["metrics"], rate)
+
+    # Accounting guards run after conversion, so the figures checked are the
+    # ones actually stored. Values a rule proves wrong are nulled; identity
+    # breaks are recorded for review without touching the numbers.
+    metrics, issues = financial_guards.apply(metrics, result.get("provenance"))
+    if issues:
+        print(f"  ~ {row['stock_code']} guards: {financial_guards.summarise(issues)}",
+              file=sys.stderr)
+
     return {
         "ann_ref_id": row["ann_ref_id"],
         "stock_code": row["stock_code"],
         "symbol": row["stock_code"],
         "date": period.get("period_end"),
         "period": row["period"],
-        "source_currency": period.get("currency"),
+        "source_currency": currency,
         "fx_rate_to_sgd": rate,
         "fx_quarter": quarter,
-        "converted": rate is not None,
+        "converted": True,
         "pdf": pdf_path.name,
         "source_url": source_url,
         "period_basis": period.get("period_basis", "as_reported"),
+        "guard_issues": issues,
         "metrics": metrics,
     }
 

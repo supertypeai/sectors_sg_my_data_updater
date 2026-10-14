@@ -144,7 +144,40 @@ def download(attachment: dict, directory: Path = PDF_DIR) -> Path | None:
     return path
 
 
+SCORE_CACHE = Path(__file__).parent / "pdf_scores.json"
+_score_cache: dict | None = None
+
+
+def _load_score_cache() -> dict:
+    global _score_cache
+    if _score_cache is None:
+        try:
+            _score_cache = json.loads(SCORE_CACHE.read_text())
+        except (OSError, ValueError):
+            _score_cache = {}
+    return _score_cache
+
+
 def score_pdf(path: Path) -> dict:
+    """Cached wrapper: scoring opens every page, which dominated restart time.
+
+    Keyed on path + size + mtime, so a re-downloaded or changed file is rescored.
+    """
+    cache = _load_score_cache()
+    stat = path.stat()
+    key = f"{path}|{stat.st_size}|{int(stat.st_mtime)}"
+    if key in cache:
+        return dict(cache[key])
+    result = _score_pdf_uncached(path)
+    cache[key] = result
+    try:
+        SCORE_CACHE.write_text(json.dumps(cache))
+    except OSError:
+        pass
+    return dict(result)
+
+
+def _score_pdf_uncached(path: Path) -> dict:
     """
     Scores how much a PDF looks like the financial statements themselves.
 

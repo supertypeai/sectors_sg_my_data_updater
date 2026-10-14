@@ -100,8 +100,12 @@ MAX_TABLE_CHARS = 4_000
 # 90 was too tight: each field returns value + unit + page + a source_label that
 # can be a long printed line item, and replies were being cut off mid-JSON on the
 # 33-field schema (~10% of a 281-report batch failed to parse).
-TOKENS_PER_FIELD = 150
-OUTPUT_TOKEN_OVERHEAD = 600
+# 150 still truncated: on a 2023-25 backfill 53% of replies hit the cap, failed
+# to parse, and burned all three fallback attempts -- 3.3 model calls per report
+# instead of ~1. The reply carries a printed `source_label` per field, and those
+# line-item labels run long on older filings.
+TOKENS_PER_FIELD = 280
+OUTPUT_TOKEN_OVERHEAD = 900
 # Under this there isn't room for a usable answer, so fail loudly instead of
 # returning a truncated one.
 MIN_USEFUL_OUTPUT_TOKENS = 600
@@ -619,13 +623,21 @@ def sniff_currency(doc: Document) -> str | None:
         hits = len(re.findall(f"(?:{pattern}){UNIT_TAIL}", text, re.I))
         if hits:
             counts[code] = counts.get(code, 0) + hits
+
+    # A bare "$'000" / "$'M" header is an SGX-listed issuer's own reporting
+    # currency (SGD) by default, and has to compete on equal footing with the
+    # prefixed currencies above, not be skipped whenever any of them scored
+    # even once. A handful of MD&A mentions of a foreign currency next to a
+    # scale word ("RMB975.0 million", discussing a PRC subsidiary's local
+    # market) must not out-vote a reporting currency that is printed as the
+    # unit header on every single statement page -- that was silently
+    # mis-tagging REITs/trusts with foreign property exposure (Sasseur REIT
+    # and others) as CNY/HKD purely from narrative prose.
+    bare_dollar_hits = len(re.findall(r"(?<![A-Za-z])\$" + UNIT_TAIL, text))
+    if bare_dollar_hits:
+        counts["SGD"] = counts.get("SGD", 0) + bare_dollar_hits
     if counts:
         return max(counts, key=counts.get)
-
-    # No prefixed currency in a unit row — fall back to a bare "$'000" / "$'M"
-    # header, which for an SGX-listed issuer means Singapore dollars.
-    if re.search(r"(?<![A-Za-z])\$" + UNIT_TAIL, text):
-        return "SGD"
 
     # Some issuers print no unit row at all and prefix every figure instead
     # ("S$1,234"). Fall back to the dominant symbol, but only when it appears
@@ -1147,6 +1159,27 @@ def apply_confidence_gate(raw: dict, min_confidence: float) -> tuple[dict, dict]
     return values, details
 
 
+# The regulatory minimum every SGX half/full-year filing states: a balance
+# sheet always gives total assets, total liabilities and total equity, and an
+# income statement always gives revenue and/or net income (a report can omit
+# one but not both). Used to tell "the model found nothing" apart from "this
+# document genuinely doesn't have that particular line item".
+CORE_BALANCE_SHEET_FIELDS = ("total_asset", "total_liabilities", "total_equity")
+CORE_INCOME_FIELDS = ("total_revenue", "net_income")
+
+
+def core_fields_present(values: dict) -> bool:
+    """True if at least one core balance-sheet AND one core income field survived
+    the confidence gate — the bar below which a result is a failed extraction,
+    not a real report that happens to omit everything checked here."""
+    bs = values.get("balance_sheet") or {}
+    is_ = values.get("income_statement") or {}
+    return (
+        any(bs.get(f) is not None for f in CORE_BALANCE_SHEET_FIELDS)
+        and any(is_.get(f) is not None for f in CORE_INCOME_FIELDS)
+    )
+
+
 START = time.monotonic()
 
 
@@ -1259,24 +1292,50 @@ def extract_financials(
         + (" [second-half basis]" if period.get("period_basis") else "")
     )
 
-    values, details = {}, {}
-    if per_group_calls:
-        for group, spec in metrics.items():
-            if group not in GROUP_QUERIES:
-                # An unknown group in metrics_scraped.json still gets extracted; it
-                # just falls back to the income-statement retrieval profile.
-                GROUP_QUERIES[group] = GROUP_QUERIES["income_statement"]
-            raw = extract_group(
-                client, doc, group, spec["fields"], period, model, pdf_model,
-                context_chars, usage,
+    def run_pass(use_per_group_calls: bool) -> tuple[dict, dict]:
+        values, details = {}, {}
+        if use_per_group_calls:
+            for group, spec in metrics.items():
+                if group not in GROUP_QUERIES:
+                    # An unknown group in metrics_scraped.json still gets extracted;
+                    # it just falls back to the income-statement retrieval profile.
+                    GROUP_QUERIES[group] = GROUP_QUERIES["income_statement"]
+                raw = extract_group(
+                    client, doc, group, spec["fields"], period, model, pdf_model,
+                    context_chars, usage,
+                )
+                values[group], details[group] = apply_confidence_gate(raw, min_confidence)
+        else:
+            for group, raw in extract_all_groups(
+                client, doc, metrics, period, model, pdf_model, context_chars, usage,
+                reasoning,
+            ).items():
+                values[group], details[group] = apply_confidence_gate(raw, min_confidence)
+        return values, details
+
+    values, details = run_pass(per_group_calls)
+
+    # Every SGX half/full-year filing states total assets, total liabilities
+    # and total equity on its balance sheet, and either revenue or net income
+    # (usually both) on its income statement -- that is a regulatory minimum,
+    # not something a genuine report can omit. A result missing all of these
+    # core fields is not "nothing to extract", it is a failed extraction (the
+    # model returning an all-or-mostly-null response despite a real document),
+    # so it is retried once with the opposite call strategy before being
+    # accepted -- a single giant multi-statement call and three small
+    # single-statement calls fail independently often enough that swapping
+    # strategy recovers a real result more often than repeating the same call.
+    if not core_fields_present(values):
+        log("core fields missing on first pass — retrying with "
+            f"per_group_calls={not per_group_calls}")
+        values, details = run_pass(not per_group_calls)
+        if not core_fields_present(values):
+            raise RuntimeError(
+                "extraction returned none of total_asset/total_liabilities/"
+                "total_equity and none of total_revenue/net_income after two "
+                "attempts — treating as a failed extraction rather than "
+                "writing an empty row. Re-run later or inspect the PDF by hand."
             )
-            values[group], details[group] = apply_confidence_gate(raw, min_confidence)
-    else:
-        for group, raw in extract_all_groups(
-            client, doc, metrics, period, model, pdf_model, context_chars, usage,
-            reasoning,
-        ).items():
-            values[group], details[group] = apply_confidence_gate(raw, min_confidence)
 
     mirror_ebit_and_operating_income(values, details)
 
