@@ -48,6 +48,7 @@ import pandas as pd
 import requests
 from dotenv import dotenv_values
 
+import financial_guards
 from financial_statement_rag import build_client, extract_financials, parse_date
 from sgx_pipeline import attachments_of, choose_pdf, load_announcements
 
@@ -211,10 +212,23 @@ def extract_one(row: pd.Series, pdf_path: Path, rates: dict, client) -> dict | N
     rate, quarter = sgd_rate(rates, currency, period.get("period_end"))
 
     if rate is None:
-        print(f"  ! {row['stock_code']}: no SGD rate for {currency}; storing unconverted",
-              file=sys.stderr)
+        # The table has no currency column of its own -- every stored figure
+        # is implicitly SGD. Writing the raw, unconverted figures here would
+        # silently plant e.g. USD amounts in the table looking exactly like
+        # genuine SGD ones, with nothing in the data itself to tell them
+        # apart. That's worse than not storing the row at all, so this is
+        # treated as a failed extraction (skipped, not written) rather than
+        # a degraded one -- the same handling as a missing core field.
+        raise RuntimeError(
+            f"no SGD rate for {currency!r} at {period.get('period_end')} -- "
+            "refusing to store unconverted figures as if they were SGD"
+        )
 
-    metrics = to_sgd(result["metrics"], rate) if rate else result["metrics"]
+    metrics = to_sgd(result["metrics"], rate)
+    metrics, guard_issues = financial_guards.apply(metrics, result.get("provenance"))
+    if guard_issues:
+        print(f"  ~ {row['stock_code']} guards: {financial_guards.summarise(guard_issues)}",
+              file=sys.stderr)
     return {
         "ann_ref_id": row["ann_ref_id"],
         "stock_code": row["stock_code"],
@@ -224,7 +238,7 @@ def extract_one(row: pd.Series, pdf_path: Path, rates: dict, client) -> dict | N
         "source_currency": currency,
         "fx_rate_to_sgd": rate,
         "fx_quarter": quarter,
-        "converted": rate is not None,
+        "converted": True,
         "pdf": pdf_path.name,
         "source_url": next(
             (a["url"] for a in attachments_of(row)
@@ -326,10 +340,24 @@ def deduplicate(records: list[dict]) -> list[dict]:
 
 
 def build_table(records: list[dict]) -> pd.DataFrame:
-    """The requested six-column shape, statements serialised as JSON."""
+    """The requested six-column shape, statements serialised as JSON.
+
+    `extract_financials`'s own core-fields check (financial_statement_rag.py)
+    is meant to stop an all-null row before it ever gets here, but this is a
+    second, independent gate at the write boundary itself: whatever produced
+    the record -- a guard rule that happened to null out every field, a future
+    code path that bypasses the extraction-level check -- an all-null row
+    still never reaches Supabase. Belt and suspenders on purpose: the two
+    checks fail differently, and neither should have to be the only thing
+    standing between a bad extraction and the live table.
+    """
     rows = []
     for record in deduplicate(records):
         metrics = record["metrics"]
+        if filled_metrics(record) == 0:
+            print(f"  ! {record.get('symbol')} {record.get('date')}: all metrics "
+                  f"null, not stored", file=sys.stderr)
+            continue
         rows.append(
             {
                 "symbol": with_suffix(record["symbol"]),

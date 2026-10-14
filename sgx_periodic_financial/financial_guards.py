@@ -1,0 +1,389 @@
+"""
+Accounting sanity checks for extracted SGX financials.
+
+The extractor reads figures out of a PDF with a language model, so its failures
+are not random noise: they are misread columns, a value picked from the wrong
+line, a scale misread ("S$'000" treated as units) or one field contaminated by
+another. All of those break arithmetic that real financial statements satisfy,
+which makes them cheap to catch without a second model call.
+
+Two kinds of check:
+
+  * IDENTITIES — relationships that must hold in any statement
+    (assets = liabilities + equity, pretax - tax = net income, ...). A break
+    means at least one of the components is wrong, but not which, so these are
+    reported and the row is flagged rather than silently edited.
+
+  * IMPOSSIBILITIES — a single value that cannot be what it claims to be
+    (revenue equal to total assets, revenue below net income, negative assets,
+    a figure larger than any SGX issuer). These identify the offending field, so
+    that field is nulled: a missing number is recoverable, a plausible-looking
+    wrong one is not.
+
+`check()` returns the issues; `apply()` returns cleaned metrics plus the issue
+list, and is what the pipeline calls before writing a row.
+"""
+
+import math
+
+# Identity checks allow for rounding in the source document and for the
+# extractor picking up a figure printed to a different precision.
+IDENTITY_TOLERANCE = 0.02
+# Below this, a percentage difference is meaningless (rounding on small numbers).
+ABS_FLOOR = 1_000.0
+# No SGX issuer has a statement line this large; anything above is a scale error.
+# DBS, the largest, holds ~S$850bn of assets, so 2tn leaves generous headroom
+# while still catching a "S$'000 read as units" misread (BWM's 4.4tn balance
+# sheet was really 4.4bn).
+IMPLAUSIBLE = 2e12
+# Share counts are the one line that legitimately runs into the billions;
+# no SGX issuer has 100bn shares in issue.
+IMPLAUSIBLE_SHARES = 1e11
+
+# Pairs that legitimately hold the same figure: `ebit` is deliberately mirrored
+# onto `operating_income`, and basic/diluted share counts match when there is no
+# dilution. Every other exact repeat of a large value across two fields means one
+# number was read once and written twice.
+ALLOWED_EQUAL_PAIRS = {
+    frozenset({"ebit", "operating_income"}),
+    frozenset({"basic_shares_outstanding", "diluted_shares_outstanding"}),
+    frozenset({"total_revenue", "gross_income"}),
+}
+# Small values repeat by coincidence (zeros, small counts); large ones do not.
+DUPLICATE_FLOOR = 1_000_000
+
+# Line items that are never one of these metrics. The extractor once read DBS's
+# "commitments that are unconditionally cancellable ... $363,808 million" -- an
+# off-balance-sheet footnote -- as both total revenue and total assets, with high
+# self-reported confidence, because it had read the number correctly and only
+# chosen the wrong line.
+FORBIDDEN_SOURCE_TERMS = (
+    "commitment", "contingent", "notional", "off-balance", "off balance",
+    "guarantee", "unutilised", "undrawn", "collateral", "nominal value",
+)
+
+IS = "income_statement"
+BS = "balance_sheet"
+CF = "cash_flow"
+
+
+def _get(metrics: dict, group: str, field: str):
+    value = (metrics.get(group) or {}).get(field)
+    return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def _close(left: float, right: float, tolerance: float = IDENTITY_TOLERANCE) -> bool:
+    """Relative comparison that degrades to absolute for small magnitudes."""
+    scale = max(abs(left), abs(right))
+    if scale < ABS_FLOOR:
+        return abs(left - right) < ABS_FLOOR
+    return abs(left - right) / scale <= tolerance
+
+
+def _identity(metrics, issues, group, target, parts, label):
+    """`target` should equal the sum of `parts`, when all are present."""
+    total = _get(metrics, group, target)
+    values = [_get(metrics, group, p) for p in parts]
+    if total is None or any(v is None for v in values):
+        return
+    expected = sum(values)
+    if not _close(total, expected):
+        issues.append({
+            "check": label,
+            "severity": "identity",
+            "fields": [target, *parts],
+            "detail": f"{target}={total:,.0f} vs {'+'.join(parts)}={expected:,.0f}"
+                      f" ({_ratio(total, expected)})",
+        })
+
+
+def _ratio(left: float, right: float) -> str:
+    if right == 0:
+        return "n/a"
+    return f"{left / right:.2f}x"
+
+
+def check(metrics: dict) -> list[dict]:
+    """Every rule that fails on this row, worst first."""
+    issues: list[dict] = []
+
+    # --- identities -------------------------------------------------------
+    # The balance sheet must balance; this is the single strongest signal that
+    # something in the row was misread.
+    assets = _get(metrics, BS, "total_asset")
+    liabilities = _get(metrics, BS, "total_liabilities")
+    equity = _get(metrics, BS, "total_equity")
+    if assets is not None and liabilities is not None and equity is not None:
+        if not _close(assets, liabilities + equity):
+            issues.append({
+                "check": "balance_sheet_balances",
+                "severity": "identity",
+                "fields": ["total_asset", "total_liabilities", "total_equity"],
+                "detail": f"assets={assets:,.0f} vs liabilities+equity="
+                          f"{liabilities + equity:,.0f} ({_ratio(assets, liabilities + equity)})",
+            })
+
+    _identity(metrics, issues, BS, "total_asset",
+              ["total_current_asset", "total_non_current_asset"], "assets_split")
+    _identity(metrics, issues, BS, "total_liabilities",
+              ["total_current_liabilities", "total_non_current_liabilities"],
+              "liabilities_split")
+    _identity(metrics, issues, CF, "net_cash_flow",
+              ["operating_cash_flow", "investing_cash_flow", "financing_cash_flow"],
+              "cash_flow_sums")
+
+    # working_capital = current assets - current liabilities
+    current_assets = _get(metrics, BS, "total_current_asset")
+    current_liabilities = _get(metrics, BS, "total_current_liabilities")
+    working_capital = _get(metrics, BS, "working_capital")
+    if None not in (current_assets, current_liabilities, working_capital):
+        if not _close(working_capital, current_assets - current_liabilities):
+            issues.append({
+                "check": "working_capital",
+                "severity": "identity",
+                "fields": ["working_capital"],
+                "detail": f"{working_capital:,.0f} vs current assets-liabilities="
+                          f"{current_assets - current_liabilities:,.0f}",
+            })
+
+    # pretax - tax = net income (tax expense is stored positive)
+    pretax = _get(metrics, IS, "pretax_income")
+    tax = _get(metrics, IS, "income_taxes")
+    net_income = _get(metrics, IS, "net_income")
+    if None not in (pretax, tax, net_income) and not _close(net_income, pretax - tax):
+        issues.append({
+            "check": "tax_bridge",
+            "severity": "identity",
+            "fields": ["pretax_income", "income_taxes", "net_income"],
+            "detail": f"net={net_income:,.0f} vs pretax-tax={pretax - tax:,.0f}",
+        })
+
+    # gross = revenue - cost of revenue
+    revenue = _get(metrics, IS, "total_revenue")
+    cost = _get(metrics, IS, "cost_of_revenue")
+    gross = _get(metrics, IS, "gross_income")
+    if None not in (revenue, cost, gross) and not _close(gross, revenue - cost):
+        issues.append({
+            "check": "gross_bridge",
+            "severity": "identity",
+            "fields": ["gross_income", "total_revenue", "cost_of_revenue"],
+            "detail": f"gross={gross:,.0f} vs revenue-cost={revenue - cost:,.0f}",
+        })
+
+    # --- impossibilities: these name a specific bad field ------------------
+    # Revenue equal to a balance sheet total is field contamination, not a
+    # coincidence (D05 came back with total_revenue == total_asset).
+    for field, group, name in (("total_asset", BS, "total_asset"),
+                               ("total_equity", BS, "total_equity"),
+                               ("total_liabilities", BS, "total_liabilities")):
+        other = _get(metrics, group, field)
+        if revenue is not None and other is not None and revenue == other and revenue != 0:
+            issues.append({
+                "check": "revenue_equals_balance_sheet_item",
+                "severity": "impossible",
+                "fields": ["total_revenue"],
+                "detail": f"total_revenue == {name} == {revenue:,.0f}",
+            })
+            break
+
+    # A REIT's income attributable to unitholders is not its unitholders' funds.
+    unitholders = _get(metrics, IS, "unitholders")
+    if unitholders is not None and equity is not None and unitholders == equity != 0:
+        issues.append({
+            "check": "unitholders_equals_equity",
+            "severity": "impossible",
+            "fields": ["unitholders"],
+            "detail": f"unitholders == total_equity == {unitholders:,.0f}",
+        })
+
+    # Earnings cannot exceed revenue (a loss legitimately can be below zero).
+    if revenue is not None and net_income is not None:
+        if net_income > 0 and revenue > 0 and net_income > revenue * (1 + IDENTITY_TOLERANCE):
+            issues.append({
+                "check": "earnings_exceed_revenue",
+                "severity": "impossible",
+                "fields": ["total_revenue", "net_income"],
+                "detail": f"net_income={net_income:,.0f} > total_revenue={revenue:,.0f}",
+            })
+
+    # Signs that cannot flip.
+    for group, field in ((IS, "total_revenue"), (BS, "total_asset"),
+                         (BS, "total_current_asset"), (BS, "total_non_current_asset"),
+                         (BS, "total_liabilities"), (CF, "capital_expenditure")):
+        value = _get(metrics, group, field)
+        if value is not None and value < 0:
+            issues.append({
+                "check": "negative_value",
+                "severity": "impossible",
+                "fields": [field],
+                "detail": f"{field}={value:,.0f} cannot be negative",
+            })
+
+    # Scale errors: a misread unit row multiplies everything by 1,000.
+    for group, values in metrics.items():
+        for field, value in (values or {}).items():
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                share_field = field in ("basic_shares_outstanding",
+                                        "diluted_shares_outstanding")
+                ceiling = IMPLAUSIBLE_SHARES if share_field else IMPLAUSIBLE
+                if abs(value) > ceiling:
+                    issues.append({
+                        "check": "implausible_magnitude",
+                        "severity": "impossible",
+                        "fields": [field],
+                        "detail": f"{field}={value:,.0f} exceeds any SGX issuer",
+                    })
+
+    # One number read once and written into several fields. This is what a
+    # wrong-line read looks like from the outside: the model is confident
+    # because it copied the figure accurately, just from the wrong row.
+    # Only ACROSS statements. Within one statement, equal values are ordinary:
+    # total liabilities equals current liabilities when there are no non-current
+    # ones, EBIT equals pretax income when there are no finance costs, a REIT's
+    # net income equals the amount attributable to unitholders. Across
+    # statements there is no such story -- a period flow and a balance-sheet
+    # stock are not the same number to the dollar.
+    seen: dict[float, set[str]] = {}
+    labels: dict[float, list[str]] = {}
+    for group, values in metrics.items():
+        for field, value in (values or {}).items():
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                if abs(value) >= DUPLICATE_FLOOR:
+                    seen.setdefault(value, set()).add(group)
+                    labels.setdefault(value, []).append(f"{group}.{field}")
+    for value, groups in seen.items():
+        if len(groups) < 2:
+            continue
+        fields = sorted({label.split(".", 1)[1] for label in labels[value]})
+        issues.append({
+            "check": "duplicate_value_across_statements",
+            "severity": "impossible",
+            "fields": fields,
+            "detail": f"{value:,.0f} appears in {', '.join(sorted(labels[value]))}",
+        })
+
+    # Field-value contamination: one number written into most of the row,
+    # regardless of what each field means. This is `duplicate_value_across_statements`
+    # taken to its logical conclusion -- that check only fires above a
+    # DUPLICATE_FLOOR and only when the repeats span multiple statement groups,
+    # which misses a smaller-scale version of exactly the same failure: a model
+    # that reads one figure correctly and then pastes it into every field it
+    # couldn't otherwise fill, including fields within the same statement.
+    # Zero is excluded -- several fields are legitimately and independently
+    # zero (no minorities, no perpetual securities, no property sales) far more
+    # often than any other specific number would coincide by chance, so a
+    # shared zero isn't evidence of contamination the way a shared 271,700 is.
+    CONTAMINATION_MIN_FIELDS = 4
+    CONTAMINATION_MIN_SHARE = 0.5
+    numeric = [
+        (group, field, value)
+        for group, values in metrics.items()
+        for field, value in (values or {}).items()
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value != 0
+    ]
+    if numeric:
+        by_value: dict[float, list[tuple[str, str]]] = {}
+        for group, field, value in numeric:
+            by_value.setdefault(value, []).append((group, field))
+        for value, locs in by_value.items():
+            if len(locs) >= CONTAMINATION_MIN_FIELDS and len(locs) / len(numeric) >= CONTAMINATION_MIN_SHARE:
+                issues.append({
+                    "check": "field_value_contamination",
+                    "severity": "impossible",
+                    "fields": sorted({f for _, f in locs}),
+                    "detail": f"{value:,.0f} repeats in {len(locs)}/{len(numeric)} numeric fields "
+                              f"({', '.join(f'{g}.{f}' for g, f in locs)})",
+                })
+
+    # A row where every reported number is exactly zero is not a company that
+    # had a quiet half -- revenue, assets and liabilities are never *all* nil
+    # for an issuer that filed results at all. This is the same signal
+    # `core_fields_present` (financial_statement_rag.py) uses to reject an
+    # extraction before it's ever written; this is the retrospective version.
+    all_values = [
+        value
+        for values in metrics.values()
+        for value in (values or {}).values()
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+    ]
+    if len(all_values) >= 10 and all(v == 0 for v in all_values):
+        issues.append({
+            "check": "all_zero_row",
+            "severity": "impossible",
+            "fields": sorted({f for values in metrics.values() for f, v in (values or {}).items() if v == 0}),
+            "detail": f"all {len(all_values)} reported fields are exactly zero",
+        })
+
+    # Share counts: basic and diluted differ by a few percent, never orders.
+    basic = _get(metrics, IS, "basic_shares_outstanding")
+    diluted = _get(metrics, IS, "diluted_shares_outstanding")
+    if basic and diluted and basic > 0 and diluted > 0:
+        if max(basic, diluted) / min(basic, diluted) > 10:
+            # Diluted and basic differ by a few percent in reality, so a 10x gap
+            # means one was misscaled — indict the larger, keep the plausible one.
+            bad = ("basic_shares_outstanding" if basic > diluted
+                   else "diluted_shares_outstanding")
+            issues.append({
+                "check": "share_counts_diverge",
+                "severity": "impossible",
+                "fields": [bad],
+                "detail": f"basic={basic:,.0f} vs diluted={diluted:,.0f}",
+            })
+
+    order = {"impossible": 0, "identity": 1}
+    return sorted(issues, key=lambda i: order.get(i["severity"], 9))
+
+
+def check_sources(provenance: dict | None) -> list[dict]:
+    """Rejects values taken from a line that cannot be the metric claimed.
+
+    `provenance` carries the printed label the model read each figure from, so a
+    value lifted out of a commitments or contingent-liabilities note is caught
+    even when its arithmetic happens to look plausible.
+    """
+    issues = []
+    for group, fields in (provenance or {}).items():
+        for field, detail in (fields or {}).items():
+            label = str((detail or {}).get("source_label") or "").lower()
+            if not label or (detail or {}).get("value") is None:
+                continue
+            hit = next((t for t in FORBIDDEN_SOURCE_TERMS if t in label), None)
+            if hit:
+                issues.append({
+                    "check": "value_from_forbidden_line",
+                    "severity": "impossible",
+                    "fields": [field],
+                    "detail": f"{field} read from {(detail or {}).get('source_label')!r}"
+                              f" (contains {hit!r})",
+                })
+    return issues
+
+
+def apply(metrics: dict, provenance: dict | None = None) -> tuple[dict, list[dict]]:
+    """Nulls fields a rule proved wrong; identity breaks are reported only.
+
+    An identity break tells you one of several components is wrong without
+    saying which, so removing all of them would throw away good figures; those
+    rows are flagged for review instead.
+    """
+    issues = check(metrics) + check_sources(provenance)
+    cleaned = {group: dict(values or {}) for group, values in metrics.items()}
+
+    for issue in issues:
+        if issue["severity"] != "impossible":
+            continue
+        for field in issue["fields"]:
+            for group in cleaned:
+                if field in cleaned[group] and cleaned[group][field] is not None:
+                    # "earnings exceed revenue" indicts the pair; drop the
+                    # smaller-confidence one (revenue) rather than both.
+                    if issue["check"] == "earnings_exceed_revenue" and field == "net_income":
+                        continue
+                    cleaned[group][field] = None
+    return cleaned, issues
+
+
+def summarise(issues: list[dict]) -> str:
+    if not issues:
+        return "ok"
+    return "; ".join(f"{i['check']}({i['detail']})" for i in issues[:3])
