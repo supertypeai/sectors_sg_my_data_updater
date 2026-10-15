@@ -162,14 +162,14 @@ GROUP_QUERIES = {
 FIELD_HINTS = {
     "total_revenue": "Total revenue / turnover / operating revenue for the period. Exclude 'other income' if it is presented outside revenue.",
     "cost_of_revenue": "Cost of sales / cost of services / direct costs.",
-    "gross_income": "Gross profit = total_revenue - cost_of_revenue. Only report if presented or if both components are unambiguous.",
+    "gross_income": "Gross profit. Must equal total_revenue - cost_of_revenue when both are read. Only report if presented or if both components are unambiguous.",
     "operating_expense": "Total operating expenses excluding cost of revenue where the two are presented separately; otherwise total operating expenses.",
     "operating_income": "Operating profit / profit from operations, before non-operating items and tax.",
     "non_operating_income_or_loss": "Net non-operating income/(loss): other income, FX, fair-value changes, share of associates, exceptional items.",
     "interest_expense_non_operating": "Finance costs / interest expense reported below operating profit. Report as a positive number.",
     "pretax_income": "Profit before tax / profit before income tax.",
     "income_taxes": "Income tax expense for the period. Report a tax expense as a positive number and a tax credit as negative.",
-    "net_income": "Profit after tax for the period, before allocating to minorities/perpetual holders (i.e. total net profit).",
+    "net_income": "Profit after tax for the period, before allocating to minorities/perpetual holders (i.e. total net profit). Must equal pretax_income - income_taxes (tax as a positive expense) unless the report shows discontinued operations or non-controlling interests in between.",
     "ebit": "Same figure as operating_income: report whichever of 'EBIT' or "
     "'operating profit / profit from operations' the issuer presents. If both are "
     "presented, use the operating profit figure.",
@@ -181,13 +181,13 @@ FIELD_HINTS = {
     "unitholders": "Profit / total return attributable to unitholders (REITs and trusts).",
     "basic_shares_outstanding": "Weighted average number of ordinary shares/units used for basic EPS/DPU.",
     "diluted_shares_outstanding": "Weighted average number of shares/units used for diluted EPS/DPU.",
-    "total_asset": "Total assets as at the balance sheet date.",
+    "total_asset": "Total assets as at the balance sheet date. Must equal total_liabilities + total_equity.",
     "total_current_asset": "Total current assets. Null if the issuer presents an unclassified balance sheet.",
     "total_non_current_asset": "Total non-current assets.",
-    "total_liabilities": "Total liabilities.",
+    "total_liabilities": "Total liabilities. Must equal total_asset - total_equity when both are shown.",
     "total_current_liabilities": "Total current liabilities.",
     "total_non_current_liabilities": "Total non-current liabilities.",
-    "total_equity": "Total equity including non-controlling interests and perpetual securities.",
+    "total_equity": "Total equity including non-controlling interests and perpetual securities. Must equal total_asset - total_liabilities.",
     "working_capital": "total_current_asset - total_current_liabilities. Compute only if both are reported.",
     "operating_cash_flow": "Net cash from/(used in) operating activities. Outflow is negative.",
     "investing_cash_flow": "Net cash from/(used in) investing activities. Outflow is negative.",
@@ -206,21 +206,58 @@ UNIT_MULTIPLIERS = {
 
 SHARED_RULES = """
 Rules that apply to every field:
-- Take the value for the reporting period identified above and no other column. The
-  tables usually show several periods side by side (prior year, prior half, full
-  year); picking the wrong column is the most common failure here, so verify the
-  column header before reading a number.
-- For balance sheet items, use the "as at" date of the current reporting period,
-  not the comparative.
+
+PICK THE RIGHT CELL
+- Read the reporting period identified above and no other column. The tables usually
+  show several periods side by side (prior year, prior half, full year); picking the
+  wrong column is the most common failure here, so confirm the column header first.
+- For balance sheet items, use the "as at" date of the current reporting period, not
+  the comparative.
 - Use group / consolidated figures, not segment, parent-company or pro-forma ones.
-- Report `value` exactly as printed (do not rescale) and set `unit` to what the
-  table header states (S$'000 -> thousands, S$m / S$ million -> millions).
+
+SCALE — read it once per statement, from that statement's own column header
+- Find the scale in the column header / unit row on the SAME page as the statement you
+  are reading, e.g. "S$'000", "US$'000", "S$m", "(in thousands)", "US$ million".
+- The scale must come from the statement's own page. A unit that appears only in a
+  note, in another statement, or elsewhere in the document does NOT count.
+- If the column header names only a currency with no scale word (e.g. a column headed
+  "US$", "S$" or "RM"), the figures are in that currency's units: set unit to
+  "units". Do NOT assume thousands.
+- If the statement's own page shows no unit at all, set unit to "unknown" for every
+  field of that statement (the values will be discarded). Never guess the scale.
+- All fields belonging to the same statement share that ONE scale. Never give an
+  individual line a different unit, and never mix scales within a statement.
+- Report `value` exactly as the digits printed in the chosen column — never multiply
+  or divide. If the header says thousands and the cell prints 1,234, then value=1234
+  and unit="thousands".
+- For the balance-sheet totals, start `source_label` with the unit you used, e.g.
+  "[unit: US$] Total assets".
+
+SIGNS
 - Numbers in brackets are negative.
 - Expenses, interest expense, tax expense and capital expenditure are positive
   numbers. Cash flows keep their natural sign, so an outflow is negative.
-- Only compute a value when the report gives you every component on the same
-  basis; otherwise return null. Never infer from a prior period or from a
-  percentage change.
+
+BEFORE YOU RETURN — reconcile, and fix mistakes instead of emitting them
+- total_asset = total_liabilities + total_equity.
+- total_asset = total_current_asset + total_non_current_asset (when the balance sheet
+  is classified).
+- net_income = pretax_income - income_taxes (tax as a positive expense).
+- gross_income = total_revenue - cost_of_revenue.
+- Compare total_asset and total_revenue with the prior-period column printed beside
+  the one you read: they should be within a few times, never roughly 1000x. A ~1000x
+  gap means the wrong column or the wrong scale — re-read it.
+- If a check still fails after re-reading, set confidence below 0.70 on every field
+  involved so they are dropped, rather than reporting a figure you know is wrong.
+
+WHEN DATA IS ABSENT
+- If a whole statement (income statement / balance sheet / cash flow) is not among
+  the pages provided, return null for all of its fields, unit "unknown", confidence 0
+  and source_label "NOT_IN_PROVIDED_PAGES". Never fill it from another statement,
+  another period, or a rescaled figure.
+- Only compute a value when the report gives you every component on the same basis;
+  otherwise return null. Never infer a value from a prior period or a percentage
+  change.
 - If a line item is not present, set value to null, unit to "unknown" and
   confidence to 0.
 
@@ -482,7 +519,14 @@ shows the second half separately. If it covers a quarter, that is quarter.
 
 Then describe how that period's column is labelled in the financial tables, and which
 neighbouring columns (prior year, prior half, full year vs half year) must NOT be read.
-Be concrete — a later step will use `column_guidance` verbatim to pick columns.
+Be concrete — a later step will use `column_guidance` verbatim to pick columns. Include
+in `column_guidance` the exact printed unit row (e.g. "S$'000", "in million Baht") and
+the exact column header being read, so the scale can be verified later.
+
+Report `currency` as the ISO code printed in the statement unit row ("US$'000" -> USD,
+"in million Baht" -> THB, "S$'000" -> SGD, "RM'000" -> MYR). Do NOT assume SGD: an SGX
+listing does not mean the figures are in Singapore dollars. If no currency is explicitly
+printed, set currency to null and lower this response's confidence below 0.70.
 
 Return JSON only.
 """.strip()
