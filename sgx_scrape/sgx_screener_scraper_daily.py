@@ -17,9 +17,11 @@ import time
 import json
 import logging
 import argparse
+from datetime import datetime
 import numpy as np
-import requests
 import pandas as pd
+import pytz
+import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -49,6 +51,8 @@ EMPTY_RETRIES = 1
 SGX_HEADERS   = {"User-Agent": "Mozilla/5.0"}
 # compact_rates.json lives at the repo root, one level above sgx_scrape/.
 RATES_FILE    = os.path.join(os.path.dirname(os.path.dirname(__file__)), "compact_rates.json")
+# The SGX session date is always read in Singapore time.
+SGT = pytz.timezone("Asia/Singapore")
 
 # Counters whose SGX market cap is known to not equal units_in_issue x close
 # (stapled/dual-leg trusts report ~2x; the EUR leg of a trust can sit below the
@@ -125,6 +129,16 @@ HISTORIC_URL = (
     "https://api.sgx.com/securities/v1.1//charts/historic/{kind}/code/{symbol}/{period}"
     "?params=trading_time,vl,lt,o,h,l"
 )
+
+# Intraday tick feed (last-price + cumulative volume). Fills the newest session the
+# historic endpoint has not published yet; the API caps the window at 10 days.
+INTRADAY_URL = (
+    "https://api.sgx.com/securities/v1.1//charts/intraday/{kind}/code/{symbol}/{period}"
+    "?params=trading_time,vl,lt"
+)
+INTRADAY_PERIOD = "10d"
+# Newest sessions a missing historic bar may be backfilled from intraday.
+BACKFILL_SESSIONS = 3
 
 # ==========================================
 # FIELD MAPS
@@ -383,6 +397,64 @@ def _fetch_historic_single(symbol: str, period: str, is_reit: bool = False, fx: 
         return pd.DataFrame()
 
 
+def _fetch_intraday_single(symbol: str, is_reit: bool = False, fx: float = 1.0) -> pd.DataFrame:
+    """Daily bars rebuilt from intraday ticks over INTRADAY_PERIOD. `vl` is
+    cumulative, so a session's volume is its last tick value; OHLC come from the
+    tick last-price (the first tick is the pre-open reference, so open is only
+    approximate). Sessions without a real print (vl==0) are dropped - SGX emits a
+    flat zero-volume bar for every counter, stale for those that never traded."""
+    try:
+        records = []
+        errors = 0
+        for attempt in range(EMPTY_RETRIES + 1):
+            if attempt:
+                time.sleep(2 * attempt)
+            errors = 0
+            for kind in _historic_kinds(is_reit):
+                try:
+                    resp = requests.get(
+                        INTRADAY_URL.format(kind=kind, symbol=symbol, period=INTRADAY_PERIOD),
+                        headers=SGX_HEADERS,
+                        timeout=15,
+                    )
+                    resp.raise_for_status()
+                    records = resp.json().get("data", {}).get("intraday", [])
+                except Exception as e:
+                    errors += 1
+                    logger.warning(f"[{symbol}] intraday {kind} fetch failed: {e}")
+                    continue
+                if records:
+                    break
+            if records or not errors:
+                break
+        if not records:
+            return pd.DataFrame()
+        df = pd.DataFrame(records).sort_values("trading_time")
+        df["lt"] = pd.to_numeric(df["lt"], errors="coerce")
+        df["vl"] = pd.to_numeric(df["vl"], errors="coerce").fillna(0)
+        df["date"] = df["trading_time"].str[:8]
+        grouped = df.groupby("date")
+        out = pd.DataFrame({
+            "open": grouped["lt"].first(),
+            "high": grouped["lt"].max(),
+            "low": grouped["lt"].min(),
+            "close": grouped["lt"].last(),
+            "volume": grouped["vl"].last(),
+        }).reset_index()
+        out = out[out["volume"] > 0]
+        if out.empty:
+            return pd.DataFrame()
+        out["date"] = pd.to_datetime(out["date"], format="%Y%m%d").dt.strftime("%Y-%m-%d")
+        for col in ("open", "high", "low", "close"):
+            out[col] = (out[col] * fx).round(6)
+        out["volume"] = (out["volume"] * 1000).astype("int64")
+        out["symbol"] = symbol
+        return out[["symbol", "date", "open", "high", "low", "close", "volume"]]
+    except Exception as e:
+        logger.warning(f"[{symbol}] intraday rebuild failed: {e}")
+        return pd.DataFrame()
+
+
 def _to_stored_symbols(base_df: pd.DataFrame, *frames: pd.DataFrame) -> tuple:
     """Everything above joins on the bare API code, but the table stores the same
     suffixed form as sgx_companies — map back before the rows are written."""
@@ -452,6 +524,49 @@ def _apply_market_cap_guard(latest_df: pd.DataFrame, base_df: pd.DataFrame) -> p
     return latest_df
 
 
+def build_intraday_fill(base_df: pd.DataFrame, hist_df: pd.DataFrame) -> pd.DataFrame:
+    """Insert-only rows for the newest BACKFILL_SESSIONS sessions the historic API
+    has not returned. Historic always wins: every (symbol, date) it already carries
+    is dropped here, so this can only ADD a missing bar, never overwrite one."""
+    api_symbols = base_df["api_symbol"].tolist()
+    fx_by_symbol = _fx_by_symbol(base_df)
+    fx_by_code = {code: fx_by_symbol[sym] for sym, code in zip(base_df["symbol"], base_df["api_symbol"])}
+    reit_set = set(base_df.loc[base_df["is_reit"], "api_symbol"].tolist())
+    logger.info(f"Fetching intraday ticks ({INTRADAY_PERIOD}) for {len(api_symbols)} symbols...")
+    frames = []
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(_fetch_intraday_single, s, s in reit_set, fx_by_code.get(s, 1.0)): s for s in api_symbols}
+        for i, future in enumerate(as_completed(futures), 1):
+            df = future.result()
+            if not df.empty:
+                frames.append(df)
+            if i % 100 == 0:
+                logger.info(f"  Intraday: {i}/{len(api_symbols)} done...")
+    if not frames:
+        logger.warning("No intraday data returned.")
+        return pd.DataFrame()
+    intr = pd.concat(frames, ignore_index=True)
+    # Only completed sessions: the pipeline runs post-close (cron 18:00 UTC =
+    # 02:00 SGT next day), so a session dated today (SGT) is still trading and is
+    # left to the next run. The in-progress bar is never written.
+    today_sgt = datetime.now(SGT).date()
+    completed = sorted(
+        d for d in intr["date"].unique()
+        if datetime.strptime(d, "%Y-%m-%d").date() < today_sgt
+    )
+    sessions = completed[-BACKFILL_SESSIONS:]
+    if not sessions:
+        logger.info("Intraday fill: no completed session to backfill.")
+        return pd.DataFrame()
+    window = set(sessions)
+    hist_keys = set(zip(hist_df["symbol"], hist_df["date"])) if not hist_df.empty else set()
+    scoped = intr[intr["date"].isin(window)]
+    keep = [(sym, date) not in hist_keys for sym, date in zip(scoped["symbol"], scoped["date"])]
+    fill = scoped[np.array(keep)].drop_duplicates(subset=["symbol", "date"], keep="last")
+    logger.info(f"Intraday fill: {len(fill)} row(s) for session(s) {sessions} (historic precedence kept).")
+    return fill
+
+
 def build_daily_df(base_df: pd.DataFrame, mode: str, currency_maps: dict | None = None) -> tuple:
     """Returns (all_dates_df, latest_date_df_with_market_cap)."""
     api_symbols = base_df["api_symbol"].tolist()
@@ -475,13 +590,33 @@ def build_daily_df(base_df: pd.DataFrame, mode: str, currency_maps: dict | None 
             if i % 100 == 0:
                 logger.info(f"  Prices: {i}/{len(api_symbols)} done...")
 
-    if not frames:
-        logger.warning("No price data returned.")
-        return pd.DataFrame(), pd.DataFrame()
+    price_df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    if price_df.empty:
+        logger.warning("Historic feed returned no price data.")
+    else:
+        price_df.dropna(subset=["close"], inplace=True)
+        logger.info(f"Prices: {len(price_df)} records for {price_df['symbol'].nunique()} symbols.")
 
-    price_df = pd.concat(frames, ignore_index=True)
-    price_df.dropna(subset=["close"], inplace=True)
-    logger.info(f"Prices: {len(price_df)} records for {price_df['symbol'].nunique()} symbols.")
+    # Newest session(s) the historic endpoint has not published: ADD them from the
+    # intraday feed. Insert-only - build_intraday_fill drops any (symbol, date)
+    # historic already has, so a later historic row always overwrites it. Intraday
+    # is also tried when historic came back empty, so it can rescue a total outage.
+    if mode == "daily":
+        try:
+            fill = build_intraday_fill(base_df, price_df)
+            if not fill.empty:
+                price_df = fill if price_df.empty else pd.concat([price_df, fill], ignore_index=True)
+                logger.info(f"Historic + intraday fill: {len(price_df)} records, latest {price_df['date'].max()}.")
+        except Exception as e:
+            logger.warning(f"Intraday fill skipped: {e}")
+
+    # Neither feed produced a row: fail loudly instead of writing nothing (and
+    # silently leaving the table stale) or letting a bad run pass as success.
+    if price_df.empty:
+        raise RuntimeError(
+            "Both the historic and intraday price feeds returned no data; "
+            "refusing to write an empty sgx_daily_data run."
+        )
 
     # Market cap joined on latest date only
     logger.info("Fetching market cap...")
