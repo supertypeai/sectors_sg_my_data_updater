@@ -106,6 +106,12 @@ MAX_TABLE_CHARS = 4_000
 # line-item labels run long on older filings.
 TOKENS_PER_FIELD = 280
 OUTPUT_TOKEN_OVERHEAD = 900
+# A reply cut at max_tokens is re-sent with a bigger budget (×2 per step) before
+# giving up: the model is often merely verbose on older filings, and one larger
+# call is cheaper than switching strategy. Capped so a runaway reply can't grow
+# without bound.
+TRUNCATION_ESCALATIONS = 2
+MAX_OUTPUT_TOKENS = 32_000
 # Under this there isn't room for a usable answer, so fail loudly instead of
 # returning a truncated one.
 MIN_USEFUL_OUTPUT_TOKENS = 600
@@ -181,7 +187,7 @@ FIELD_HINTS = {
     "unitholders": "Profit / total return attributable to unitholders (REITs and trusts).",
     "basic_shares_outstanding": "Weighted average number of ordinary shares/units used for basic EPS/DPU.",
     "diluted_shares_outstanding": "Weighted average number of shares/units used for diluted EPS/DPU.",
-    "total_asset": "Total assets as at the balance sheet date. Must equal total_liabilities + total_equity.",
+    "total_asset": "Total assets as at the balance sheet date. Must equal total_liabilities + total_equity. Never use an unlabelled subtotal: if 'Total assets' is not printed, derive it from total_equity + total_liabilities or total_current_asset + total_non_current_asset, and null if a component is missing.",
     "total_current_asset": "Total current assets. Null if the issuer presents an unclassified balance sheet.",
     "total_non_current_asset": "Total non-current assets.",
     "total_liabilities": "Total liabilities. Must equal total_asset - total_equity when both are shown.",
@@ -204,6 +210,186 @@ UNIT_MULTIPLIERS = {
     "billions": 1_000_000_000,
 }
 
+# Deterministic scale evidence, used to correct a model that reports the printed
+# digits but the wrong `unit` (e.g. reads "Total assets 533,391,632" on a page
+# headed "(in thousand Baht)" and still says unit="units").
+_CURRENCY = r"(?:S\$|US\$|HK\$|A\$|RM|RMB|CNY|USD|SGD|THB|MYR|HKD|JPY|EUR|GBP|\$)"
+SCALE_PATTERNS = (
+    (re.compile(r"\bin\s+thousands?\b|\brounded to the nearest thousand\b", re.I),
+     "thousands"),
+    (re.compile(r"\bin\s+millions?\b|\brounded to the nearest million\b", re.I),
+     "millions"),
+    (re.compile(r"\bin\s+billions?\b", re.I), "billions"),
+    (re.compile(_CURRENCY + r"\s*['’]?0{3}\b", re.I), "thousands"),
+    (re.compile(_CURRENCY + r"['’]?\s*m(?:illion)?\b", re.I), "millions"),
+    (re.compile(_CURRENCY + r"\s*bn\b", re.I), "billions"),
+    (re.compile(r"(?:^|[\s(])['’]000\b"), "thousands"),
+)
+
+
+def printed_scale(text: str) -> str | None:
+    """The one scale a page declares, or None when absent or contradictory."""
+    found = {scale for pattern, scale in SCALE_PATTERNS if pattern.search(text)}
+    return found.pop() if len(found) == 1 else None
+
+
+# Counts, not currency: a page's scale must never be applied to them.
+NON_SCALED_FIELDS = {"basic_shares_outstanding", "diluted_shares_outstanding"}
+
+
+def reconcile_total_asset(values: dict, details: dict) -> str | None:
+    """Repairs a total_asset that is really an unlabelled subtotal.
+
+    Some balance sheets print no "Total assets" line, and the number the model
+    grabs is a subtotal (e.g. current assets + assets held for sale). When
+    total_asset matches neither its own split (current + non-current) nor the
+    balance (liabilities + equity), it is that subtotal: replace it with
+    liabilities + equity. If the asset agrees with either, one of the other
+    fields is the odd one out and the guards report it instead.
+    """
+    asset = values.get("total_asset")
+    liabilities = values.get("total_liabilities")
+    equity = values.get("total_equity")
+    if asset is None or liabilities is None or equity is None:
+        return None
+
+    def near(left: float, right: float) -> bool:
+        return abs(left - right) <= 0.01 * max(abs(right), 1)
+
+    target = liabilities + equity
+    if near(asset, target):
+        return None
+    current = values.get("total_current_asset")
+    non_current = values.get("total_non_current_asset")
+    if current is not None and non_current is not None and near(asset, current + non_current):
+        return None
+
+    values["total_asset"] = target
+    detail = details.get("total_asset")
+    if isinstance(detail, dict):
+        detail["value"] = target
+        detail["source_label"] = "Computed: total_liabilities + total_equity"
+    return f"total_asset {asset:,.0f} -> {target:,.0f} (unlabelled subtotal)"
+
+
+def _scaled(item) -> float | None:
+    """The absolute value of one extracted item, or None if it cannot be scaled."""
+    if not isinstance(item, dict):
+        return None
+    value, unit = item.get("value"), item.get("unit")
+    if not isinstance(value, (int, float)) or unit not in UNIT_MULTIPLIERS:
+        return None
+    return value * UNIT_MULTIPLIERS[unit]
+
+
+def _near(left: float, right: float) -> bool:
+    return abs(left - right) <= 0.01 * max(abs(right), 1)
+
+
+def _rescue(raw: dict, values: dict, details: dict, names) -> list[str]:
+    changed = []
+    for name in names:
+        if values.get(name) is None and _scaled(raw.get(name)) is not None:
+            values[name] = _scaled(raw[name])
+            detail = details.get(name)
+            if isinstance(detail, dict):
+                detail["value"] = values[name]
+                detail["kept"] = True
+                detail["source_label"] = (
+                    f"{detail.get('source_label') or ''} [rescued: arithmetic holds]"
+                ).strip()
+            changed.append(name)
+    return changed
+
+
+def rescue_reconciled(raw: dict, group: str, values: dict, details: dict) -> list[str]:
+    """Keeps low-confidence fields the confidence gate dropped when the
+    statement's own arithmetic proves the group right.
+
+    The gate trusts the model's self-assessment; a deterministic identity is
+    stronger evidence. Only the fields whose checks actually pass are admitted.
+    """
+    if group == "balance_sheet":
+        asset, liabilities, equity = (
+            _scaled(raw.get(f)) for f in ("total_asset", "total_liabilities", "total_equity")
+        )
+        current, non_current = (
+            _scaled(raw.get(f)) for f in ("total_current_asset", "total_non_current_asset")
+        )
+        if None in (asset, liabilities, equity) or not _near(asset, liabilities + equity):
+            return []
+        if current is None or non_current is None or not _near(asset, current + non_current):
+            return []
+        return _rescue(raw, values, details, (
+            "total_asset", "total_liabilities", "total_equity",
+            "total_current_asset", "total_non_current_asset",
+        ))
+
+    if group == "income_statement":
+        revenue, cost, gross = (
+            _scaled(raw.get(f)) for f in ("total_revenue", "cost_of_revenue", "gross_income")
+        )
+        pretax, tax, net = (
+            _scaled(raw.get(f)) for f in ("pretax_income", "income_taxes", "net_income")
+        )
+        names = []
+        if None not in (revenue, cost, gross) and _near(revenue - cost, gross):
+            names += ["total_revenue", "cost_of_revenue", "gross_income"]
+        if None not in (pretax, tax, net) and _near(pretax - tax, net):
+            names += ["pretax_income", "income_taxes", "net_income"]
+        if not names:
+            return []
+        return _rescue(raw, values, details, tuple(dict.fromkeys(names)))
+
+    return []
+
+
+def correct_units(raw: dict, doc: "Document") -> list[str]:
+    """Overrides a field's unit with the scale printed on the page it cited.
+
+    The prompt asks for exactly this, but the model still reports printed
+    thousand/million figures as "units" on some filings. A field with no page
+    evidence of its own (a derived value such as gross_income or
+    working_capital) inherits the scale a strict majority of the other fields'
+    pages declare, because one statement uses one scale. Anything ambiguous is
+    left alone.
+    """
+    pages = {page.number: page for page in doc.pages}
+    evidence: dict[str, str] = {}
+    for name, item in raw.items():
+        if not isinstance(item, dict) or item.get("value") is None:
+            continue
+        if name in NON_SCALED_FIELDS:
+            continue
+        page = pages.get(item.get("source_page"))
+        if page is not None:
+            scale = printed_scale(page.text)
+            if scale:
+                evidence[name] = scale
+
+    group_scale = None
+    if evidence:
+        tally: dict[str, int] = {}
+        for scale in evidence.values():
+            tally[scale] = tally.get(scale, 0) + 1
+        scale, count = max(tally.items(), key=lambda kv: kv[1])
+        if count * 2 > len(evidence):
+            group_scale = scale
+
+    corrections = []
+    for name, item in raw.items():
+        if not isinstance(item, dict) or item.get("value") is None:
+            continue
+        if name in NON_SCALED_FIELDS:
+            continue
+        unit = item.get("unit")
+        scale = evidence.get(name) or group_scale
+        if not scale or unit == scale:
+            continue
+        item["unit"] = scale
+        corrections.append(f"{name}: {unit} -> {scale}")
+    return corrections
+
 SHARED_RULES = """
 Rules that apply to every field:
 
@@ -215,23 +401,56 @@ PICK THE RIGHT CELL
   the comparative.
 - Use group / consolidated figures, not segment, parent-company or pro-forma ones.
 
-SCALE — read it once per statement, from that statement's own column header
-- Find the scale in the column header / unit row on the SAME page as the statement you
-  are reading, e.g. "S$'000", "US$'000", "S$m", "(in thousands)", "US$ million".
+SCALE — read it once per statement, from that statement's own page
+- Find the scale on the SAME page as the statement you are reading, in its title, its
+  unit row, or its column header, e.g. "S$'000", "US$'000", "S$m", "(in thousands)",
+  "US$ million", "in thousand Baht".
 - The scale must come from the statement's own page. A unit that appears only in a
   note, in another statement, or elsewhere in the document does NOT count.
-- If the column header names only a currency with no scale word (e.g. a column headed
-  "US$", "S$" or "RM"), the figures are in that currency's units: set unit to
-  "units". Do NOT assume thousands.
-- If the statement's own page shows no unit at all, set unit to "unknown" for every
-  field of that statement (the values will be discarded). Never guess the scale.
+- An explicit scale word ("thousand", "'000", "million", "'m", "bn") takes
+  precedence over a bare currency, wherever it appears on that page — a title that
+  says "in thousand Baht" means thousands even if the column header says just "THB".
+- Only if NO scale word appears anywhere on the statement's own page, and the column
+  header names only a currency (e.g. a column headed "US$", "S$", "THB" or "RM"),
+  are the figures in that currency's units: set unit to "units". Do NOT assume
+  thousands.
+- If the statement's own page shows no currency and no scale word, set unit to
+  "unknown" for every field of that statement (the values will be discarded). Never
+  guess the scale.
 - All fields belonging to the same statement share that ONE scale. Never give an
   individual line a different unit, and never mix scales within a statement.
 - Report `value` exactly as the digits printed in the chosen column — never multiply
   or divide. If the header says thousands and the cell prints 1,234, then value=1234
   and unit="thousands".
-- For the balance-sheet totals, start `source_label` with the unit you used, e.g.
-  "[unit: US$] Total assets".
+- Keep `source_label` short: the printed line-item label only, at most 15 words
+  (e.g. "Total assets"). Do not add page titles, column descriptions, notes or
+  unit tags — the `unit` field already carries the scale.
+
+UNLABELLED FIGURES AND DERIVED TOTALS
+- Every value must match a printed label on the statement. Never assign a line of
+  figures that has no label to a field — a bare subtotal row is not a total.
+- If a total is not printed with its own label, derive it only from labelled
+  components you can read, and mark it in source_label as "Computed: ...":
+    total_liabilities = total_current_liabilities + total_non_current_liabilities
+    total_asset = total_equity + total_liabilities
+    total_asset = total_current_asset + total_non_current_asset
+- If a component needed to derive a total is missing, set that total to null rather
+  than substituting an unlabelled subtotal.
+- Some balance sheets present equity and non-current liabilities above the assets
+  ("funds employed" layout). In that layout the unlabelled subtotal that follows
+  equity and the long-term liabilities is equity + non-current liabilities, NOT
+  total assets.
+- If assets held for sale / disposal-group assets are presented as their own line
+  below current assets, total_asset = total_non_current_asset + total_current_asset
+  + those held-for-sale assets. The unlabelled sum of current assets + held for
+  sale is a subtotal, NOT total assets.
+
+BALANCE SHEET COLUMNS
+- Balance-sheet columns are headed by an "as at" date. Read the column for the
+  reporting date; the one beside it is the comparative. Never read the comparative.
+- If a statement shows both a 3-month/quarter column and a 12-month/full-year
+  column, use the column that matches the period asked for above. The balance
+  sheet itself is always the "as at" reporting-date column.
 
 SIGNS
 - Numbers in brackets are negative.
@@ -922,6 +1141,10 @@ class InsufficientCredits(RuntimeError):
     """OpenRouter balance can't cover the request even after shrinking it."""
 
 
+class OutputTruncated(RuntimeError):
+    """The reply hit max_tokens and was cut off before the JSON was complete."""
+
+
 def output_budget(schema: dict) -> int:
     """Right-sizes max_tokens from the number of fields the schema asks for."""
     fields = len(schema.get("properties", {}))
@@ -1048,6 +1271,29 @@ def call_model(
         try:
             response = _create_within_budget(client, kwargs)
             _record_usage(usage, response)
+            # A reply cut at max_tokens can never parse. Re-send the same request
+            # with a bigger budget first — the model is often merely verbose on
+            # older filings — and only give up when that stops helping, so the
+            # caller can switch strategy (per statement group) instead of
+            # repeating this oversized request.
+            budget = kwargs["max_tokens"]
+            for _ in range(TRUNCATION_ESCALATIONS):
+                if getattr(response.choices[0], "finish_reason", None) != "length":
+                    break
+                if budget >= MAX_OUTPUT_TOKENS:
+                    break
+                budget = min(budget * 2, MAX_OUTPUT_TOKENS)
+                log(f"{schema_name} hit max_tokens — retrying with "
+                    f"max_tokens={budget}")
+                response = _create_within_budget(
+                    client, {**kwargs, "max_tokens": budget}
+                )
+                _record_usage(usage, response)
+            if getattr(response.choices[0], "finish_reason", None) == "length":
+                raise OutputTruncated(
+                    f"{model} reply for {schema_name} still hit "
+                    f"max_tokens={budget}"
+                )
             result = parse_json(response.choices[0].message.content)
             log(f"got {schema_name}")
             return result
@@ -1119,20 +1365,26 @@ def _record_usage(usage: dict | None, response) -> None:
     cost = _usage_cost(response.usage)
     prompt = response.usage.prompt_tokens or 0
     completion = response.usage.completion_tokens or 0
+    details = getattr(response.usage, "completion_tokens_details", None)
+    reasoning = (getattr(details, "reasoning_tokens", None) or 0) if details else 0
 
     usage["calls"] = usage.get("calls", 0) + 1
     usage["prompt_tokens"] = usage.get("prompt_tokens", 0) + prompt
     usage["completion_tokens"] = usage.get("completion_tokens", 0) + completion
+    usage["reasoning_tokens"] = usage.get("reasoning_tokens", 0) + reasoning
     usage["cost_usd"] = round(usage.get("cost_usd", 0.0) + cost, 6)
     usage.setdefault("per_call", []).append(
         {
             "model": getattr(response, "model", None),
             "prompt_tokens": prompt,
             "completion_tokens": completion,
+            "reasoning_tokens": reasoning,
+            "finish_reason": getattr(response.choices[0], "finish_reason", None),
             "cost_usd": round(cost, 6),
         }
     )
-    log(f"  {prompt:,} prompt + {completion:,} completion tokens, ${cost:.5f}")
+    tail = f" ({reasoning:,} reasoning)" if reasoning else ""
+    log(f"  {prompt:,} prompt + {completion:,} completion tokens{tail}, ${cost:.5f}")
 
 
 def _with_schema_in_prompt(messages: list, schema: dict) -> list:
@@ -1336,6 +1588,26 @@ def extract_financials(
         + (" [second-half basis]" if period.get("period_basis") else "")
     )
 
+    def finalise(group: str, raw: dict) -> tuple[dict, dict]:
+        """Gate one group, then let the statement's arithmetic override a
+        low-confidence drop and repair an unlabelled total."""
+        values, details = apply_confidence_gate(raw, min_confidence)
+        for name in ("total_asset", "total_liabilities", "total_equity",
+                     "total_revenue", "net_income"):
+            item = raw.get(name)
+            if (isinstance(item, dict) and item.get("value") is not None
+                    and values.get(name) is None):
+                log(f"  dropped {name}: value={item.get('value')} "
+                    f"unit={item.get('unit')} conf={item.get('confidence')}")
+        rescued = rescue_reconciled(raw, group, values, details)
+        if rescued:
+            log(f"  {group} rescued — " + ", ".join(rescued) + " (arithmetic holds)")
+        if group == "balance_sheet":
+            repaired = reconcile_total_asset(values, details)
+            if repaired:
+                log(f"  {group} reconcile — {repaired}")
+        return values, details
+
     def run_pass(use_per_group_calls: bool) -> tuple[dict, dict]:
         values, details = {}, {}
         if use_per_group_calls:
@@ -1348,16 +1620,33 @@ def extract_financials(
                     client, doc, group, spec["fields"], period, model, pdf_model,
                     context_chars, usage,
                 )
-                values[group], details[group] = apply_confidence_gate(raw, min_confidence)
+                fixed = correct_units(raw, doc)
+                if fixed:
+                    log(f"  {group} unit override — " + "; ".join(fixed))
+                values[group], details[group] = finalise(group, raw)
         else:
             for group, raw in extract_all_groups(
                 client, doc, metrics, period, model, pdf_model, context_chars, usage,
                 reasoning,
             ).items():
-                values[group], details[group] = apply_confidence_gate(raw, min_confidence)
+                fixed = correct_units(raw, doc)
+                if fixed:
+                    log(f"  {group} unit override — " + "; ".join(fixed))
+                values[group], details[group] = finalise(group, raw)
         return values, details
 
-    values, details = run_pass(per_group_calls)
+    # A merged reply that overflows max_tokens can never parse; the per-group
+    # call carries the same fields as three smaller payloads, so switch to it
+    # instead of re-sending the oversized request.
+    switched = False
+    try:
+        values, details = run_pass(per_group_calls)
+    except OutputTruncated:
+        if per_group_calls:
+            raise
+        log("merged reply hit max_tokens — retrying per statement group")
+        per_group_calls, switched = True, True
+        values, details = run_pass(True)
 
     # Every SGX half/full-year filing states total assets, total liabilities
     # and total equity on its balance sheet, and either revenue or net income
@@ -1369,11 +1658,21 @@ def extract_financials(
     # accepted -- a single giant multi-statement call and three small
     # single-statement calls fail independently often enough that swapping
     # strategy recovers a real result more often than repeating the same call.
-    if not core_fields_present(values):
-        log("core fields missing on first pass — retrying with "
-            f"per_group_calls={not per_group_calls}")
-        values, details = run_pass(not per_group_calls)
-        if not core_fields_present(values):
+    def core_ok(values: dict) -> bool:
+        """A full-year report read on the second-half basis has no H2 income
+        column by construction — the prompt returns null for it — so only the
+        balance sheet can be required there."""
+        if period.get("period_basis") == "second_half_of_full_year_report":
+            balance = values.get("balance_sheet") or {}
+            return any(balance.get(f) is not None for f in CORE_BALANCE_SHEET_FIELDS)
+        return core_fields_present(values)
+
+    if not core_ok(values):
+        if not switched:
+            log("core fields missing on first pass — retrying with "
+                f"per_group_calls={not per_group_calls}")
+            values, details = run_pass(not per_group_calls)
+        if not core_ok(values):
             raise RuntimeError(
                 "extraction returned none of total_asset/total_liabilities/"
                 "total_equity and none of total_revenue/net_income after two "
