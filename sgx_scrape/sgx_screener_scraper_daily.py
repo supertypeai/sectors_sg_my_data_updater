@@ -304,6 +304,9 @@ def upsert_metrics(df: pd.DataFrame, client: Client):
          for k, v in row.items()}
         for row in df.to_dict(orient="records")
     ]
+    # A row with no metric at all means both upstream feeds missed the symbol;
+    # writing it would replace stored values with NULLs.
+    records = [r for r in records if any(r.get(c) is not None for c in NUMERIC_METRICS)]
     total = len(records)
     for i in range(0, total, BATCH_SIZE):
         batch = records[i : i + BATCH_SIZE]

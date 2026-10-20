@@ -90,7 +90,7 @@ _NON_MONETARY = {"diluted_shares_outstanding"}
 # STRICT WHITELISTS BASED ON YOUR SCHEMA
 # ==========================================
 INCOME_STMT_TARGETS = {
-    "minorities", "net_income", "income_taxes", "pretax_income", "total_revenue", 
+    "minorities", "net_income", "net_income_after_taxes", "income_taxes", "pretax_income", "total_revenue", 
     "interest_income", "interest_expense", "operating_income", "operating_expense", 
     "net_trading_income", "net_interest_income", "int_income_breakdown", 
     "other_non_interest_income", "diluted_shares_outstanding", "operating_expense_breakdown", 
@@ -128,6 +128,7 @@ def transform_metrics(raw_data: dict, report_type: str, currency_id: str = None,
         target_list = INCOME_STMT_TARGETS
         key_map = {
             'totalRevenue': 'total_revenue', 'netIncome': 'net_income',
+            'netIncomeAfterTaxes': 'net_income_after_taxes',
             'provisionForIncomeTaxes': 'income_taxes', 'netIncomeBeforeTaxes': 'pretax_income',
             'totalOperatingExpenses': 'operating_expense', 'dilutedAvgShares': 'diluted_shares_outstanding',
             'operatingIncome': 'operating_income', 'totalInterest': 'interest_expense',

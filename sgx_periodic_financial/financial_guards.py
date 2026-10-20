@@ -10,7 +10,7 @@ which makes them cheap to catch without a second model call.
 Two kinds of check:
 
   * IDENTITIES — relationships that must hold in any statement
-    (assets = liabilities + equity, pretax - tax = net income, ...). A break
+    (assets = liabilities + equity, pretax - tax = net income after tax, ...). A break
     means at least one of the components is wrong, but not which, so these are
     reported and the row is flagged rather than silently edited.
 
@@ -25,6 +25,7 @@ list, and is what the pipeline calls before writing a row.
 """
 
 import math
+import statistics
 
 # Identity checks allow for rounding in the source document and for the
 # extractor picking up a figure printed to a different precision.
@@ -146,16 +147,22 @@ def check(metrics: dict) -> list[dict]:
                           f"{current_assets - current_liabilities:,.0f}",
             })
 
-    # pretax - tax = net income (tax expense is stored positive)
+    # pretax - tax = net income after tax. Some feeds store net income
+    # attributable to owners, which is lower by minorities/extra items; those
+    # rows carry net_income_after_taxes (the field the identity actually applies
+    # to), so compare against that when present.
     pretax = _get(metrics, IS, "pretax_income")
     tax = _get(metrics, IS, "income_taxes")
     net_income = _get(metrics, IS, "net_income")
-    if None not in (pretax, tax, net_income) and not _close(net_income, pretax - tax):
+    net_after_tax = _get(metrics, IS, "net_income_after_taxes")
+    bridge_net = net_after_tax if net_after_tax is not None else net_income
+    if None not in (pretax, tax, bridge_net) and not _close(bridge_net, pretax - tax):
         issues.append({
             "check": "tax_bridge",
             "severity": "identity",
-            "fields": ["pretax_income", "income_taxes", "net_income"],
-            "detail": f"net={net_income:,.0f} vs pretax-tax={pretax - tax:,.0f}",
+            "fields": ["pretax_income", "income_taxes",
+                       "net_income_after_taxes" if net_after_tax is not None else "net_income"],
+            "detail": f"net={bridge_net:,.0f} vs pretax-tax={pretax - tax:,.0f}",
         })
 
     # gross = revenue - cost of revenue
@@ -387,3 +394,90 @@ def summarise(issues: list[dict]) -> str:
     if not issues:
         return "ok"
     return "; ".join(f"{i['check']}({i['detail']})" for i in issues[:3])
+
+
+# --- continuity against the symbol's own history -------------------------
+# Every other rule here is within a single row, so a mistake that keeps the row
+# internally consistent is invisible to them. The clearest example is a
+# liabilities/equity swap: assets = liabilities + equity still holds, the split
+# checks still hold, and only the issuer's other periods disagree. Equity and
+# liabilities are stable across half-years, so the series is the evidence.
+SERIES_WINDOW = 6
+# Combined |ln| deviation of the unswapped assignment needed before the history
+# is allowed to override the extraction.
+SWAP_MIN_DEVIATION = 1.0
+# Both figures are within ~2x of their swapped medians after the swap.
+SWAP_MAX_RESIDUAL = 0.7
+# The swap must fit the history at least this much better than the reading did.
+SWAP_GAIN = 4.0
+# A single line this far from the symbol's median is worth reporting.
+SERIES_OUTLIER = 5.0
+
+
+def _ln_dev(value, median) -> float:
+    if value is None or median is None or value <= 0 or median <= 0:
+        return float("inf")
+    return abs(math.log(value / median))
+
+
+def series_guard(metrics: dict, history: list[dict]) -> tuple[dict, list[dict]]:
+    """Undoes a liabilities/equity swap the symbol's own history disproves.
+
+    `history` is the stored balance sheet of the same symbol's other periods
+    (dicts with total_asset / total_liabilities / total_equity). Two figures that
+    are far from their own medians but close to each other's are swapped, which
+    is a mapping error that leaves every within-row identity intact.
+    """
+    issues: list[dict] = []
+    rows = [h for h in (history or []) if isinstance(h, dict)][-SERIES_WINDOW:]
+    liabilities = _get(metrics, BS, "total_liabilities")
+    equity = _get(metrics, BS, "total_equity")
+    assets = _get(metrics, BS, "total_asset")
+
+    pairs = [(h.get("total_liabilities"), h.get("total_equity")) for h in rows]
+    pairs = [(l, e) for l, e in pairs
+             if isinstance(l, (int, float)) and isinstance(e, (int, float)) and l > 0 and e > 0]
+
+    if liabilities and equity and liabilities > 0 and equity > 0 and len(pairs) >= 2:
+        median_l = statistics.median(l for l, _ in pairs)
+        median_e = statistics.median(e for _, e in pairs)
+        as_read = _ln_dev(liabilities, median_l) + _ln_dev(equity, median_e)
+        swapped = _ln_dev(liabilities, median_e) + _ln_dev(equity, median_l)
+        if (swapped <= SWAP_MAX_RESIDUAL
+                and as_read >= SWAP_MIN_DEVIATION
+                and as_read >= SWAP_GAIN * swapped):
+            metrics = {group: dict(values or {}) for group, values in metrics.items()}
+            metrics[BS]["total_liabilities"] = equity
+            metrics[BS]["total_equity"] = liabilities
+            issues.append({
+                "check": "liabilities_equity_swapped",
+                "severity": "corrected",
+                "fields": ["total_liabilities", "total_equity"],
+                "detail": f"{liabilities:,.0f}/{equity:,.0f} read as liabilities/equity; "
+                          f"history median {median_l:,.0f}/{median_e:,.0f} "
+                          f"(deviation {as_read:.2f} -> {swapped:.2f}) - swapped back",
+            })
+            liabilities, equity = equity, liabilities
+
+    # Continuity only: a line far from the symbol's median is reported, never edited.
+    asset_history = [h["total_asset"] for h in rows
+                     if isinstance(h.get("total_asset"), (int, float)) and h["total_asset"] > 0]
+    for field, value, median in (
+            ("total_asset", assets,
+             statistics.median(asset_history) if asset_history else 0),
+            ("total_liabilities", liabilities,
+             statistics.median([l for l, _ in pairs]) if pairs else 0),
+            ("total_equity", equity,
+             statistics.median([e for _, e in pairs]) if pairs else 0)):
+        if not value or not median or value <= 0:
+            continue
+        ratio = value / median
+        if ratio >= SERIES_OUTLIER or ratio <= 1 / SERIES_OUTLIER:
+            issues.append({
+                "check": "series_outlier",
+                "severity": "review",
+                "fields": [field],
+                "detail": f"{field}={value:,.0f} vs symbol median {median:,.0f} ({ratio:.2f}x)",
+            })
+
+    return metrics, issues

@@ -163,6 +163,18 @@ def test_missing_market_cap_column_does_not_crash_the_write():
     assert client.upserts[0][0]["symbol"] == "D05.SI"
 
 
+def test_all_null_metric_rows_are_not_written():
+    client = _Client()
+    df = pd.DataFrame(
+        [{"symbol": "D05.SI", "pe": 10.0},
+         {"symbol": "TCPD.SI", "pe": float("nan"), "pb": float("nan")}]
+    )
+
+    scraper.upsert_metrics(df, client)
+
+    assert [r["symbol"] for r in client.upserts[0]] == ["D05.SI"]
+
+
 class _Client:
     def __init__(self):
         self.upserts = []
