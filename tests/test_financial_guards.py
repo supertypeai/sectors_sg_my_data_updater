@@ -37,3 +37,29 @@ def test_annual_income_maps_net_income_after_taxes():
     )
     assert out["net_income"] == 60_000_000
     assert out["net_income_after_taxes"] == 80_000_000
+
+
+def test_annual_balance_maps_debt_cash_and_common_shares():
+    out = annual.transform_metrics(
+        {"totalDebt": 1_000, "cash": 200, "totalCommonShares": 500}, "bs"
+    )
+    assert out["total_debt"] == 1_000
+    assert out["cash"] == 200
+    assert out["total_common_shares"] == 500
+
+
+def test_annual_depreciation_maps_to_depreciation():
+    out = annual.transform_metrics({"depreciation": 500}, "income")
+    assert out["depreciation"] == 500
+    assert "amortization_of_intangible_assets" not in out
+
+
+def test_annual_common_shares_are_not_fx_converted():
+    rate = annual.get_sgd_rate("2023-12-31", "USD")
+    out = annual.transform_metrics(
+        {"totalDebt": 1_000, "cash": 200, "totalCommonShares": 500},
+        "bs", "USD", "2023-12-31",
+    )
+    assert out["total_common_shares"] == 500
+    assert out["total_debt"] == 1_000 * rate
+    assert out["cash"] == 200 * rate

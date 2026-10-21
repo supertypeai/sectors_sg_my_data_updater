@@ -84,7 +84,7 @@ def get_sgd_rate(period_end_date: str, currency_id: str) -> float | None:
     return rate
 
 # Fields that are share counts, not monetary — must NOT be currency-converted
-_NON_MONETARY = {"diluted_shares_outstanding"}
+_NON_MONETARY = {"diluted_shares_outstanding", "total_common_shares"}
 
 # ==========================================
 # STRICT WHITELISTS BASED ON YOUR SCHEMA
@@ -95,7 +95,7 @@ INCOME_STMT_TARGETS = {
     "net_trading_income", "net_interest_income", "int_income_breakdown", 
     "other_non_interest_income", "diluted_shares_outstanding", "operating_expense_breakdown", 
     "non_operating_income_or_loss", "net_fee_and_commission_income", 
-    "amortization_of_intangible_assets", "allowances_for_credit_and_other_losses"
+    "depreciation", "allowances_for_credit_and_other_losses"
 }
 
 BALANCE_SHEET_TARGETS = {
@@ -104,7 +104,8 @@ BALANCE_SHEET_TARGETS = {
     "non_loan_asset", "current_account", "operational_rwa", "savings_account", 
     "total_liabilities", "core_capital_tier1", "allowance_for_loans", 
     "total_risk_weighted_asset", "supplementary_capital_tier2", 
-    "non_interest_bearing_liabilities", "other_interest_bearing_liabilities"
+    "non_interest_bearing_liabilities", "other_interest_bearing_liabilities",
+    "total_debt", "cash", "total_common_shares", "short_term_investments"
 }
 
 CASH_FLOW_TARGETS = {
@@ -132,13 +133,15 @@ def transform_metrics(raw_data: dict, report_type: str, currency_id: str = None,
             'provisionForIncomeTaxes': 'income_taxes', 'netIncomeBeforeTaxes': 'pretax_income',
             'totalOperatingExpenses': 'operating_expense', 'dilutedAvgShares': 'diluted_shares_outstanding',
             'operatingIncome': 'operating_income', 'totalInterest': 'interest_expense',
-            'depreciation': 'amortization_of_intangible_assets'
+            'depreciation': 'depreciation'
         }
     elif report_type == 'bs':
         target_list = BALANCE_SHEET_TARGETS
         key_map = {
             'totalAssets': 'total_asset', 'totalEquity': 'total_equity',
-            'totalLiabilities': 'total_liabilities'
+            'totalLiabilities': 'total_liabilities', 'totalDebt': 'total_debt',
+            'cash': 'cash', 'totalCommonShares': 'total_common_shares',
+            'shortTermInvestments': 'short_term_investments'
         }
     elif report_type == 'cf':
         target_list = CASH_FLOW_TARGETS
@@ -248,7 +251,7 @@ def fetch_with_retry(session: requests.Session, report_type: str, stock_code: st
             logger.warning(f"[API RETRY] {stock_code} ({report_type}) - Attempt {attempt + 1} failed. Retrying in {delay:.2f}s... Reason: {e}")
             time.sleep(delay)
 
-def process_symbol(symbol: str, is_incremental: bool, updated_on: str, dry_run: bool = False, stored_metrics: dict = None):
+def process_symbol(symbol: str, is_incremental: bool, updated_on: str, dry_run: bool = False, stored_metrics: dict = None, start_date: str = None, end_date: str = None):
     """ Thread worker function to process a single company """
     stock_code = symbol.split('.')[0]
     
@@ -274,6 +277,13 @@ def process_symbol(symbol: str, is_incremental: bool, updated_on: str, dry_run: 
     for item in cf_data:
         date = item.get('periodEndDate')
         if date: combined_financials.setdefault(date, {})['cf'] = item
+
+    # --- Backfill window filter ---
+    if start_date or end_date:
+        combined_financials = {
+            d: v for d, v in combined_financials.items()
+            if (not start_date or d >= start_date) and (not end_date or d <= end_date)
+        }
 
     # --- Incremental Logic Filter ---
     if is_incremental and combined_financials:
@@ -314,7 +324,7 @@ def process_symbol(symbol: str, is_incremental: bool, updated_on: str, dry_run: 
 
     if not upsert_payloads:
         logger.info(f"[SKIP] No valid financial data found for {symbol}.")
-        return
+        return []
 
     # Never lose stored metrics: a missing blob (transient empty API response) keeps
     # the stored value whole, and a partial blob is merged so keys the upstream parser
@@ -342,7 +352,7 @@ def process_symbol(symbol: str, is_incremental: bool, updated_on: str, dry_run: 
                 f"[DRY RUN] {p['symbol']} date={p['date']} -> financial_year={p['financial_year']} "
                 f"(income={bool(p['income_stmt_metrics'])}, bs={bool(p['balance_sheet_metrics'])}, cf={bool(p['cash_flow_metrics'])})"
             )
-        return
+        return upsert_payloads
 
     # Upsert with Retry Mechanism
     max_upsert_retries = 3
@@ -359,6 +369,23 @@ def process_symbol(symbol: str, is_incremental: bool, updated_on: str, dry_run: 
                 logger.warning(f"[DB RETRY] Upsert failed for {symbol} (Attempt {attempt + 1}). Retrying in {delay:.2f}s... Reason: {e}")
                 time.sleep(delay)
 
+    return upsert_payloads
+
+def load_stored_metrics() -> dict:
+    """All stored annual rows keyed by (symbol, financial_year) for the merge guard."""
+    stored_metrics = {}
+    page_size, offset = 1000, 0
+    while True:
+        batch = supabase.table('sgx_financials_annual').select(
+            'symbol,financial_year,date,income_stmt_metrics,balance_sheet_metrics,cash_flow_metrics'
+        ).range(offset, offset + page_size - 1).execute().data or []
+        for r in batch:
+            stored_metrics[(r['symbol'], r['financial_year'])] = r
+        if not batch:
+            break
+        offset += len(batch)
+    return stored_metrics
+
 def main():
     parser = argparse.ArgumentParser(description="SGX Financials Scraper (Optimized)")
     group = parser.add_mutually_exclusive_group(required=True)
@@ -366,6 +393,8 @@ def main():
     group.add_argument('--incremental', action='store_true', help='Update all symbols for LATEST year only.')
     group.add_argument('--specific', nargs='+', help='Update specific symbols (e.g., D05 U11).')
     parser.add_argument('--dryRun', action='store_true', help='Compute payloads and log them without writing to Supabase.')
+    parser.add_argument('--start', help='Only keep period ends on/after this date (YYYY-MM-DD).')
+    parser.add_argument('--end', help='Only keep period ends on/before this date (YYYY-MM-DD).')
     args = parser.parse_args()
 
     logger.info("Initializing SGX Scraper...")
@@ -379,17 +408,7 @@ def main():
     logger.info(f"Starting execution for {total_symbols} symbols. MODE: {mode}{' [DRY RUN - no upsert]' if args.dryRun else ''}")
         
     logger.info("Loading stored metrics for the merge guard...")
-    stored_metrics = {}
-    page_size, offset = 1000, 0
-    while True:
-        batch = supabase.table('sgx_financials_annual').select(
-            'symbol,financial_year,income_stmt_metrics,balance_sheet_metrics,cash_flow_metrics'
-        ).range(offset, offset + page_size - 1).execute().data or []
-        for r in batch:
-            stored_metrics[(r['symbol'], r['financial_year'])] = r
-        if not batch:
-            break
-        offset += len(batch)
+    stored_metrics = load_stored_metrics()
     logger.info(f"Loaded {len(stored_metrics)} stored rows.")
 
     updated_on = datetime.now(timezone.utc).isoformat()
@@ -397,7 +416,7 @@ def main():
     # Using ThreadPoolExecutor for concurrency (5 threads max)
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {
-            executor.submit(process_symbol, sym, args.incremental, updated_on, args.dryRun, stored_metrics): sym 
+            executor.submit(process_symbol, sym, args.incremental, updated_on, args.dryRun, stored_metrics, args.start, args.end): sym
             for sym in symbols
         }
         
