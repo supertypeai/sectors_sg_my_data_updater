@@ -129,9 +129,26 @@ def check(metrics: dict) -> list[dict]:
     _identity(metrics, issues, BS, "total_liabilities",
               ["total_current_liabilities", "total_non_current_liabilities"],
               "liabilities_split")
-    _identity(metrics, issues, CF, "net_cash_flow",
-              ["operating_cash_flow", "investing_cash_flow", "financing_cash_flow"],
-              "cash_flow_sums")
+
+    # Cash flow sum check: operating + investing + financing (+ forex if present).
+    # Multi-currency issuers often hold foreign exchange translation adjustments on cash
+    # balances which upstream aggregators omit from standard lines. When forex is omitted,
+    # record as review rather than hard identity break.
+    net_cf = _get(metrics, CF, "net_cash_flow")
+    ocf = _get(metrics, CF, "operating_cash_flow")
+    icf = _get(metrics, CF, "investing_cash_flow")
+    fcf = _get(metrics, CF, "financing_cash_flow")
+    forex_cf = _get(metrics, CF, "effect_of_exchange_rate_changes") or _get(metrics, CF, "forex_effect_on_cash") or 0.0
+    if None not in (net_cf, ocf, icf, fcf):
+        cf_expected = ocf + icf + fcf + forex_cf
+        if not _close(net_cf, cf_expected):
+            issues.append({
+                "check": "cash_flow_sums",
+                "severity": "review" if forex_cf == 0.0 else "identity",
+                "fields": ["net_cash_flow", "operating_cash_flow", "investing_cash_flow", "financing_cash_flow"],
+                "detail": f"net_cash_flow={net_cf:,.0f} vs sum={cf_expected:,.0f}"
+                          f" ({_ratio(net_cf, cf_expected)})",
+            })
 
     # working_capital = current assets - current liabilities
     current_assets = _get(metrics, BS, "total_current_asset")

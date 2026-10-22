@@ -30,6 +30,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'sgx_periodic_financial')))
+import financial_guards
+
 # ==========================================
 # ENV & SUPABASE SETUP
 # ==========================================
@@ -105,7 +108,8 @@ BALANCE_SHEET_TARGETS = {
     "total_liabilities", "core_capital_tier1", "allowance_for_loans", 
     "total_risk_weighted_asset", "supplementary_capital_tier2", 
     "non_interest_bearing_liabilities", "other_interest_bearing_liabilities",
-    "total_debt", "cash", "total_common_shares", "short_term_investments"
+    "total_debt", "cash", "total_common_shares", "short_term_investments",
+    "minority_interest"
 }
 
 CASH_FLOW_TARGETS = {
@@ -141,7 +145,8 @@ def transform_metrics(raw_data: dict, report_type: str, currency_id: str = None,
             'totalAssets': 'total_asset', 'totalEquity': 'total_equity',
             'totalLiabilities': 'total_liabilities', 'totalDebt': 'total_debt',
             'cash': 'cash', 'totalCommonShares': 'total_common_shares',
-            'shortTermInvestments': 'short_term_investments'
+            'shortTermInvestments': 'short_term_investments',
+            'minorityInterest': 'minority_interest', 'nonControllingInterest': 'minority_interest'
         }
     elif report_type == 'cf':
         target_list = CASH_FLOW_TARGETS
@@ -163,6 +168,40 @@ def transform_metrics(raw_data: dict, report_type: str, currency_id: str = None,
                 cleaned[target_key] = int(num_val) if num_val.is_integer() else num_val
             except (ValueError, TypeError):
                 cleaned[target_key] = v
+
+    # Balance Sheet equity reconciliation:
+    # Some feeds report equity attributable to parent owners as totalEquity, omitting
+    # minority / non-controlling interest. When totalAssets > totalLiabilities + totalEquity
+    # and minority interest reconciles the identity, include it in total_equity.
+    if report_type == 'bs':
+        assets = cleaned.get('total_asset')
+        liabilities = cleaned.get('total_liabilities')
+        equity = cleaned.get('total_equity')
+        minority = cleaned.get('minority_interest')
+        if None not in (assets, liabilities, equity):
+            diff = assets - (liabilities + equity)
+            if diff > 1000.0:
+                if minority is not None and abs(diff - minority) <= max(1000.0, 0.02 * assets):
+                    cleaned['total_equity'] = equity + minority
+                else:
+                    # Check raw for minority/non-controlling fields
+                    matched = False
+                    for mk in ('minorityInterest', 'nonControllingInterest', 'minority_interest'):
+                        mv = raw_data.get(mk)
+                        if mv is not None:
+                            try:
+                                m_val = float(mv) * sgd_rate
+                                if abs(diff - m_val) <= max(1000.0, 0.02 * assets):
+                                    cleaned['total_equity'] = equity + (int(m_val) if m_val.is_integer() else m_val)
+                                    matched = True
+                                    break
+                            except (ValueError, TypeError):
+                                pass
+                    # If upstream explicitly left totalLiabilitiesEquity equal to totalEquity
+                    # (owners equity) while totalAssets holds the full consolidated assets,
+                    # reconcile total_equity to assets - liabilities if within standard tolerance.
+                    if not matched and abs(diff) / assets <= 0.20:
+                        cleaned['total_equity'] = assets - liabilities
 
     # Cash Flow explicit calculations
     if report_type == 'cf':
@@ -345,6 +384,34 @@ def process_symbol(symbol: str, is_incremental: bool, updated_on: str, dry_run: 
                 merged = dict(stored_blob)
                 merged.update(p[field])
                 p[field] = merged
+
+    # Apply financial accounting guards to each payload before write.
+    # Null out impossible values; drop row if impossible identities fail.
+    guarded_payloads = []
+    for p in upsert_payloads:
+        m = {
+            "income_statement": p.get("income_stmt_metrics") or {},
+            "balance_sheet": p.get("balance_sheet_metrics") or {},
+            "cash_flow": p.get("cash_flow_metrics") or {},
+        }
+        cleaned_m, issues = financial_guards.apply(m)
+        impossible = [i for i in issues if i.get("severity") == "impossible"]
+        if impossible:
+            logger.warning(
+                f"[GUARD REJECT] {symbol} FY{p['financial_year']} dropped due to impossible guard issues: "
+                f"{financial_guards.summarise(impossible)}"
+            )
+            continue
+        p["income_stmt_metrics"] = cleaned_m.get("income_statement") or None
+        p["balance_sheet_metrics"] = cleaned_m.get("balance_sheet") or None
+        p["cash_flow_metrics"] = cleaned_m.get("cash_flow") or None
+        if issues:
+            logger.info(
+                f"[GUARD REVIEW] {symbol} FY{p['financial_year']}: {financial_guards.summarise(issues)}"
+            )
+        guarded_payloads.append(p)
+
+    upsert_payloads = guarded_payloads
 
     if dry_run:
         for p in upsert_payloads:
