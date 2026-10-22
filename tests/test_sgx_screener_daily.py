@@ -175,6 +175,45 @@ def test_all_null_metric_rows_are_not_written():
     assert [r["symbol"] for r in client.upserts[0]] == ["D05.SI"]
 
 
+def test_metrics_guard_nullifies_sub_one_and_extreme_ratios():
+    base_df = pd.DataFrame({
+        "symbol": ["D05.SI", "S7O.SI", "BAD.SI"],
+        "api_symbol": ["D05", "S7O", "BAD"],
+        "sector": ["Financials", "Trusts", "Other"],
+        "currency": ["SGD", "SGD", "SGD"],
+        "is_reit": [False, False, False],
+    })
+    scraper._fetch_screener = lambda: pd.DataFrame({
+        "symbol": ["D05", "S7O", "BAD"],
+        "pe": [15.5, 0.053, 1500.0],
+        "pb": [2.1, 0.18, -1.0],
+    })
+    scraper._fetch_ratios_single = lambda sym: {
+        "symbol": sym,
+        "eps": 1.0,
+        "current_ratio": 1.2 if sym != "BAD" else -0.5,
+        "quick_ratio": 1.0 if sym != "BAD" else -0.2,
+    }
+    currency_maps = {"D05": ("SGD", "SGD"), "S7O": ("SGD", "SGD"), "BAD": ("SGD", "SGD")}
+
+    out = scraper.build_metrics_df(base_df, currency_maps=currency_maps).set_index("symbol")
+
+    # D05: healthy, untouched
+    assert out.loc["D05.SI", "pe"] == 15.5
+    assert out.loc["D05.SI", "pb"] == 2.1
+    assert out.loc["D05.SI", "current_ratio"] == 1.2
+
+    # S7O: sub-1 PE nullified, pb kept
+    assert pd.isna(out.loc["S7O.SI", "pe"])
+    assert out.loc["S7O.SI", "pb"] == 0.18
+
+    # BAD: extreme PE, negative PB & liquidity nullified
+    assert pd.isna(out.loc["BAD.SI", "pe"])
+    assert pd.isna(out.loc["BAD.SI", "pb"])
+    assert pd.isna(out.loc["BAD.SI", "current_ratio"])
+    assert pd.isna(out.loc["BAD.SI", "quick_ratio"])
+
+
 class _Client:
     def __init__(self):
         self.upserts = []

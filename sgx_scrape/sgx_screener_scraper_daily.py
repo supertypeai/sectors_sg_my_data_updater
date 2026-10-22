@@ -285,6 +285,16 @@ def build_metrics_df(base_df: pd.DataFrame, currency_maps: dict | None = None) -
     keep = METRICS_COLUMNS + NUMERIC_METRICS + ["_failed"]
     df = df[[c for c in keep if c in df.columns]]
 
+    # Sanitization guard: filter upstream corruptions before persist
+    # 0 < pe < 1.0 or pe > 1000 is an upstream scale/unit failure
+    if "pe" in df.columns:
+        df.loc[(df["pe"] < 1.0) | (df["pe"] > 1000.0), "pe"] = np.nan
+    if "pb" in df.columns:
+        df.loc[(df["pb"] <= 0) | (df["pb"] > 500.0), "pb"] = np.nan
+    for col in ("current_ratio", "quick_ratio"):
+        if col in df.columns:
+            df.loc[df[col] < 0, col] = np.nan
+
     logger.info(f"Metrics dataset: {len(df)} records, {len(df.columns)} columns.")
     return df
 
