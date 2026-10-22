@@ -203,9 +203,17 @@ def check(metrics: dict) -> list[dict]:
             "detail": f"unitholders == total_equity == {unitholders:,.0f}",
         })
 
-    # Earnings cannot exceed revenue (a loss legitimately can be below zero).
-    if revenue is not None and net_income is not None:
-        if net_income > 0 and revenue > 0 and net_income > revenue * (1 + IDENTITY_TOLERANCE):
+    # Earnings can legitimately exceed revenue when other income sits outside
+    # it -- a REIT's fair-value gains do (J69U FY2026: net 244.1M against
+    # revenue 223.0M with 107.7M of non-operating income). Revenue that
+    # reconciles with cost + gross is corroborated independently, so nulling it
+    # would throw away the better-established figure.
+    other_income = _get(metrics, IS, "non_operating_income_or_loss") or 0.0
+    corroborated = (None not in (revenue, cost, gross)
+                    and _close(gross, revenue - cost))
+    if revenue is not None and net_income is not None and not corroborated:
+        ceiling = revenue + max(0.0, other_income)
+        if net_income > 0 and revenue > 0 and net_income > ceiling * (1 + IDENTITY_TOLERANCE):
             issues.append({
                 "check": "earnings_exceed_revenue",
                 "severity": "impossible",
