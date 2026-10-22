@@ -111,16 +111,17 @@ def supabase_headers() -> dict:
     }
 
 
-def existing_rows() -> tuple[set, set]:
-    """(symbol, date) keys and source URLs already in the table."""
+def existing_rows() -> tuple[set, set, dict]:
+    """(symbol, date) keys, source URLs and per-symbol balance-sheet history."""
     conn = supabase_headers()
     keys, urls = set(), set()
+    history: dict[str, list[dict]] = {}
     step, offset = 1000, 0
     while True:
         resp = shared_session().get(
             f"{conn['url']}/rest/v1/{TABLE}",
             headers={**conn["headers"], "Range": f"{offset}-{offset + step - 1}"},
-            params={"select": "symbol,date,source_url"},
+            params={"select": "symbol,date,source_url,balance_sheet,income_statement"},
             timeout=SUPABASE_TIMEOUT,
         )
         resp.raise_for_status()
@@ -129,10 +130,22 @@ def existing_rows() -> tuple[set, set]:
             keys.add((row["symbol"], row["date"]))
             if row.get("source_url"):
                 urls.add(row["source_url"])
+            balance_sheet = row.get("balance_sheet") or {}
+            income = row.get("income_statement") or {}
+            history.setdefault(row["symbol"], []).append({
+                "date": row["date"],
+                "total_asset": balance_sheet.get("total_asset"),
+                "total_liabilities": balance_sheet.get("total_liabilities"),
+                "total_equity": balance_sheet.get("total_equity"),
+                "total_revenue": income.get("total_revenue"),
+                "cost_of_revenue": income.get("cost_of_revenue"),
+            })
         if len(batch) < step:
             break
         offset += step
-    return keys, urls
+    for rows in history.values():
+        rows.sort(key=lambda r: r["date"])
+    return keys, urls, history
 
 
 def upsert(rows: list[dict]) -> None:
@@ -335,7 +348,8 @@ def choose_pdfs(rows: list, seen_urls: set) -> list:
     return chosen
 
 
-def extract_many(chosen: list, rates: dict, client, workers: int, flush) -> int:
+def extract_many(chosen: list, rates: dict, client, workers: int, flush,
+                 history: dict | None = None) -> int:
     """Phase 2 — extract concurrently, flushing to Supabase as results arrive.
 
     A backfill runs for hours, so rows are written in chunks rather than in one
@@ -345,7 +359,8 @@ def extract_many(chosen: list, rates: dict, client, workers: int, flush) -> int:
     done, buffer = 0, []
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {
-            pool.submit(extract_one_row, row, pdf, url, rates, client): row
+            pool.submit(extract_one_row, row, pdf, url, rates, client,
+                        (history or {}).get(with_suffix(row["stock_code"]))): row
             for row, pdf, url in chosen
         }
         for future in as_completed(futures):
@@ -367,7 +382,8 @@ def extract_many(chosen: list, rates: dict, client, workers: int, flush) -> int:
     return done
 
 
-def extract_one_row(row, pdf_path, source_url, rates: dict, client) -> dict:
+def extract_one_row(row, pdf_path, source_url, rates: dict, client,
+                    history: list | None = None) -> dict:
     """Extract, convert to SGD and run the accounting guards for an already-chosen PDF."""
     result = extract_financials(pdf_path, client=client)
     period = result["period"]
@@ -389,6 +405,13 @@ def extract_one_row(row, pdf_path, source_url, rates: dict, client) -> dict:
     # ones actually stored. Values a rule proves wrong are nulled; identity
     # breaks are recorded for review without touching the numbers.
     metrics, issues = financial_guards.apply(metrics, result.get("provenance"))
+
+    # The rules above are all within this row, so a misread that keeps the row
+    # self-consistent still passes them (a liabilities/equity swap balances just
+    # fine). Compare against the symbol's stored periods instead.
+    prior = [h for h in (history or []) if h.get("date") != period.get("period_end")]
+    metrics, series_issues = financial_guards.series_guard(metrics, prior)
+    issues = issues + series_issues
     if issues:
         print(f"  ~ {row['stock_code']} guards: {financial_guards.summarise(issues)}",
               file=sys.stderr)
@@ -458,7 +481,7 @@ def main() -> int:
     if work.empty:
         return 0
 
-    done_keys, done_urls = existing_rows()
+    done_keys, done_urls, history = existing_rows()
     print(f"{len(done_keys)} rows already in {TABLE}")
 
     pending = []
@@ -499,7 +522,7 @@ def main() -> int:
             print(f"  -> upserted {len(payload)} ({written} so far)")
 
     print(f"\nPhase 2 — extracting with {args.workers} worker(s):")
-    extract_many(chosen, rates, client, args.workers, flush)
+    extract_many(chosen, rates, client, args.workers, flush, history)
     print(f"\n{'Would have written' if args.dry_run else 'Wrote'} {written} rows to {TABLE}")
 
     print(f"Done in {(time.monotonic() - started) / 60:.1f} min")

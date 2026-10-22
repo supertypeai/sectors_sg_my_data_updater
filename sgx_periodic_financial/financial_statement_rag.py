@@ -91,6 +91,12 @@ MAX_CHARS_TOTAL = 40_000
 MIN_TEXT_CHARS_PER_PAGE = 120
 # Pages returned per statement group before neighbour expansion.
 TOP_K_PAGES = 4
+# A page that opens with the group's statement heading outranks notes pages.
+# Notes pages accumulate many term hits and the numeric-density multiplier, so
+# without this the statement itself can rank outside the top-k (see score_page).
+ANCHOR_BONUS = 150.0
+# How far into the page the heading may start, after whitespace is removed.
+ANCHOR_WINDOW = 600
 # Tables are only worth their tokens on pages that are actually numeric.
 MIN_NUMERIC_TOKENS_FOR_TABLES = 10
 MAX_TABLE_CHARS = 4_000
@@ -127,6 +133,13 @@ METRICS_FILE = Path(__file__).parent / "data_example" / "metrics_scraped.json"
 # whereas "assets" alone appears everywhere.
 GROUP_QUERIES = {
     "income_statement": {
+        "anchors": [
+            "incomestatement", "statementofprofitorloss",
+            "statementofcomprehensiveincome", "statementoftotalreturn",
+            "consolidatedstatementofprofit",
+            # REIT format: "Consolidated Income and Distribution Statement"
+            "incomeanddistributionstatement", "consolidatedincomestatement",
+        ],
         "phrases": [
             "income statement", "statement of profit or loss",
             "statement of comprehensive income", "operating revenue",
@@ -140,6 +153,10 @@ GROUP_QUERIES = {
         ],
     },
     "balance_sheet": {
+        "anchors": [
+            "statementoffinancialposition", "statementsoffinancialposition",
+            "balancesheet", "consolidatedstatementoffinancialposition",
+        ],
         "phrases": [
             "statement of financial position", "balance sheet",
             "statements of financial position", "total assets", "total liabilities",
@@ -151,6 +168,10 @@ GROUP_QUERIES = {
         ],
     },
     "cash_flow": {
+        "anchors": [
+            "statementofcashflows", "cashflowstatement",
+            "consolidatedstatementofcashflows", "consolidatedcashflowstatement",
+        ],
         "phrases": [
             "cash flow statement", "statement of cash flows", "cash flows from",
             "operating activities", "investing activities", "financing activities",
@@ -615,6 +636,13 @@ def score_page(page: Page, profile: dict) -> float:
 
     Phrases are weighted 3x terms, and pages dense with numbers get a small bonus
     so prose that merely discusses revenue loses to the table that reports it.
+
+    A page that *is* the statement gets a fixed bonus on top. Without it a dense
+    notes page wins: Y92.SI 2025-03-31's statement page scored 64.8 while note
+    pages scored 110.7, so the statement was never shown to the model. The
+    heading is matched on a whitespace-stripped copy because several filings
+    print it character-spaced ("C o n s o l i d a t e d"), where phrase matching
+    finds nothing at all.
     """
     haystack = page.content.lower()
     if not haystack.strip():
@@ -629,7 +657,16 @@ def score_page(page: Page, profile: dict) -> float:
     numeric_tokens = len(re.findall(r"[\d,]+\.?\d*", haystack))
     if numeric_tokens > 30:
         score *= 1.35
+
+    if is_statement_anchor(page, profile):
+        score += ANCHOR_BONUS
     return score
+
+
+def is_statement_anchor(page: Page, profile: dict) -> bool:
+    """True when the group's statement heading opens the page."""
+    head = re.sub(r"\s+", "", page.raw_content.lower())[:ANCHOR_WINDOW]
+    return any(anchor in head for anchor in profile.get("anchors", ()))
 
 
 def retrieve_pages(

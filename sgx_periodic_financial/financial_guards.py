@@ -412,6 +412,10 @@ SWAP_MAX_RESIDUAL = 0.7
 SWAP_GAIN = 4.0
 # A single line this far from the symbol's median is worth reporting.
 SERIES_OUTLIER = 5.0
+# Cost of revenue as a share of revenue is a property of the business, not of the
+# period, so a row whose ratio is far from the symbol's own is a misread scale or
+# a wrong column (QES.SI held cost/revenue 0.04 where every other period is 0.76).
+COST_RATIO_TOL = 3.0
 
 
 def _ln_dev(value, median) -> float:
@@ -458,6 +462,26 @@ def series_guard(metrics: dict, history: list[dict]) -> tuple[dict, list[dict]]:
                           f"(deviation {as_read:.2f} -> {swapped:.2f}) - swapped back",
             })
             liabilities, equity = equity, liabilities
+
+    # Cost ratio: reported, never edited -- the ratio alone cannot say which of
+    # revenue or cost is wrong.
+    revenue = _get(metrics, IS, "total_revenue")
+    cost = _get(metrics, IS, "cost_of_revenue")
+    if revenue and cost and revenue > 0 and cost > 0:
+        ratios = [h["cost_of_revenue"] / h["total_revenue"] for h in rows
+                  if isinstance(h.get("total_revenue"), (int, float))
+                  and isinstance(h.get("cost_of_revenue"), (int, float))
+                  and h["total_revenue"] > 0 and h["cost_of_revenue"] > 0]
+        if len(ratios) >= 2:
+            median_ratio = statistics.median(ratios)
+            ratio = cost / revenue
+            if not (median_ratio / COST_RATIO_TOL <= ratio <= median_ratio * COST_RATIO_TOL):
+                issues.append({
+                    "check": "cost_ratio_outlier",
+                    "severity": "review",
+                    "fields": ["cost_of_revenue", "total_revenue"],
+                    "detail": f"cost/revenue={ratio:.2f} vs symbol median {median_ratio:.2f}",
+                })
 
     # Continuity only: a line far from the symbol's median is reported, never edited.
     asset_history = [h["total_asset"] for h in rows
