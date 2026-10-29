@@ -114,7 +114,8 @@ BALANCE_SHEET_TARGETS = {
 
 CASH_FLOW_TARGETS = {
     "net_cash_flow", "free_cash_flow", "capital_expenditure", 
-    "financing_cash_flow", "investing_cash_flow", "operating_cash_flow"
+    "financing_cash_flow", "investing_cash_flow", "operating_cash_flow",
+    "effect_of_exchange_rate_changes"
 }
 
 def transform_metrics(raw_data: dict, report_type: str, currency_id: str = None, period_end_date: str = None) -> dict | None:
@@ -152,7 +153,8 @@ def transform_metrics(raw_data: dict, report_type: str, currency_id: str = None,
         target_list = CASH_FLOW_TARGETS
         key_map = {
             'netChangeInCash': 'net_cash_flow', 'cashFromOperatingAct': 'operating_cash_flow',
-            'cashFromInvestingAct': 'investing_cash_flow', 'cashFromFinancingAct': 'financing_cash_flow'
+            'cashFromInvestingAct': 'investing_cash_flow', 'cashFromFinancingAct': 'financing_cash_flow',
+            'foreignExchangeEffects': 'effect_of_exchange_rate_changes'
         }
     else:
         return None
@@ -168,6 +170,16 @@ def transform_metrics(raw_data: dict, report_type: str, currency_id: str = None,
                 cleaned[target_key] = int(num_val) if num_val.is_integer() else num_val
             except (ValueError, TypeError):
                 cleaned[target_key] = v
+
+    # The tax identity is definitional: net after tax = pretax - tax. Older upstream
+    # periods omit netIncomeAfterTaxes while still reporting the two parts, which
+    # would make the guard fall back to the owners-attributable netIncome and flag
+    # the row; the derived value is the figure the field is defined to hold.
+    if report_type == 'income' and cleaned.get('net_income_after_taxes') is None:
+        pretax, tax = cleaned.get('pretax_income'), cleaned.get('income_taxes')
+        if pretax is not None and tax is not None:
+            value = pretax - tax
+            cleaned['net_income_after_taxes'] = int(value) if float(value).is_integer() else value
 
     # Balance Sheet equity reconciliation:
     # Some feeds report equity attributable to parent owners as totalEquity, omitting
@@ -405,9 +417,19 @@ def process_symbol(symbol: str, is_incremental: bool, updated_on: str, dry_run: 
         p["income_stmt_metrics"] = cleaned_m.get("income_statement") or None
         p["balance_sheet_metrics"] = cleaned_m.get("balance_sheet") or None
         p["cash_flow_metrics"] = cleaned_m.get("cash_flow") or None
-        if issues:
+        # A cash-flow break does not invalidate the row: the source statement is
+        # often incomplete (bank and multi-currency filers). Report it on stdout
+        # and write the row unchanged.
+        cf_breaks = [i for i in issues if i["check"] == "cash_flow_sums"]
+        if cf_breaks:
+            logger.warning(
+                f"[CF MISMATCH] {symbol} FY{p['financial_year']}: "
+                f"{financial_guards.summarise(cf_breaks)} (row written as-is)"
+            )
+        other = [i for i in issues if i["check"] != "cash_flow_sums"]
+        if other:
             logger.info(
-                f"[GUARD REVIEW] {symbol} FY{p['financial_year']}: {financial_guards.summarise(issues)}"
+                f"[GUARD REVIEW] {symbol} FY{p['financial_year']}: {financial_guards.summarise(other)}"
             )
         guarded_payloads.append(p)
 

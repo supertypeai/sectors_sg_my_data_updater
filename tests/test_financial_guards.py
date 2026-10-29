@@ -37,6 +37,65 @@ def test_annual_income_maps_net_income_after_taxes():
     )
     assert out["net_income"] == 60_000_000
     assert out["net_income_after_taxes"] == 80_000_000
+    assert "net_income_after_taxes_is_derived" not in out
+
+
+def test_annual_income_derives_after_tax_income_when_missing():
+    out = annual.transform_metrics(
+        {"netIncomeBeforeTaxes": 100_000_000, "provisionForIncomeTaxes": 20_000_000}, "income"
+    )
+    assert out["net_income_after_taxes"] == 80_000_000
+    assert "net_income_after_taxes_is_derived" not in out
+    assert _tax_bridge({"income_statement": out}) == []
+
+
+def test_annual_income_keeps_reported_after_tax_income():
+    out = annual.transform_metrics(
+        {"netIncomeBeforeTaxes": 100_000_000, "provisionForIncomeTaxes": 20_000_000,
+         "netIncomeAfterTaxes": 75_000_000}, "income"
+    )
+    assert out["net_income_after_taxes"] == 75_000_000
+
+
+def test_annual_cash_flow_maps_foreign_exchange_effects():
+    out = annual.transform_metrics(
+        {"cashFromOperatingAct": 100_000_000, "cashFromInvestingAct": -50_000_000,
+         "cashFromFinancingAct": -40_000_000, "netChangeInCash": 8_000_000,
+         "foreignExchangeEffects": 2_000_000}, "cf"
+    )
+    assert out["effect_of_exchange_rate_changes"] == 2_000_000
+    assert financial_guards.check({"cash_flow": out}) == []
+
+
+def test_cash_flow_accepts_fx_subtracted_but_not_added():
+    base = {"operating_cash_flow": 100_000_000, "investing_cash_flow": -50_000_000,
+            "financing_cash_flow": -40_000_000}
+    minus = {"cash_flow": {**base, "net_cash_flow": 8_000_000,
+                           "effect_of_exchange_rate_changes": 2_000_000}}
+    assert financial_guards.check(minus) == []
+    plus = {"cash_flow": {**base, "net_cash_flow": 12_000_000,
+                          "effect_of_exchange_rate_changes": 2_000_000}}
+    assert [i for i in financial_guards.check(plus) if i["check"] == "cash_flow_sums"]
+
+
+def test_cash_flow_uses_absolute_tolerance_not_percentage():
+    base = {"operating_cash_flow": 100_000_000, "investing_cash_flow": -50_000_000,
+            "financing_cash_flow": -40_000_000}
+    within = {"cash_flow": {**base, "net_cash_flow": 10_000_900}}
+    assert financial_guards.check(within) == []
+    beyond = {"cash_flow": {**base, "net_cash_flow": 10_002_000}}
+    assert [i for i in financial_guards.check(beyond) if i["check"] == "cash_flow_sums"]
+
+
+def test_duplicate_share_count_across_statements_is_allowed():
+    metrics = {"balance_sheet": {"total_common_shares": 354_568_000},
+               "income_statement": {"diluted_shares_outstanding": 354_568_000}}
+    assert [i for i in financial_guards.check(metrics)
+            if i["check"] == "duplicate_value_across_statements"] == []
+    metrics = {"balance_sheet": {"cash": 5_000_000},
+               "income_statement": {"total_revenue": 5_000_000}}
+    assert [i for i in financial_guards.check(metrics)
+            if i["check"] == "duplicate_value_across_statements"]
 
 
 def test_annual_balance_maps_debt_cash_and_common_shares():

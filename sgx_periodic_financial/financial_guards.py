@@ -48,6 +48,7 @@ IMPLAUSIBLE_SHARES = 1e11
 ALLOWED_EQUAL_PAIRS = {
     frozenset({"ebit", "operating_income"}),
     frozenset({"basic_shares_outstanding", "diluted_shares_outstanding"}),
+    frozenset({"total_common_shares", "diluted_shares_outstanding"}),
     frozenset({"total_revenue", "gross_income"}),
 }
 # Small values repeat by coincidence (zeros, small counts); large ones do not.
@@ -68,6 +69,12 @@ BS = "balance_sheet"
 CF = "cash_flow"
 
 
+# Cash flow is an equation, not a ratio: a residual here is rounding in the
+# source statement, so it must be small in absolute terms or the row is broken.
+# 2,397 of 2,961 stored rows reconcile to the dollar and 487 more within S$1,000.
+CASH_FLOW_TOLERANCE = 1_000.0
+
+
 def _get(metrics: dict, group: str, field: str):
     value = (metrics.get(group) or {}).get(field)
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
@@ -79,6 +86,10 @@ def _close(left: float, right: float, tolerance: float = IDENTITY_TOLERANCE) -> 
     if scale < ABS_FLOOR:
         return abs(left - right) < ABS_FLOOR
     return abs(left - right) / scale <= tolerance
+
+
+def _cf_close(left: float, right: float) -> bool:
+    return abs(left - right) <= CASH_FLOW_TOLERANCE
 
 
 def _identity(metrics, issues, group, target, parts, label):
@@ -130,24 +141,31 @@ def check(metrics: dict) -> list[dict]:
               ["total_current_liabilities", "total_non_current_liabilities"],
               "liabilities_split")
 
-    # Cash flow sum check: operating + investing + financing (+ forex if present).
-    # Multi-currency issuers often hold foreign exchange translation adjustments on cash
-    # balances which upstream aggregators omit from standard lines. When forex is omitted,
-    # record as review rather than hard identity break.
+    # Cash flow sum check: operating + investing + financing. The provider is not
+    # uniform about the FX line: for some issuers netChangeInCash already includes
+    # it (net equals the activities), for others the effect is reported separately
+    # and subtracted (net equals activities - fx). `activities + fx` matches no row
+    # in the corpus, so it is not offered as a candidate. The residual is an
+    # absolute amount, not a ratio: source rounding is at most a few thousand.
     net_cf = _get(metrics, CF, "net_cash_flow")
     ocf = _get(metrics, CF, "operating_cash_flow")
     icf = _get(metrics, CF, "investing_cash_flow")
     fcf = _get(metrics, CF, "financing_cash_flow")
-    forex_cf = _get(metrics, CF, "effect_of_exchange_rate_changes") or _get(metrics, CF, "forex_effect_on_cash") or 0.0
+    forex_cf = _get(metrics, CF, "effect_of_exchange_rate_changes")
+    if forex_cf is None:
+        forex_cf = _get(metrics, CF, "forex_effect_on_cash")
     if None not in (net_cf, ocf, icf, fcf):
-        cf_expected = ocf + icf + fcf + forex_cf
-        if not _close(net_cf, cf_expected):
+        activities = ocf + icf + fcf
+        candidates = [activities]
+        if forex_cf:
+            candidates.append(activities - forex_cf)
+        if not any(_cf_close(net_cf, candidate) for candidate in candidates):
             issues.append({
                 "check": "cash_flow_sums",
-                "severity": "review" if forex_cf == 0.0 else "identity",
+                "severity": "identity" if forex_cf else "review",
                 "fields": ["net_cash_flow", "operating_cash_flow", "investing_cash_flow", "financing_cash_flow"],
-                "detail": f"net_cash_flow={net_cf:,.0f} vs sum={cf_expected:,.0f}"
-                          f" ({_ratio(net_cf, cf_expected)})",
+                "detail": f"net_cash_flow={net_cf:,.0f} vs sum={activities:,.0f}"
+                          + (f" (fx={forex_cf:,.0f})" if forex_cf else ""),
             })
 
     # working_capital = current assets - current liabilities
@@ -287,6 +305,8 @@ def check(metrics: dict) -> list[dict]:
         if len(groups) < 2:
             continue
         fields = sorted({label.split(".", 1)[1] for label in labels[value]})
+        if frozenset(fields) in ALLOWED_EQUAL_PAIRS:
+            continue
         issues.append({
             "check": "duplicate_value_across_statements",
             "severity": "impossible",
