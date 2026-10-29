@@ -78,6 +78,7 @@ SG_REIT_OVERRIDES = {
     "BTOU": "REIT - Office",        # Manulife US REIT
     "MXNU": "REIT - Office",        # Elite UK REIT (GBP counter)
     "MENU": "REIT - Office",        # Elite UK REIT (SGD counter)
+    "V8VU": "REIT - Office",        # Elite UK REIT (GBP class A)
     # Industrial
     "A17U": "REIT - Industrial",    # CapitaLand Ascendas REIT
     "M44U": "REIT - Industrial",    # Mapletree Logistics Trust
