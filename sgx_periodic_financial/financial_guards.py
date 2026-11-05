@@ -550,3 +550,46 @@ def series_guard(metrics: dict, history: list[dict]) -> tuple[dict, list[dict]]:
             })
 
     return metrics, issues
+
+
+# --- cumulative H2 vs annual -------------------------------------------------
+# A full-year filing prints the second-half column next to the 12-month column.
+# When the extractor takes the 12-month value, the H2 row holds the full year and
+# the downstream H1 + H2 TTM counts the first half twice. The stored annual row is
+# the independent reference: H2 must equal FY - H1.
+H2_FY_TOLERANCE = 0.01
+
+
+def h2_revenue_guard(metrics: dict, period: str, h1_revenue, fy_revenue) -> tuple[dict, list[dict]]:
+    """Correct an H2 revenue that is actually the full-year figure.
+
+    Only acts when H2 matches FY and H1 is known. A mismatch that is not the
+    cumulative pattern is reported, never edited.
+    """
+    if period != "H2":
+        return metrics, []
+    h2 = _get(metrics, IS, "total_revenue")
+    if h2 is None or fy_revenue is None or h1_revenue is None:
+        return metrics, []
+
+    tolerance = max(abs(fy_revenue) * H2_FY_TOLERANCE, 1.0)
+    expected = fy_revenue - h1_revenue
+    if expected > 0 and abs(h2 - fy_revenue) <= tolerance and abs(h2 - expected) > tolerance:
+        metrics = {group: dict(values or {}) for group, values in metrics.items()}
+        metrics[IS]["total_revenue"] = expected
+        return metrics, [{
+            "check": "cumulative_h2_revenue",
+            "severity": "corrected",
+            "fields": ["total_revenue"],
+            "detail": f"H2={h2:,.0f} was FY {fy_revenue:,.0f}; "
+                      f"set to FY-H1={expected:,.0f} (H1 {h1_revenue:,.0f})",
+        }]
+
+    if abs(h1_revenue + h2 - fy_revenue) > tolerance:
+        return metrics, [{
+            "check": "h2_fy_mismatch",
+            "severity": "review",
+            "fields": ["total_revenue"],
+            "detail": f"H1+H2={h1_revenue + h2:,.0f} vs FY {fy_revenue:,.0f}",
+        }]
+    return metrics, []

@@ -122,3 +122,37 @@ def test_annual_common_shares_are_not_fx_converted():
     assert out["total_common_shares"] == 500
     assert out["total_debt"] == 1_000 * rate
     assert out["cash"] == 200 * rate
+
+
+def _h2_metrics(revenue):
+    return {"income_statement": {"total_revenue": revenue}}
+
+
+def test_h2_guard_replaces_full_year_with_fy_minus_h1():
+    out, issues = financial_guards.h2_revenue_guard(_h2_metrics(100.0), "H2", 40.0, 100.0)
+    assert out["income_statement"]["total_revenue"] == 60.0
+    assert [i["check"] for i in issues] == ["cumulative_h2_revenue"]
+
+
+def test_h2_guard_keeps_standalone_half():
+    out, issues = financial_guards.h2_revenue_guard(_h2_metrics(60.0), "H2", 40.0, 100.0)
+    assert out["income_statement"]["total_revenue"] == 60.0
+    assert issues == []
+
+
+def test_h2_guard_skips_without_h1():
+    out, issues = financial_guards.h2_revenue_guard(_h2_metrics(100.0), "H2", None, 100.0)
+    assert out["income_statement"]["total_revenue"] == 100.0
+    assert issues == []
+
+
+def test_h2_guard_reports_unresolved_mismatch():
+    out, issues = financial_guards.h2_revenue_guard(_h2_metrics(80.0), "H2", 40.0, 100.0)
+    assert out["income_statement"]["total_revenue"] == 80.0
+    assert [i["check"] for i in issues] == ["h2_fy_mismatch"]
+
+
+def test_h2_guard_ignores_h1_period():
+    out, issues = financial_guards.h2_revenue_guard(_h2_metrics(100.0), "H1", 40.0, 100.0)
+    assert out["income_statement"]["total_revenue"] == 100.0
+    assert issues == []

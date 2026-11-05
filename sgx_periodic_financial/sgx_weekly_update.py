@@ -148,6 +148,29 @@ def existing_rows() -> tuple[set, set, dict]:
     return keys, urls, history
 
 
+def annual_revenue() -> dict:
+    """(symbol, date) -> full-year total_revenue from sgx_financials_annual."""
+    conn = supabase_headers()
+    out: dict[tuple[str, str], float] = {}
+    step, offset = 1000, 0
+    while True:
+        resp = shared_session().get(
+            f"{conn['url']}/rest/v1/sgx_financials_annual",
+            headers={**conn["headers"], "Range": f"{offset}-{offset + step - 1}"},
+            params={"select": "symbol,date,income_stmt_metrics"},
+            timeout=SUPABASE_TIMEOUT,
+        )
+        resp.raise_for_status()
+        batch = resp.json()
+        for row in batch:
+            revenue = (row.get("income_stmt_metrics") or {}).get("total_revenue")
+            if isinstance(revenue, (int, float)) and not isinstance(revenue, bool):
+                out[(row["symbol"], row["date"])] = revenue
+        if len(batch) < step:
+            return out
+        offset += step
+
+
 def upsert(rows: list[dict]) -> None:
     """Upserts on the table's (symbol, date) primary key."""
     if not rows:
@@ -349,7 +372,7 @@ def choose_pdfs(rows: list, seen_urls: set) -> list:
 
 
 def extract_many(chosen: list, rates: dict, client, workers: int, flush,
-                 history: dict | None = None) -> int:
+                 history: dict | None = None, annual: dict | None = None) -> int:
     """Phase 2 — extract concurrently, flushing to Supabase as results arrive.
 
     A backfill runs for hours, so rows are written in chunks rather than in one
@@ -360,7 +383,7 @@ def extract_many(chosen: list, rates: dict, client, workers: int, flush,
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {
             pool.submit(extract_one_row, row, pdf, url, rates, client,
-                        (history or {}).get(with_suffix(row["stock_code"]))): row
+                        (history or {}).get(with_suffix(row["stock_code"])), annual): row
             for row, pdf, url in chosen
         }
         for future in as_completed(futures):
@@ -383,7 +406,7 @@ def extract_many(chosen: list, rates: dict, client, workers: int, flush,
 
 
 def extract_one_row(row, pdf_path, source_url, rates: dict, client,
-                    history: list | None = None) -> dict:
+                    history: list | None = None, annual: dict | None = None) -> dict:
     """Extract, convert to SGD and run the accounting guards for an already-chosen PDF."""
     result = extract_financials(pdf_path, client=client)
     period = result["period"]
@@ -412,6 +435,22 @@ def extract_one_row(row, pdf_path, source_url, rates: dict, client,
     prior = [h for h in (history or []) if h.get("date") != period.get("period_end")]
     metrics, series_issues = financial_guards.series_guard(metrics, prior)
     issues = issues + series_issues
+
+    # The full-year filing prints the second-half column next to the 12-month one.
+    # Compare against the stored annual row so an H2 that picked the full year is
+    # written as FY - H1 instead of double counting the first half downstream.
+    fy_label = financial_year(period.get("period_end"), row["period"])
+    h1_revenue = None
+    for h in history or []:
+        if h.get("date") == period.get("period_end") or not h.get("date"):
+            continue
+        if financial_year(h["date"], "H1") == fy_label:
+            h1_revenue = h.get("total_revenue")
+    fy_revenue = (annual or {}).get(
+        (with_suffix(row["stock_code"]), period.get("period_end")))
+    metrics, h2_issues = financial_guards.h2_revenue_guard(
+        metrics, row["period"], h1_revenue, fy_revenue)
+    issues = issues + h2_issues
     if issues:
         print(f"  ~ {row['stock_code']} guards: {financial_guards.summarise(issues)}",
               file=sys.stderr)
@@ -482,7 +521,9 @@ def main() -> int:
         return 0
 
     done_keys, done_urls, history = existing_rows()
-    print(f"{len(done_keys)} rows already in {TABLE}")
+    annual = annual_revenue()
+    print(f"{len(done_keys)} rows already in {TABLE}; "
+          f"{len(annual)} annual revenue references loaded")
 
     pending = []
     for _, row in work.iterrows():
@@ -522,7 +563,7 @@ def main() -> int:
             print(f"  -> upserted {len(payload)} ({written} so far)")
 
     print(f"\nPhase 2 — extracting with {args.workers} worker(s):")
-    extract_many(chosen, rates, client, args.workers, flush, history)
+    extract_many(chosen, rates, client, args.workers, flush, history, annual)
     print(f"\n{'Would have written' if args.dry_run else 'Wrote'} {written} rows to {TABLE}")
 
     print(f"Done in {(time.monotonic() - started) / 60:.1f} min")
