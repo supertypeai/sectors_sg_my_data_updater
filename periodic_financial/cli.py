@@ -14,7 +14,7 @@ from .pipeline.extract_data import extract_filing
 from .pipeline.read_ebitda import add_ebitda
 from .llm.usage import summarise_usage, RUN_RECORDS
 from .utils.currency import load_rates
-from .utils.io_helper import write_json
+from .utils.run_output import save_run_output
 from .utils.supabase_helper import (
     get_top_symbols,
     is_stored,
@@ -101,6 +101,7 @@ def run_periodic_financial_pipeline(
 
     rates = load_rates()
     results, readings, rows = {}, {}, []
+    skipped, already_stored = [], 0
 
     # Oldest first, so a company's H1 is processed before the H2 that subtracts it
     pending = sorted(filings.items(), key=lambda item: (item[0][1], item[0][0]))
@@ -117,18 +118,25 @@ def run_periodic_financial_pipeline(
                 period_end,
                 PERIODIC_TABLE,
             )
+            already_stored += 1
             continue
 
         try:
             filing = fetch_document(symbol, period_end, versions)
 
             if filing is None:
+                skipped.append(
+                    {"symbol": symbol, "date": period_end, "reason": "no_document"}
+                )
                 continue
 
             parser_result, pdf_bytes = parse_document(filing)
             record = find_pages(parser_result)
 
             if record is None:
+                skipped.append(
+                    {"symbol": symbol, "date": period_end, "reason": "no_statements"}
+                )
                 continue
 
             result = asyncio.run(
@@ -150,22 +158,40 @@ def run_periodic_financial_pipeline(
 
         except BlockedError as error:
             LOGGER.error("[Error] blocked by links.sgx.com, stopping early: %s", error)
+            skipped.append({"symbol": symbol, "date": period_end, "reason": "blocked"})
             break
 
         except requests.RequestException as error:
             LOGGER.warning(
                 "[Error][%s %s] download failed, skipped: %s", symbol, period_end, error
             )
+            skipped.append(
+                {
+                    "symbol": symbol,
+                    "date": period_end,
+                    "reason": "download_failed",
+                    "error": str(error),
+                }
+            )
             continue
 
-        except Exception:
+        except Exception as error:
             # One bad filing never stops the others, the next run retries it
             LOGGER.exception("[Error][%s %s] failed, skipped", symbol, period_end)
+            skipped.append(
+                {
+                    "symbol": symbol,
+                    "date": period_end,
+                    "reason": "error",
+                    "error": repr(error),
+                }
+            )
             continue
 
         finally:
-            write_json(run_dir / "extract_result.json", list(results.values()))
-            write_json(run_dir / "rows.json", rows)
+            save_run_output(run_dir, results, rows, skipped, already_stored)
+
+    save_run_output(run_dir, results, rows, skipped, already_stored)
 
     LOGGER.info(
         "[Summary] %d filings, %d rows %s, LLM usage %s",
