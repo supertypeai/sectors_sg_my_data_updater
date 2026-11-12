@@ -36,34 +36,52 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r periodic_financial/requirements.txt
 
       - name: Run weekly update
-        working-directory: sgx_periodic_financial
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          python sgx_weekly_update.py \
+          python -m periodic_financial.cli run_periodic_financial \
             --days "${{ github.event.inputs.days || 7 }}" \
             --top "${{ github.event.inputs.top || 200 }}" \
             ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
 
-      - name: Upload run log
+      # Issuer names and codes seen this run, kept for the next run's lookups.
+      # Runs after a failed step too, the codes are saved before extraction
+      - name: Commit updated issuer codes
+        if: success() || failure()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add periodic_financial/financial_announcement/issuer_codes.json
+          git diff --cached --quiet || git commit -m "ci: weekly update of issuer codes"
+          git pull --rebase --autostash origin main
+
+      - name: Push issuer codes
+        if: success() || failure()
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
+
+      # run.log, extract_result.json and rows.json, one folder per run
+      - name: Upload run output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sgx-periodic-financial-logs
-          path: sgx_periodic_financial/*.log
+          name: sgx-periodic-financial-run
+          path: periodic_financial/data/live/
           if-no-files-found: ignore
           retention-days: 14
