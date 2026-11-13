@@ -14,10 +14,18 @@ import warnings
 warnings.filterwarnings('ignore')
 import time
 from random import uniform
-from symbol_utils import bare_symbol, db_symbol
+from symbol_utils import bare_symbol, db_symbol, mirror_frame
 
 # Symbols are stored with their exchange suffix ("D05.SI"); Yahoo tickers are
 # built from the bare code, so strip before re-appending one.
+
+# Trust-level columns a secondary counter takes from its primary (SG only).
+# eps is left out: it is not converted to SGD.
+MIRRORED_DIV_TTM = ["dividend_ttm"]
+MIRRORED_HIGHLIGHTS = ["forward_dividend", "forward_dividend_yield", "net_profit_margin",
+                       "operating_margin", "gross_margin", "quick_ratio", "current_ratio",
+                       "debt_to_equity", "payout_ratio"]
+MIRRORED_HISTORICAL = ["historical_earnings", "historical_revenue", "earnings", "revenue"]
 
 
 
@@ -136,6 +144,8 @@ def update_div_ttm(country, country_data, supabase, resp):
                     print(f"Error fetching {stock}: {e}")
                     break
 
+    if country == "SG":
+        div_ttm = mirror_frame(div_ttm, MIRRORED_DIV_TTM)
     upsert_db(div_ttm, supabase, country)
 
 def earnings_fetcher(ticker, currency, stock, country,resp):
@@ -240,6 +250,8 @@ def update_historical_data(country, country_data, supabase,resp):
 
         df_earnings = pd.concat([df_earnings,data])
 
+    if country == "SG":
+        df_earnings = mirror_frame(df_earnings.reset_index(drop=True), MIRRORED_HISTORICAL)
     upsert_db(df_earnings,supabase,country)
 
 
@@ -329,6 +341,8 @@ def update_financial_data(country, country_data, supabase,resp):
 
         highlight_data = pd.concat([highlight_data, data], ignore_index=True)
 
+    if country == "SG":
+        highlight_data = mirror_frame(highlight_data, MIRRORED_HIGHLIGHTS)
     upsert_db(highlight_data, supabase, country)
 
 

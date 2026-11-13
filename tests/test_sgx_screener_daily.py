@@ -308,3 +308,93 @@ def test_market_cap_guard_noop_without_market_cap_column():
     latest = pd.DataFrame([{"symbol": "X.SI", "close": 1.0}])
     out = scraper._apply_market_cap_guard(latest, base)
     assert "market_cap" not in out.columns
+
+
+def _mcap_frame(rows):
+    df = pd.DataFrame(rows)
+    df["market_cap"] = df["market_cap"].astype("Int64")
+    return df
+
+
+_COUNTER_BASE = pd.DataFrame([
+    {"symbol": "MXNU.SI", "api_symbol": "MXNU", "currency": "GBP"},
+    {"symbol": "MENU.SI", "api_symbol": "MENU", "currency": "SGD"},
+    {"symbol": "D05.SI", "api_symbol": "D05", "currency": "SGD"},
+])
+_COUNTER_SNAPSHOT = {"MXNU": ("GBP", "GBP"), "MENU": (None, None), "D05": ("SGD", "SGD")}
+
+
+def _fill(latest, snapshot=_COUNTER_SNAPSHOT):
+    return scraper._fill_secondary_counter_market_cap(latest, _COUNTER_BASE, snapshot)
+
+
+def test_secondary_counter_takes_primary_units_times_own_close():
+    latest = _mcap_frame([
+        {"symbol": "MXNU.SI", "close": 0.5, "market_cap": 334_000_000},
+        {"symbol": "MENU.SI", "close": 0.52, "market_cap": None},
+        {"symbol": "D05.SI", "close": 40.0, "market_cap": None},
+    ])
+    out = _fill(latest).set_index("symbol")
+    assert out.loc["MENU.SI", "market_cap"] == 347_360_000      # 668M units x 0.52
+    assert out.loc["MXNU.SI", "market_cap"] == 334_000_000
+    assert pd.isna(out.loc["D05.SI", "market_cap"])             # not a mapped counter
+
+
+def test_secondary_counter_keeps_a_reported_market_cap():
+    latest = _mcap_frame([
+        {"symbol": "MXNU.SI", "close": 0.5, "market_cap": 334_000_000},
+        {"symbol": "MENU.SI", "close": 0.52, "market_cap": 300_000_000},
+    ])
+    out = _fill(latest).set_index("symbol")
+    assert out.loc["MENU.SI", "market_cap"] == 300_000_000
+
+
+@pytest.mark.parametrize("primary", [
+    {"symbol": "MXNU.SI", "close": 0.5, "market_cap": None},   # primary has no cap
+    {"symbol": "MXNU.SI", "close": 0.0, "market_cap": 334_000_000},
+])
+def test_secondary_counter_left_empty_without_a_usable_primary(primary):
+    latest = _mcap_frame([primary, {"symbol": "MENU.SI", "close": 0.52, "market_cap": None}])
+    out = _fill(latest).set_index("symbol")
+    assert pd.isna(out.loc["MENU.SI", "market_cap"])
+
+
+def test_secondary_counter_left_empty_when_primary_absent():
+    latest = _mcap_frame([{"symbol": "MENU.SI", "close": 0.52, "market_cap": None}])
+    out = _fill(latest)
+    assert pd.isna(out.loc[0, "market_cap"])
+
+
+@pytest.mark.parametrize("snapshot", [
+    {**_COUNTER_SNAPSHOT, "MXNU": (None, None)},         # snapshot fetch failed: cap left in GBP
+    {k: v for k, v in _COUNTER_SNAPSHOT.items() if k != "MXNU"},
+])
+def test_secondary_counter_left_empty_when_cap_currency_unknown(snapshot):
+    latest = _mcap_frame([
+        {"symbol": "MXNU.SI", "close": 0.5, "market_cap": 334_000_000},
+        {"symbol": "MENU.SI", "close": 0.52, "market_cap": None},
+    ])
+    out = _fill(latest, snapshot).set_index("symbol")
+    assert pd.isna(out.loc["MENU.SI", "market_cap"])
+
+
+def test_secondary_counter_left_empty_when_primary_has_no_db_currency():
+    base = _COUNTER_BASE.copy()
+    base.loc[base["symbol"] == "MXNU.SI", "currency"] = None    # close left unconverted
+    latest = _mcap_frame([
+        {"symbol": "MXNU.SI", "close": 0.5, "market_cap": 334_000_000},
+        {"symbol": "MENU.SI", "close": 0.52, "market_cap": None},
+    ])
+    out = scraper._fill_secondary_counter_market_cap(latest, base, _COUNTER_SNAPSHOT).set_index("symbol")
+    assert pd.isna(out.loc["MENU.SI", "market_cap"])
+
+
+def test_secondary_counter_survives_duplicate_rows():
+    latest = _mcap_frame([
+        {"symbol": "MXNU.SI", "close": 0.5, "market_cap": 334_000_000},
+        {"symbol": "MXNU.SI", "close": 0.5, "market_cap": 334_000_000},
+        {"symbol": "MENU.SI", "close": 0.52, "market_cap": None},
+        {"symbol": "MENU.SI", "close": 0.52, "market_cap": None},
+    ])
+    out = _fill(latest)
+    assert (out.loc[out["symbol"] == "MENU.SI", "market_cap"] == 347_360_000).all()
