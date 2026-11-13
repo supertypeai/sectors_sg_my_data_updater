@@ -542,18 +542,30 @@ def _apply_market_cap_guard(latest_df: pd.DataFrame, base_df: pd.DataFrame) -> p
     return latest_df
 
 
-def _fill_secondary_counter_market_cap(latest_df: pd.DataFrame) -> pd.DataFrame:
+def _fill_secondary_counter_market_cap(latest_df: pd.DataFrame, base_df: pd.DataFrame,
+                                       currency_maps: dict) -> pd.DataFrame:
     """A secondary counter (SECONDARY_COUNTERS) that SGX gives no market cap for
     takes its trust's value: the units implied by the primary counter's SGX
     market cap (market cap / close) times the secondary's own close. A market
-    cap SGX did report is never replaced."""
+    cap SGX did report is never replaced.
+
+    Both values are converted to SGD before this runs, the market cap by its
+    snapshot currency and the close by the sgx_companies currency. The units are
+    only right when both are known, so the fill is skipped if the snapshot gave
+    no market cap currency for the primary or sgx_companies has no currency."""
     if latest_df.empty or "market_cap" not in latest_df.columns:
         return latest_df
-    rows = latest_df.set_index("symbol")
+    rows = latest_df.drop_duplicates(subset="symbol", keep="last").set_index("symbol")
+    base = base_df.set_index("symbol")
     for secondary, primary in SECONDARY_COUNTERS.items():
-        if secondary not in rows.index or primary not in rows.index:
+        if secondary not in rows.index or primary not in rows.index or primary not in base.index:
             continue
         if pd.notna(rows.at[secondary, "market_cap"]):
+            continue
+        cap_currency = currency_maps.get(base.at[primary, "api_symbol"], (None, None))[0]
+        db_currency = base.at[primary, "currency"] if "currency" in base.columns else None
+        if not cap_currency or pd.isna(db_currency):
+            logger.warning(f"[{secondary}] market cap not filled: currency of {primary} unknown.")
             continue
         p_cap, p_close = rows.at[primary, "market_cap"], rows.at[primary, "close"]
         s_close = rows.at[secondary, "close"]
@@ -699,7 +711,7 @@ def build_daily_df(base_df: pd.DataFrame, mode: str, currency_maps: dict | None 
 
     price_df, latest_df = _to_stored_symbols(base_df, price_df, latest_df)
     latest_df = _apply_market_cap_guard(latest_df, base_df)
-    latest_df = _fill_secondary_counter_market_cap(latest_df)
+    latest_df = _fill_secondary_counter_market_cap(latest_df, base_df, currency_maps)
     return price_df, latest_df
 
 

@@ -51,19 +51,28 @@ def test_mirror_frame_empty():
     assert mirror_frame(df, ["dividend_ttm"]).empty
 
 
-def test_mirror_records_copies_and_follows_stripped_columns():
+def test_mirror_frame_keeps_own_value_when_primary_fetch_failed():
+    df = pd.DataFrame([
+        {"symbol": "MXNU.SI", "dividend_ttm": None, "historical_earnings": np.nan},
+        {"symbol": "MENU.SI", "dividend_ttm": 0.0247, "historical_earnings": "[]"},
+    ])
+    out = mirror_frame(df, ["dividend_ttm", "historical_earnings"]).set_index("symbol")
+    assert out.loc["MENU.SI", "dividend_ttm"] == 0.0247
+    assert out.loc["MENU.SI", "historical_earnings"] == "[]"
+
+
+def test_mirror_records_copies_values_and_keeps_own_when_primary_has_none():
     records = [
-        {"symbol": "MXNU.SI", "dividend_yield_5y_avg": 0.0913, "dividend_growth_rate": -0.03},
+        {"symbol": "MXNU.SI", "dividend_yield_5y_avg": 0.0913, "dividend_growth_rate": None},
         {"symbol": "MENU.SI", "dividend_yield_5y_avg": None, "dividend_growth_rate": 0.0247,
-         "one_year_eps_growth": None, "close": 0.515},
+         "one_year_eps_growth": 0.1, "close": 0.515},
     ]
     out = {r["symbol"]: r for r in mirror_records(records, [
         "dividend_yield_5y_avg", "dividend_growth_rate", "one_year_eps_growth"])}
     menu = out["MENU.SI"]
     assert menu["dividend_yield_5y_avg"] == 0.0913
-    assert menu["dividend_growth_rate"] == -0.03
-    # MXNU did not send one_year_eps_growth: MENU does not send it either.
-    assert "one_year_eps_growth" not in menu
+    assert menu["dividend_growth_rate"] == 0.0247       # MXNU sent None
+    assert menu["one_year_eps_growth"] == 0.1           # MXNU did not send it (failed fetch)
     assert menu["close"] == 0.515                       # price data stays per counter
 
 

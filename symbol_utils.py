@@ -54,9 +54,15 @@ def db_symbol(symbol, country) -> str:
     return bare_symbol(symbol)
 
 
+def _has_value(value) -> bool:
+    """False for None/NaN/NA: what a failed fetch leaves behind."""
+    return value is not None and not (pd.api.types.is_scalar(value) and pd.isna(value))
+
+
 def mirror_frame(df: pd.DataFrame, columns) -> pd.DataFrame:
     """Copy `columns` from each primary counter's row to its secondary counter's
-    row (SECONDARY_COUNTERS). A pair with either row missing is left unchanged."""
+    row (SECONDARY_COUNTERS). A pair with either row missing is left unchanged,
+    and so is a column the primary has no value for: the secondary keeps its own."""
     if df.empty or "symbol" not in df.columns:
         return df
     df = df.copy()
@@ -68,7 +74,7 @@ def mirror_frame(df: pd.DataFrame, columns) -> pd.DataFrame:
             continue
         source = primary_rows.iloc[-1]
         for col in columns:
-            if col in df.columns:
+            if col in df.columns and _has_value(source[col]):
                 df[col] = df[col].astype(object)
                 for idx in df.index[secondary_rows]:
                     df.at[idx, col] = source[col]
@@ -76,19 +82,15 @@ def mirror_frame(df: pd.DataFrame, columns) -> pd.DataFrame:
 
 
 def mirror_records(records, columns):
-    """Same as mirror_frame, for a list of row dicts about to be upserted. A
-    column the primary does not send (stripped after a failed fetch) is also
-    not sent for the secondary, so its stored value is kept."""
+    """Same as mirror_frame, for a list of row dicts about to be upserted."""
     by_symbol = {db_symbol(r["symbol"], "SG"): r for r in records}
     for secondary, primary in SECONDARY_COUNTERS.items():
         target, source = by_symbol.get(secondary), by_symbol.get(primary)
         if target is None or source is None:
             continue
         for col in columns:
-            if col in source:
+            if _has_value(source.get(col)):
                 target[col] = source[col]
-            else:
-                target.pop(col, None)
     return records
 
 
