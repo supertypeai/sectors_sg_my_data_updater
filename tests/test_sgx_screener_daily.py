@@ -308,3 +308,46 @@ def test_market_cap_guard_noop_without_market_cap_column():
     latest = pd.DataFrame([{"symbol": "X.SI", "close": 1.0}])
     out = scraper._apply_market_cap_guard(latest, base)
     assert "market_cap" not in out.columns
+
+
+def _mcap_frame(rows):
+    df = pd.DataFrame(rows)
+    df["market_cap"] = df["market_cap"].astype("Int64")
+    return df
+
+
+def test_secondary_counter_takes_primary_units_times_own_close():
+    latest = _mcap_frame([
+        {"symbol": "MXNU.SI", "close": 0.5, "market_cap": 334_000_000},
+        {"symbol": "MENU.SI", "close": 0.52, "market_cap": None},
+        {"symbol": "D05.SI", "close": 40.0, "market_cap": None},
+    ])
+    out = scraper._fill_secondary_counter_market_cap(latest).set_index("symbol")
+    assert out.loc["MENU.SI", "market_cap"] == 347_360_000      # 668M units x 0.52
+    assert out.loc["MXNU.SI", "market_cap"] == 334_000_000
+    assert pd.isna(out.loc["D05.SI", "market_cap"])             # not a mapped counter
+
+
+def test_secondary_counter_keeps_a_reported_market_cap():
+    latest = _mcap_frame([
+        {"symbol": "MXNU.SI", "close": 0.5, "market_cap": 334_000_000},
+        {"symbol": "MENU.SI", "close": 0.52, "market_cap": 300_000_000},
+    ])
+    out = scraper._fill_secondary_counter_market_cap(latest).set_index("symbol")
+    assert out.loc["MENU.SI", "market_cap"] == 300_000_000
+
+
+@pytest.mark.parametrize("primary", [
+    {"symbol": "MXNU.SI", "close": 0.5, "market_cap": None},   # primary has no cap
+    {"symbol": "MXNU.SI", "close": 0.0, "market_cap": 334_000_000},
+])
+def test_secondary_counter_left_empty_without_a_usable_primary(primary):
+    latest = _mcap_frame([primary, {"symbol": "MENU.SI", "close": 0.52, "market_cap": None}])
+    out = scraper._fill_secondary_counter_market_cap(latest).set_index("symbol")
+    assert pd.isna(out.loc["MENU.SI", "market_cap"])
+
+
+def test_secondary_counter_left_empty_when_primary_absent():
+    latest = _mcap_frame([{"symbol": "MENU.SI", "close": 0.52, "market_cap": None}])
+    out = scraper._fill_secondary_counter_market_cap(latest)
+    assert pd.isna(out.loc[0, "market_cap"])

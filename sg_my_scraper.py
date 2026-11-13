@@ -16,7 +16,11 @@ from supabase import create_client
 
 import yf_custom as yf
 import re
-from symbol_utils import bare_symbol, db_symbol, is_valid_number
+from symbol_utils import bare_symbol, db_symbol, is_valid_number, mirror_records
+
+# Trust-level ratios a secondary counter takes from its primary (SG only).
+# historical_dividends is left out: its amounts are in the counter's own currency.
+MIRRORED_DAILY = ["dividend_yield_5y_avg", "dividend_growth_rate", "one_year_eps_growth"]
 
 # Threaded Yahoo fetches (4 workers) for the daily pipeline. Direct connection
 # (no proxy).
@@ -956,6 +960,9 @@ if __name__ == "__main__":
             if bare_symbol(rec["symbol"]) in _FAILED_SYMBOLS:
                 for col in recomputed_cols:
                     rec.pop(col, None)
+
+    if country == "sg":
+        records = mirror_records(records, MIRRORED_DAILY)
 
     # NaN/Inf that survives cleaning (e.g. Yahoo raw inf for beta/volume) would
     # make Postgres reject the whole batch. NULL non-finite floats in place.

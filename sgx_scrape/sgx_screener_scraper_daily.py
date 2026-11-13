@@ -60,6 +60,11 @@ SGT = pytz.timezone("Asia/Singapore")
 # keeps SGX's reported value untouched.
 MARKET_CAP_OVERRIDE_SYMBOLS = {"SEB.SI", "SET.SI", "8U7U.SI"}
 
+# Secondary counter -> primary counter of the same trust, for a secondary that
+# SGX reports no market cap for. Same pairs as SECONDARY_COUNTERS in the root
+# symbol_utils.py (used by the Yahoo jobs).
+SECONDARY_COUNTERS = {"MENU.SI": "MXNU.SI"}  # Elite UK REIT
+
 
 def _load_rates() -> dict:
     """FX table (currency -> {currency: rate}) used to express prices and market
@@ -537,6 +542,29 @@ def _apply_market_cap_guard(latest_df: pd.DataFrame, base_df: pd.DataFrame) -> p
     return latest_df
 
 
+def _fill_secondary_counter_market_cap(latest_df: pd.DataFrame) -> pd.DataFrame:
+    """A secondary counter (SECONDARY_COUNTERS) that SGX gives no market cap for
+    takes its trust's value: the units implied by the primary counter's SGX
+    market cap (market cap / close) times the secondary's own close. A market
+    cap SGX did report is never replaced."""
+    if latest_df.empty or "market_cap" not in latest_df.columns:
+        return latest_df
+    rows = latest_df.set_index("symbol")
+    for secondary, primary in SECONDARY_COUNTERS.items():
+        if secondary not in rows.index or primary not in rows.index:
+            continue
+        if pd.notna(rows.at[secondary, "market_cap"]):
+            continue
+        p_cap, p_close = rows.at[primary, "market_cap"], rows.at[primary, "close"]
+        s_close = rows.at[secondary, "close"]
+        if pd.isna(p_cap) or pd.isna(p_close) or pd.isna(s_close) or p_close <= 0 or s_close <= 0:
+            continue
+        value = int(round(float(p_cap) / float(p_close) * float(s_close)))
+        latest_df.loc[latest_df["symbol"] == secondary, "market_cap"] = value
+        logger.info(f"[{secondary}] market cap from {primary}: {value:,}")
+    return latest_df
+
+
 def build_intraday_fill(base_df: pd.DataFrame, hist_df: pd.DataFrame) -> pd.DataFrame:
     """Insert-only rows for the newest BACKFILL_SESSIONS sessions the historic API
     has not returned. Historic always wins: every (symbol, date) it already carries
@@ -671,6 +699,7 @@ def build_daily_df(base_df: pd.DataFrame, mode: str, currency_maps: dict | None 
 
     price_df, latest_df = _to_stored_symbols(base_df, price_df, latest_df)
     latest_df = _apply_market_cap_guard(latest_df, base_df)
+    latest_df = _fill_secondary_counter_market_cap(latest_df)
     return price_df, latest_df
 
 
