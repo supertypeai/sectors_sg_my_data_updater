@@ -1002,7 +1002,10 @@ def strip_internal(rows):
 # Rows arrive with different provenances - a CACT dividend has
 # `dividend_original`, a corporateactions one does not - so every row is
 # normalised to this list, filling absent columns with NULL.
-# `updated_on` is omitted; the column defaults to now().
+# `updated_on` is set explicitly in write_table(): a column DEFAULT only applies
+# on INSERT, so an ON CONFLICT DO UPDATE leaves the old timestamp in place and
+# the column would silently report a stale "last updated" (verified against the
+# live table: a re-upsert of an identical row did not move it).
 TABLE_COLUMNS = {
     "sgx_dividend": ["symbol", "date", "dividend", "yield", "dividend_original",
                      "recording_date", "cum_date", "payment_date", "payment_type",
@@ -1043,6 +1046,11 @@ def write_table(table, rows):
         _log.info("%s: nothing to write", table)
         return
     rows = normalise(table, rows)
+    # ON CONFLICT DO UPDATE does not apply the column DEFAULT, so the timestamp
+    # has to be carried in the payload or it never advances.
+    stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    for r in rows:
+        r["updated_on"] = stamp
     headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}",
                "Content-Type": "application/json",
                "Prefer": "resolution=merge-duplicates,return=minimal"}

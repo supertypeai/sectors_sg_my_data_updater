@@ -512,3 +512,31 @@ def test_yes_without_write_is_rejected(monkeypatch):
         raise AssertionError("expected argparse to reject --yes without --write")
     except SystemExit as exc:
         assert exc.code == 2, f"expected exit 2, got {exc.code}"
+
+
+def test_updated_on_is_sent_because_a_default_never_fires_on_conflict(monkeypatch):
+    """A column DEFAULT only applies on INSERT, so ON CONFLICT DO UPDATE left
+    `updated_on` stale. Verified against the live table: re-upserting an
+    identical row did not move it. The payload must carry the timestamp."""
+    sent = {}
+
+    class Resp:
+        status_code = 201
+        text = ""
+
+        def raise_for_status(self):
+            pass
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        sent["rows"] = json
+        return Resp()
+
+    monkeypatch.setattr(ca.requests, "post", fake_post)
+    rows = [{"symbol": "A.SI", "date": "2020-01-01", "dividend": 1.0,
+             "source": "sgx_cact"}]
+    ca.write_table("sgx_dividend", rows)
+
+    assert sent["rows"], "nothing was posted"
+    for r in sent["rows"]:
+        assert "updated_on" in r, "updated_on missing - default will not refresh"
+        assert r["updated_on"], "updated_on empty"
