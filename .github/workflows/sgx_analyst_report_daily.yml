@@ -1,0 +1,72 @@
+name: SGX Analyst Reports Daily
+
+# Reads the last 7 days of analyst reports, first from SGX's research list,
+# then from the houses' own sites (UOB Kay Hian, POEMS, KGI, FPA, Tickrs),
+# and upserts targets, ratings and forecasts into `sgx_analyst_report`.
+#
+# Safe to re-run: rows are upserted on symbol, contributor and date, and
+# SGX's copy of a report wins over a site's copy whichever step runs first.
+
+on:
+  schedule:
+    # 13:00 UTC = 21:00 SGT every day, after the day's notes are listed.
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "How many days back to scan"
+        required: false
+        default: "7"
+      dry_run:
+        description: "Extract but do not write to Supabase"
+        required: false
+        default: "false"
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r periodic_financial/requirements.txt
+
+      - name: SGX analyst reports
+        run: |
+          python -m future_analyst_report.cli run_analyst_report \
+            --days "${{ github.event.inputs.days || 7 }}" \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      # Runs after a failed SGX step too, the sites are separate sources
+      - name: External analyst reports
+        if: success() || failure()
+        run: |
+          python -m future_analyst_report.cli run_external_analyst_report \
+            --days "${{ github.event.inputs.days || 7 }}" \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      # Each step's results and rows, for checking a run without its log
+      - name: Upload run output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-analyst-report-run
+          path: future_analyst_report/data/runs/
+          if-no-files-found: ignore
+          retention-days: 14
