@@ -1,0 +1,78 @@
+name: SGX Corporate Actions (daily + weekly)
+
+# Two horizons, one script. The daily run only reads a narrow notices window
+# (measured: 76 filings on 1 page vs 11,328 for the full history) and refreshes
+# only the symbols that window touches, so it finishes in well under a minute.
+# The weekly run reconciles the whole 2014+ history in case anything was
+# announced outside the window.
+on:
+  schedule:
+    - cron: "0 1 * * *"    # every day 09:00 SGT
+    - cron: "0 2 * * 1"    # Monday full reconcile
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "daily or weekly"
+        required: false
+        default: daily
+      window:
+        description: "override notices window in days"
+        required: false
+
+# A second run must not start while the first is still writing.
+concurrency:
+  group: sgx-corporate-actions
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # The pipeline's parser and write-shape rules are covered by tests; run
+      # them before anything touches the database. pytest is a dev dependency
+      # and requirements.txt is the runtime set, so install it here rather than
+      # shipping a test runner to production.
+      - name: Install test runner
+        run: pip install pytest
+
+      - name: Run pipeline tests
+        run: python -m pytest tests/test_sgx_corporate_actions.py -q
+
+      - name: Run daily update
+        if: github.event.schedule != '0 2 * * 1' && github.event.inputs.mode != 'weekly'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          # Akamai bans an IP that fetches announcement pages too fast. 4 is
+          # clear of it (8 earned a 403); lower it if the log shows blocks.
+          CACT_DETAIL_WORKERS: "4"
+          NOTICES_WINDOW: ${{ github.event.inputs.window }}
+        run: |
+          if [ -n "$NOTICES_WINDOW" ]; then
+            python sgx_scrape/sgx_daily_run.py --seed --notices-window "$NOTICES_WINDOW" --write --yes
+          else
+            python sgx_scrape/sgx_daily_run.py --write --yes
+          fi
+
+      - name: Run weekly reconcile
+        if: github.event.schedule == '0 2 * * 1' || github.event.inputs.mode == 'weekly'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          CACT_DETAIL_WORKERS: "4"
+        run: python sgx_scrape/sgx_daily_run.py --weekly --write --yes
