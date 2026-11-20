@@ -44,7 +44,12 @@ jobs:
         run: pip install -r requirements.txt
 
       # The pipeline's parser and write-shape rules are covered by tests; run
-      # them before anything touches the database.
+      # them before anything touches the database. pytest is a dev dependency
+      # and requirements.txt is the runtime set, so install it here rather than
+      # shipping a test runner to production.
+      - name: Install test runner
+        run: pip install pytest
+
       - name: Run pipeline tests
         run: python -m pytest tests/test_sgx_corporate_actions.py -q
 
