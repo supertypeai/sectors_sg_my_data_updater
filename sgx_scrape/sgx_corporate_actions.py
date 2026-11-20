@@ -896,31 +896,86 @@ def combine_same_day(amounts):
 
     So: if one amount equals the sum of the others, that amount is the total;
     otherwise the components add up.
+
+    Multiplicity matters and a plain set() destroys it: two genuine components of
+    the same size are indistinguishable from one component reported twice. N02
+    2009-05-06 is two filings of 0.10 (ids 12154/12123) - Yahoo reports 0.20, so
+    collapsing them stored 0.10, half the real distribution. Measured: 132 dates
+    carry a repeated amount.
+
+    A stated total must also appear exactly ONCE. When the largest value occurs
+    twice it cannot be the total of the others, or [0.1, 0.1] would return 0.1.
     """
-    values = sorted({round(a, 10) for a in amounts}, reverse=True)
-    if len(values) == 1:
-        return values[0]
-    largest, rest = values[0], values[1:]
-    if rest and abs(largest - sum(rest)) <= max(1e-9, largest * 0.01):
+    # `amounts` may be [(amount, source)] so the same component reported by both
+    # sources is counted once, while two equal components inside ONE source stay
+    # two. A bare amount is treated as its own source (single-source callers).
+    per_source = defaultdict(Counter)
+    for item in amounts:
+        value, source = item if isinstance(item, tuple) else (item, "_")
+        per_source[source][round(value, 10)] += 1
+    # max, not sum: the same component appearing in both sources is one component
+    counts = Counter()
+    for source_counts in per_source.values():
+        for value, n in source_counts.items():
+            counts[value] = max(counts[value], n)
+
+    largest = max(counts)
+    rest_total = sum(v * n for v, n in counts.items()) - largest * counts[largest]
+    if (counts[largest] == 1 and rest_total
+            and abs(largest - rest_total) <= max(1e-9, largest * 0.01)):
         return largest
-    return round(sum(values), 8)
+    return round(sum(v * n for v, n in counts.items()), 8)
+
+
+def existing_id_owners(table, ids):
+    """{id: {symbols}} for the given ids already stored in `table`."""
+    owners = defaultdict(set)
+    ids = [i for i in ids if i is not None]
+    headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+    for i in range(0, len(ids), 100):
+        chunk = ids[i:i + 100]
+        resp = requests.get(f"{SUPABASE_URL.rstrip('/')}/rest/v1/{table}",
+                            headers=headers,
+                            params={"select": "symbol,id",
+                                    "id": f"in.({','.join(str(c) for c in chunk)})"},
+                            timeout=60)
+        if resp.status_code >= 400:
+            raise RuntimeError(f"reading existing ids from {table} failed "
+                               f"({resp.status_code}): {resp.text[:200]}")
+        for r in resp.json() or []:
+            owners[r["id"]].add(r["symbol"])
+    return owners
 
 
 def dedupe_ids(table, rows):
+    """Null any SGX `id` that UNIQUE (id) cannot hold.
+
+    `id` is unique per ibmCode, not globally: 8 dual-listed pairs share one, and
+    CACT filings name only ONE side of a pair (measured: 168 filings, never
+    both). So a windowed run can see a single symbol whose id already belongs to
+    its sibling in the table, and the whole batch is then rejected with
+    23505 "duplicate key value violates unique constraint". Verified.
+    Batch-local counting alone cannot see that, so the stored owners are read
+    too. The (symbol, date) PK still identifies the row without the id.
     """
-    SGX `id` is unique per ibmCode, not globally: 8 dual-listed pairs share one.
-    Null the colliding ids so UNIQUE (id) holds; the (symbol, date) PK still
-    identifies the row.
-    """
-    counts = Counter(r["id"] for r in rows if r.get("id") is not None)
+    live = [r["id"] for r in rows if r.get("id") is not None]
+    if not live:
+        return rows
+    counts = Counter(live)
+    # id shared inside this batch, or already held by a DIFFERENT symbol
+    owners = existing_id_owners(table, set(live))
     colliding = {i for i, n in counts.items() if n > 1}
+    colliding |= {r["id"] for r in rows
+                  if r.get("id") in owners
+                  and (owners[r["id"]] - {r["symbol"]})}
     dropped = 0
     for r in rows:
         if r.get("id") in colliding:
             r["id"] = None
             dropped += 1
     if dropped:
-        _log.info("%s: nulled %d id(s) shared across dual-listed counters", table, dropped)
+        _log.info("%s: nulled %d id(s) UNIQUE (id) could not hold "
+                  "(shared across dual-listed counters)", table, dropped)
     return rows
 
 
@@ -957,9 +1012,9 @@ def merge_dividend_sources(corp_rows, cact_rows, complete_cact_dates=False):
         # 0.00414 in both sources, and summing the totals would count it twice.
         components = []
         for r in corp_by.get(key, []):
-            components += r.get("_components") or [r["dividend"]]
+            components += [(a, "corp") for a in (r.get("_components") or [r["dividend"]])]
         for r in cact_by.get(key, []):
-            components.append(r["dividend"])
+            components.append((r["dividend"], "cact"))
 
         # CACT rows are preferred for metadata (payment_type) and carry the
         # authoritative ex-date and the real amount where corporateactions only

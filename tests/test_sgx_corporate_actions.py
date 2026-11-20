@@ -150,9 +150,20 @@ def test_combine_same_day_prefers_a_stated_total_over_components():
     assert abs(ca.combine_same_day([0.00414, 0.00791]) - 0.01205) < 1e-9
 
 
-def test_dual_listed_ids_are_nulled():
+def test_dual_listed_ids_are_nulled(monkeypatch):
     # NS8U/P7VU share ibmCode 2D00, so the SGX id repeats across symbols and
     # would violate UNIQUE (id). The (symbol, date) PK still identifies the row.
+    class Resp:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return []
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(ca.requests, "get", lambda *a, **k: Resp())
     rows = [{"symbol": "NS8U.SI", "date": "2026-07-27", "id": 999},
             {"symbol": "P7VU.SI", "date": "2026-07-27", "id": 999},
             {"symbol": "D05.SI", "date": "2026-07-27", "id": 111}]
@@ -540,3 +551,82 @@ def test_updated_on_is_sent_because_a_default_never_fires_on_conflict(monkeypatc
     for r in sent["rows"]:
         assert "updated_on" in r, "updated_on missing - default will not refresh"
         assert r["updated_on"], "updated_on empty"
+
+
+def test_id_held_by_a_sibling_symbol_is_nulled(monkeypatch):
+    """CACT filings name only ONE side of a dual-listed pair (measured: 168
+    filings, never both), so a windowed run can see a single symbol whose SGX id
+    already belongs to its sibling in the table. Writing it as-is rejects the
+    whole batch: 23505 duplicate key on sgx_dividend_id_key (reproduced).
+    Batch-local counting cannot see the sibling, so the stored owners are read."""
+    class Resp:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return [{"symbol": "NS8U.SI", "id": 777}]   # sibling already holds it
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(ca.requests, "get", lambda *a, **k: Resp())
+    rows = [{"symbol": "P7VU.SI", "date": "2020-01-01", "dividend": 1.0, "id": 777}]
+    ca.dedupe_ids("sgx_dividend", rows)
+    assert rows[0]["id"] is None
+
+    # the same id on the SAME symbol is its own row, not a collision
+    rows = [{"symbol": "NS8U.SI", "date": "2020-01-01", "dividend": 1.0, "id": 777}]
+    ca.dedupe_ids("sgx_dividend", rows)
+    assert rows[0]["id"] == 777
+
+
+def test_ids_shared_inside_one_batch_are_nulled(monkeypatch):
+    """The original case: both sides of a pair in a full-history run."""
+    class Resp:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return []
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(ca.requests, "get", lambda *a, **k: Resp())
+    rows = [{"symbol": "A.SI", "date": "2020-01-01", "dividend": 1.0, "id": 5},
+            {"symbol": "B.SI", "date": "2020-01-01", "dividend": 1.0, "id": 5}]
+    ca.dedupe_ids("sgx_dividend", rows)
+    assert [r["id"] for r in rows] == [None, None]
+
+
+def test_two_equal_components_are_not_collapsed_into_one():
+    """Two genuine components of the same size look exactly like one component
+    reported twice if you dedupe with a set. N02 2009-05-06 is two filings of
+    0.10 (ids 12154/12123); Yahoo reports 0.20, and the set-based version stored
+    0.10 - half the real distribution. Measured: 132 such dates."""
+    assert ca.combine_same_day([0.1, 0.1]) == 0.2
+    assert ca.combine_same_day([0.25, 0.25]) == 0.5
+    assert ca.combine_same_day([0.02, 0.02, 0.02]) == 0.06
+
+
+def test_a_stated_total_is_only_used_when_it_appears_once():
+    """XZL 2025-03-06 is 0.00248 + 0.006 with a 0.00848 total row. But if the
+    largest amount appears twice it cannot be the total of the others, or
+    [0.1, 0.1] would wrongly return 0.1."""
+    assert abs(ca.combine_same_day([0.00248, 0.006, 0.00848]) - 0.00848) < 1e-9
+    assert abs(ca.combine_same_day([0.1, 0.1]) - 0.2) < 1e-9
+
+
+def test_the_same_component_from_both_sources_counts_once():
+    """M44U 2026-11-04 reports 0.00414 in corporateactions AND in CACT06; the
+    real distribution is 0.00414 + 0.00611 + 0.00791 = 0.01816. Equal amounts
+    from DIFFERENT sources are one component, equal amounts from ONE source are
+    two - that is why the source is part of the identity."""
+    union = [(0.00414, "corp"), (0.00791, "corp"),
+             (0.00414, "cact"), (0.00611, "cact")]
+    assert abs(ca.combine_same_day(union) - 0.01816) < 1e-9
+
+    # same amount, same source, twice  -> two components
+    assert ca.combine_same_day([(0.1, "corp"), (0.1, "corp")]) == 0.2
+    # same amount, one per source      -> one component
+    assert ca.combine_same_day([(0.1, "corp"), (0.1, "cact")]) == 0.1
