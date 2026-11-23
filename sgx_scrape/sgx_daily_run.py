@@ -45,10 +45,11 @@ def window(weekly, seeding):
 
 
 def build_command(window_days, write, yes):
-    # The forward calendar (sgx_upcoming_dividend) is owned by
-    # sgx_buyback_pipeline for now, so this run touches ONLY the four
-    # corporate-action tables. --split-calendar/--prune-calendar are therefore
-    # deliberately absent: adding them here would have two writers on one table.
+    # sgx_upcoming_dividend is left entirely to sgx_buyback_pipeline: it is the
+    # feed behind the "Dividend Announcement" news stream and
+    # sgx_company_report.upcoming_dividends. This run owns only the four
+    # corporate-action tables, so --split-calendar/--prune-calendar are absent -
+    # adding them would put two writers on that table.
     cmd = [sys.executable, SCRIPT, "--all"]
     if window_days is None:
         _log.info("weekly mode: full notices history")

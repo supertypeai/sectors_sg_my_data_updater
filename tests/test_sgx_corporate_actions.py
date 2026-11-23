@@ -386,24 +386,6 @@ def test_reference_comes_from_each_entry_not_the_last_fetch(monkeypatch):
     assert out["sgx_dividend"][0]["reference"] == "REF1"
 
 
-def test_split_routes_future_ex_dates_to_the_calendar():
-    """A dividend announced today can have an ex-date months out, so the split
-    is on ex-date, not announcement date."""
-    import datetime
-    today = datetime.date.today()
-    past = (today - datetime.timedelta(days=10)).isoformat()
-    future = (today + datetime.timedelta(days=10)).isoformat()
-    rows = [
-        {"symbol": "A.SI", "date": past, "dividend": 1.0, "reference": "R1"},
-        {"symbol": "B.SI", "date": future, "dividend": 2.0, "reference": "R2"},
-    ]
-    history, upcoming = [], []
-    for r in rows:
-        (upcoming if r["date"] > today.isoformat() and r.get("reference") else history).append(r)
-    assert len(history) == 1 and len(upcoming) == 1
-    assert upcoming[0]["symbol"] == "B.SI"
-
-
 def _fake_get(status, calls):
     class R:
         status_code = status
@@ -630,3 +612,4 @@ def test_the_same_component_from_both_sources_counts_once():
     assert ca.combine_same_day([(0.1, "corp"), (0.1, "corp")]) == 0.2
     # same amount, one per source      -> one component
     assert ca.combine_same_day([(0.1, "corp"), (0.1, "cact")]) == 0.1
+

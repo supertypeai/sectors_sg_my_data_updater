@@ -93,13 +93,15 @@ RATIO_RE = re.compile(r"Ratio:\s*(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)", re.I)
 CACT_RATIO_RE = re.compile(r"^\s*([\d.]+)\s*:\s*([\d.]+)\s*$")
 NUMBER_RE = re.compile(r"(\d+(?:\.\d+)?)")
 
-# Each table's conflict target: the composite PK the migration declares.
+# Each table's conflict target = its PRIMARY KEY: (symbol, date) or
+# (symbol, ex_date). sgx_upcoming_dividend is deliberately absent - it is owned
+# by sgx_buyback_pipeline, which also feeds the "Dividend Announcement" news
+# stream and sgx_company_report.upcoming_dividends.
 CONFLICT_KEYS = {
     "sgx_dividend": "symbol,date",
     "sgx_ca_bonus": "symbol,ex_date",
     "sgx_right_issue": "symbol,ex_date",
     "sgx_stock_split": "symbol,date",
-    "sgx_upcoming_dividend": "symbol,ex_date",
 }
 
 # compact_rates.json lives at the repo root; same convention and file as
@@ -764,9 +766,10 @@ def cact_records(client, spec_map, wanted, counter_currency=None,
                 "payment_date": _iso(_parse_detail_date(f.get("Pay Date"))),
                 "payment_type": f.get("Payment Type"),
                 "currency": "SGD", "id": None, "source": "sgx_cact",
-                # The forward calendar is keyed on this. Take it from THIS
-                # entry: `ref` in the enclosing scope is a leftover from the
-                # fetch loop and is the same value for every row.
+                # Provenance only - sgx_dividend has no such column, so
+                # normalise() drops it before the write. Read it from THIS entry:
+                # `ref` in the enclosing scope is a leftover from the fetch loop
+                # and holds the same value for every row.
                 "reference": f.get("Corporate Action Reference"),
                 "_counter_currency": counter_currency.get(symbol),
             })
@@ -1072,12 +1075,6 @@ TABLE_COLUMNS = {
                         "trading_period_end", "subscription_date", "id", "source"],
     "sgx_stock_split": ["symbol", "date", "split_ratio", "ratio", "cum_date",
                         "recording_date", "applied_on", "id", "source"],
-    # Forward calendar, keyed (symbol, ex_date) like every other table in this
-    # set. `reference` is retained as provenance only: one announcement can cover
-    # many issuers, and one ex-date can carry several components.
-    "sgx_upcoming_dividend": ["symbol", "ex_date", "recording_date",
-                              "dividend_amount", "payment_date", "cum_date",
-                              "reference", "source"],
 }
 
 
@@ -1121,28 +1118,6 @@ def write_table(table, rows):
         _log.info("  %s: upserted %d/%d", table, min(i + BATCH_SIZE, len(rows)), len(rows))
 
 
-def prune_calendar(before):
-    """Drop forward-calendar rows whose ex-date has passed.
-
-    ONLY sgx_upcoming_dividend. The four history tables are append/upsert-only:
-    an expired calendar row is already in sgx_dividend by the time this runs, so
-    deleting here loses nothing.
-    """
-    if not before or before > datetime.date.today().isoformat():
-        raise RuntimeError(
-            f"refusing to prune with bound {before!r}: it must be today or earlier")
-    headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}",
-               "Prefer": "return=representation"}
-    resp = requests.delete(
-        f"{SUPABASE_URL.rstrip('/')}/rest/v1/sgx_upcoming_dividend",
-        headers=headers, params={"ex_date": f"lt.{before}"}, timeout=120)
-    if resp.status_code >= 400:
-        raise RuntimeError(f"prune rejected ({resp.status_code}): {resp.text[:400]}")
-    removed = len(resp.json() or [])
-    _log.info("pruned %d expired calendar row(s) with ex_date < %s", removed, before)
-    return removed
-
-
 # ------------------------------------------------------------------------ main
 
 
@@ -1159,12 +1134,6 @@ def main():
                     help="incremental mode: only read CACT filings announced in the "
                          "last DAYS days, and only refresh the symbols they touch "
                          "(one page per category instead of the full 2014+ history)")
-    ap.add_argument("--split-calendar", action="store_true",
-                    help="route dividends whose ex-date is in the future into "
-                         "sgx_upcoming_dividend instead of sgx_dividend")
-    ap.add_argument("--prune-calendar", action="store_true",
-                    help="delete sgx_upcoming_dividend rows whose ex-date has passed "
-                         "(they are already in sgx_dividend by then)")
     ap.add_argument("--write", action="store_true", help="upsert to Supabase")
     ap.add_argument("--yes", action="store_true", help="confirm the write")
     args = ap.parse_args()
@@ -1300,10 +1269,18 @@ def main():
             _log.info("windowed run: reading all %d CACT06 filings", len(listing.get("CACT06", [])))
         else:
             # Full history: 11k filings, so only spend detail fetches where
-            # corporateactions is demonstrably incomplete.
-            dividend_codes = incomplete
-            _log.info("CACT06 needed for %d/%d symbols (corporateactions incomplete)",
-                       len(incomplete), len(symbols))
+            # corporateactions is demonstrably incomplete - PLUS the few symbols
+            # that have a future ex-date. Future dividends are stored in
+            # sgx_dividend too, and without their CACT06 rows their amounts can
+            # be understated: one distribution is often several components
+            # (W05 2026-10-29 is 0.01 + 0.03), and corporateactions alone may
+            # only carry some of them. ~17 extra fetches, so it is cheap.
+            today_iso = datetime.date.today().isoformat()
+            forward_symbols = {r["symbol"].replace(".SI", "") for r in records["sgx_dividend"]
+                               if r["date"] > today_iso}
+            dividend_codes = set(incomplete) | forward_symbols
+            _log.info("CACT06 needed for %d symbols (corporateactions incomplete) "
+                      "+ %d with a future ex-date", len(incomplete), len(forward_symbols))
         cact = cact_records(client, specs, wanted, counter_currency, rates=rates,
                             per_kind_wanted={"dividend": dividend_codes},
                             announcements=listing)
@@ -1324,42 +1301,6 @@ def main():
         records["sgx_stock_split"] = cact.get("sgx_stock_split", [])
 
     records = attach_cum_dates(records, sessions)
-
-    # History vs forward calendar. A dividend announced today can have an
-    # ex-date 114 days out, so the split is on ex-date, not announcement date:
-    # one pipeline then feeds both the permanent history and the calendar.
-    if args.split_calendar:
-        today = datetime.date.today().isoformat()
-        history, buckets = [], {}
-        for r in records["sgx_dividend"]:
-            if r["date"] > today:
-                # The calendar is keyed (symbol, ex_date) like sgx_dividend, so
-                # same-day components are summed. W05 2026-10-29 is 0.01 + 0.03
-                # and its history row reads 0.04 - the calendar must mirror that.
-                key = (r["symbol"], r["date"])
-                b = buckets.get(key)
-                if b is None:
-                    buckets[key] = {
-                        "symbol": r["symbol"],
-                        "ex_date": r["date"],
-                        "recording_date": r.get("recording_date"),
-                        "dividend_amount": r.get("dividend") or 0.0,
-                        "payment_date": r.get("payment_date"),
-                        "cum_date": r.get("cum_date"),
-                        "reference": r.get("reference"),
-                        "source": r.get("source"),
-                    }
-                else:
-                    b["dividend_amount"] += r.get("dividend") or 0.0
-                    b["cum_date"] = b["cum_date"] or r.get("cum_date")
-                    b["payment_date"] = b["payment_date"] or r.get("payment_date")
-            else:
-                history.append(r)
-        upcoming = list(buckets.values())
-        records["sgx_dividend"] = history
-        records["sgx_upcoming_dividend"] = upcoming
-        _log.info("split: %d history, %d forward (ex_date after %s)",
-                   len(history), len(upcoming), today)
 
     for table, rows in records.items():
         strip_internal(rows)
@@ -1403,10 +1344,6 @@ def main():
                 raise SystemExit("Refusing to write without --yes")
             for table, rows in records.items():
                 write_table(table, rows)
-            # Order matters: write history first, so a row is never deleted from
-            # the calendar before it exists in sgx_dividend.
-            if args.prune_calendar:
-                prune_calendar(datetime.date.today().isoformat())
         else:
             _log.info("DRY RUN: nothing written. Pass --write --yes to upsert.")
     finally:
