@@ -121,7 +121,12 @@ def add_stored_history(
         ]
 
         if same_report:
-            if SGX_HOST not in stored["source"] or SGX_HOST in same_report[0]["source_url"]:
+            # `source` is nullable, so a row written by a source without a URL
+            # would raise a TypeError here and abort the whole CLEAN stage.
+            stored_source = stored["source"] or ""
+            new_source = same_report[0]["source_url"] or ""
+
+            if SGX_HOST not in stored_source or SGX_HOST in new_source:
                 # A re-extracted report replaces its stored row
                 continue
 
