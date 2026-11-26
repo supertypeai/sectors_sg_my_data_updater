@@ -45,6 +45,17 @@ logger = logging.getLogger(__name__)
 # CONFIG
 # ==========================================
 METRICS_TABLE = "sgx_metrics_daily"
+
+# Price-discontinuity audit. Logging only -- the scraper never rewrites a price.
+# On day T you cannot know whether T+1 reverts, so a >3x move is reported, not
+# corrected. See .validation_tmp/sgx_price_anomalies.csv for the back catalogue.
+JUMP_RATIO   = 3.0
+PENNY_PREV   = 0.002   # at/below the minimum tick every move is a tick multiple
+PENNY_ABS    = 0.005   # ... so a <=5-tick walk is not a discontinuity
+PAGE_SIZE    = 1000    # requests per page; must stay below the server's max-rows
+# ponytail: bounds the walk back to a symbol's last trade. A symbol dormant
+# beyond this gets no audit line rather than a wrong one. Raise if it bites.
+MAX_PAGES    = 50
 DAILY_TABLE   = "sgx_daily_data"
 BATCH_SIZE    = 500
 EMPTY_RETRIES = 1
@@ -715,9 +726,131 @@ def build_daily_df(base_df: pd.DataFrame, mode: str, currency_maps: dict | None 
     return price_df, latest_df
 
 
+def _positive(value):
+    """True for a usable positive price. Guards None, NaN and 0."""
+    return value is not None and value == value and value > 0
+
+
+def _is_zero_volume(volume):
+    """True when a session has no traded volume. NaN counts as unknown."""
+    return volume is None or volume != volume or volume == 0
+
+
+def classify_price_jump(prev_close, close, volume):
+    """Tier a day-over-day move, or return None when it is not a discontinuity.
+
+    'warn' -- traded session with an abrupt move, worth a human look.
+    'info' -- same move on zero/NULL volume, i.e. a stale quote rather than a trade.
+
+    prev_close must be the last *positive* close: a 0.0 row means the symbol did
+    not trade and comparing against it would divide by zero.
+    """
+    if not _positive(prev_close) or not _positive(close):
+        return None
+    ratio = close / prev_close
+    if not (ratio >= JUMP_RATIO or ratio <= 1.0 / JUMP_RATIO):
+        return None
+    if prev_close <= PENNY_PREV and abs(close - prev_close) <= PENNY_ABS:
+        return None
+    return "info" if _is_zero_volume(volume) else "warn"
+
+
+def previous_positive_closes(client: Client, first_dates):
+    """Most recent stored close > 0 per symbol, strictly before that symbol's own
+    first row in the batch.
+
+    A single batch-wide cut-off is wrong: symbols enter the window on different
+    dates (gaps, late listings), so one symbol's first date would hand every
+    other symbol a stale prior. Ordered newest-first, so the first row that
+    predates a symbol's first date is the correct comparison. Paginated because
+    PostgREST silently truncates a response.
+    """
+    prev = {}
+    pending = dict(first_dates)          # symbol -> ISO date of its first batch row
+    symbols = sorted(pending)
+    if not symbols:
+        return prev
+    horizon = max(pending.values())
+    for i in range(0, len(symbols), BATCH_SIZE):
+        chunk = symbols[i : i + BATCH_SIZE]
+        offset = 0
+        while offset < PAGE_SIZE * MAX_PAGES:
+            try:
+                rows = (
+                    client.table(DAILY_TABLE)
+                    .select("symbol,date,close")
+                    .in_("symbol", chunk)
+                    .gt("close", 0)
+                    .lt("date", horizon)
+                    .order("date", desc=True)
+                    .range(offset, offset + PAGE_SIZE - 1)
+                    .execute()
+                    .data
+                ) or []
+            except Exception as exc:  # never let an audit break the load
+                logger.warning(f"Price jump audit skipped for {len(chunk)} symbol(s): {exc}")
+                break
+            for row in rows:
+                cut = pending.get(row["symbol"])
+                if cut is not None and row["date"] < cut:
+                    prev[row["symbol"]] = row["close"]
+                    del pending[row["symbol"]]
+            # A short page means end-of-data, which holds only while PAGE_SIZE
+            # stays below the server's max-rows. It does (1000 vs 8000).
+            if len(rows) < PAGE_SIZE or not any(s in pending for s in chunk):
+                break
+            offset += PAGE_SIZE
+    return prev
+
+
+def audit_price_jumps(price_df: pd.DataFrame, client: Client):
+    """Log day-over-day discontinuities in the batch about to be upserted."""
+    if price_df.empty or "close" not in price_df.columns:
+        return
+    symbols = sorted(price_df["symbol"].dropna().unique().tolist())
+    if not symbols:
+        return
+
+    first_dates = (
+        price_df.dropna(subset=["symbol", "date"])
+        .assign(date=lambda d: d["date"].astype(str))
+        .groupby("symbol")["date"].min()
+        .to_dict()
+    )
+    prev = previous_positive_closes(client, first_dates)
+
+    warns, infos = [], []
+    has_volume = "volume" in price_df.columns
+    # The batch spans a whole window (1m in daily mode, 1y in full), so each row
+    # must be compared with the row before it, not with the single close from
+    # before the window. prev carries forward per symbol as we walk in date order.
+    for rec in price_df.sort_values(["symbol", "date"]).to_dict(orient="records"):
+        symbol, close = rec.get("symbol"), rec.get("close")
+        prior = prev.get(symbol)
+        volume = rec.get("volume") if has_volume else None
+        tier = classify_price_jump(prior, close, volume)
+        if tier:
+            (warns if tier == "warn" else infos).append(
+                f"{symbol} {rec.get('date')} {prior} -> {close} (volume {volume})"
+            )
+        if _positive(close):
+            prev[symbol] = close
+
+    for line in warns:
+        logger.warning(f"data_anomaly: {line}")
+    for line in infos:
+        logger.info(f"stale_quote_jump: {line}")
+    if warns:
+        logger.warning(f"Price jump audit: {len(warns)} data_anomaly, {len(infos)} stale_quote_jump.")
+    elif infos:
+        logger.info(f"Price jump audit: 0 data_anomaly, {len(infos)} stale_quote_jump.")
+
+
 def upsert_daily(price_df: pd.DataFrame, latest_df: pd.DataFrame, client: Client):
     price_df = price_df.drop_duplicates(subset=["symbol", "date"], keep="last")
     latest_df = latest_df.drop_duplicates(subset=["symbol", "date"], keep="last")
+    audit_price_jumps(price_df, client)
+
     records = price_df.to_dict(orient="records")
     total = len(records)
     for i in range(0, total, BATCH_SIZE):
