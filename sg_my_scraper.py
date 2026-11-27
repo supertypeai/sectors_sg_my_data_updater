@@ -19,7 +19,9 @@ import re
 from symbol_utils import bare_symbol, db_symbol, is_valid_number, mirror_records
 
 # Trust-level ratios a secondary counter takes from its primary (SG only).
-# historical_dividends is left out: its amounts are in the counter's own currency.
+# historical_dividends is left out: the payment series is per-counter (a secondary
+# counter pays its own distributions), unlike these trust-level ratios. Its amounts
+# are converted to SGD in update_historical_dividends, same as every stored price.
 MIRRORED_DAILY = ["dividend_yield_5y_avg", "dividend_growth_rate", "one_year_eps_growth"]
 
 # Threaded Yahoo fetches (4 workers) for the daily pipeline. Direct connection
@@ -73,13 +75,50 @@ _FAILED_SYMBOLS = set()
 # completion between phases, so no cross-phase write/read race.
 _MAX_HIST_CACHE = {}
 
+# FX table (currency -> {currency: rate}), loaded in main() before the phases run.
+# Declared here so the helpers below are importable/testable on their own.
+data: dict = {}
+
+def _fx_rate(currency, country_currency):
+    """Multiplier that converts `currency` into the country's own currency
+    (SGD for SGX, MYR for KLSE) using the `data` rate table.
+
+    None when the rate is missing, so callers mark the symbol failed instead of
+    writing an unconverted price over a stored value. One funnel for every
+    price/close conversion in this scraper.
+    """
+    if not currency:
+        return 1.0
+    ccy = str(currency).upper()
+    if ccy == country_currency:
+        return 1.0
+    rate = data.get(ccy, {}).get(country_currency)
+    return float(rate) if rate is not None else None
+
+def _scale_points(points: dict, rate: float) -> dict:
+    """Multiply every {"date", "price"} entry of `points` by `rate`.
+    The min/max pick happens on the raw series: a positive constant cannot
+    change the argmin/argmax, so only the stored prices are scaled."""
+    return {
+        key: None if point is None else {
+            "date": point["date"],
+            "price": round(float(point["price"]) * rate, 6),
+        }
+        for key, point in points.items()
+    }
 
 def _max_history(ticker, ticker_str: str):
     """period="max" OHLCV for a ticker (Date as a column, post-reset_index),
     cached per run. Returns a fresh copy; callers may sort/filter freely
-    without cross-phase aliasing. None when the fetch failed/empty."""
+    without cross-phase aliasing. None when the fetch failed/empty.
+
+    auto_adjust=False on purpose: "Close" is split-adjusted only - the same
+    basis as the stored close and as update_historical_dividends. The yfinance
+    default (True) is dividend-adjusted, which made the YTD/52w/all-time
+    extremes from this feed incomparable with the price shown next to them.
+    """
     if ticker_str not in _MAX_HIST_CACHE:
-        df = _retry(ticker.history, period="max")
+        df = _retry(ticker.history, period="max", auto_adjust=False)
         # cache the successful fetch only (empty/failed stays uncached)
         if df is not None and not df.empty:
             _MAX_HIST_CACHE[ticker_str] = df.reset_index()
@@ -177,15 +216,12 @@ def yf_data_updater(data_prep: pd.DataFrame, country):
             if currency:
                 data_prep.at[index, "currency"] = currency
 
-            if currency and currency != country_currency:
-                rate = data.get(currency, {}).get(country_currency)
-                if rate is None:
-                    # No conversion rate: mark failed so main() strips cols
-                    # instead of NULL-wiping stored values.
-                    _FAILED_SYMBOLS.add(bare_symbol(symbol))
-                    return
-                else:
-                    rate = float(rate)
+            rate = _fx_rate(currency, country_currency)
+            if rate is None:
+                # No conversion rate: mark failed so main() strips cols
+                # instead of NULL-wiping stored values.
+                _FAILED_SYMBOLS.add(bare_symbol(symbol))
+                return
 
             desired_values = {
                 "fiveYearAvgDividendYield": "dividend_yield_5y_avg"
@@ -397,7 +433,9 @@ def update_close_history_data(data_prep: pd.DataFrame, country):
                 if curr_date in list_dates:
                     curr_close = float(curr["Close"])
                     if currency != country_currency:
-                        rate = float(data[currency][country_currency])
+                        rate = _fx_rate(currency, country_currency)
+                        if rate is None:
+                            raise ValueError(f"no {country_currency} rate for {currency}")
                         curr_close = curr_close * rate
                     close_data.append({
                         "date": curr_date,
@@ -439,6 +477,15 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
             ticker_extension = ".KL" if country == "my" else ".SI"
             ticker = yf.Ticker(bare_symbol(row["symbol"]) + ticker_extension)
 
+            # Stored alongside sgx_daily_data.close (SGD/MYR) and the report's
+            # dividend list: a raw Yahoo amount for a USD/HKD/GBP counter would
+            # otherwise mix currencies inside one series (H78 2022 = 0.16 USD vs
+            # 2020 = 0.2064 SGD for the same 0.16 payout).
+            rate = _fx_rate(row.get("currency"), "MYR" if country == "my" else "SGD")
+            if rate is None:
+                _FAILED_SYMBOLS.add(bare_symbol(symbol))
+                return
+
             full_history = _max_history(ticker, bare_symbol(row["symbol"]) + ticker_extension)
             if full_history is None or full_history.empty:
                 raise ValueError("No historical data available")
@@ -472,16 +519,19 @@ def update_historical_dividends(data_prep: pd.DataFrame, country):
             for year, group in dividends_df.groupby("year"):
                 breakdown = []
                 year_yields = []
-                total_dividend = round(group["Dividend"].sum(), 5)
+                # Amounts are stored in SGD; yields stay on the RAW pair
+                # (raw dividend / raw close), which is currency-neutral.
+                total_dividend = round(group["Dividend"].sum() * rate, 5)
                 for _, row_div in group.iterrows():
                     ex_date = row_div["Date"].strftime(date_format)
+                    raw_amount = float(row_div["Dividend"])
                     close = close_map.get(ex_date)
-                    div_yield = round(row_div["Dividend"] / close, 5) if close else np.nan
+                    div_yield = round(raw_amount / close, 5) if close else np.nan
                     if pd.notna(div_yield):
                         year_yields.append(div_yield)
                     breakdown.append({
                         "date": ex_date,
-                        "total": round(row_div["Dividend"], 5),
+                        "total": round(raw_amount * rate, 5),
                         "yield": div_yield
                     })
                 historical_dividends.append({
@@ -514,6 +564,14 @@ def update_all_time_price(data_prep: pd.DataFrame, country: str):
 
         try:
             ticker = yf.Ticker(ticker_full)
+
+            # Stored alongside the country's own currency (SGD/MYR): these prices
+            # are compared 1:1 against sgx_daily_data.close, which is converted.
+            # currency comes from the DB column, refreshed from Yahoo in phase 1.
+            rate = _fx_rate(row.get("currency"), "MYR" if country.lower() == "my" else "SGD")
+            if rate is None:
+                _FAILED_SYMBOLS.add(bare_symbol(symbol))
+                return
 
             full_history = _max_history(ticker, ticker_full)
             if full_history is None or full_history.empty:
@@ -562,7 +620,7 @@ def update_all_time_price(data_prep: pd.DataFrame, country: str):
             else:
                 d90_low = d90_high = None
 
-            data_prep.at[index, "all_time_price"] = {
+            data_prep.at[index, "all_time_price"] = _scale_points({
                 "ytd_low": ytd_low,
                 "ytd_high": ytd_high,
                 "52_w_low": w52_low,
@@ -571,7 +629,7 @@ def update_all_time_price(data_prep: pd.DataFrame, country: str):
                 "90_d_high": d90_high,
                 "all_time_low": all_time_low,
                 "all_time_high": all_time_high
-            }
+            }, rate)
 
         except Exception as e:
             print(f"[DEBUG] Error processing all_time_price for {ticker_full}: {e}")
@@ -828,6 +886,32 @@ def update_estimate_growth_data(data_prep: pd.DataFrame, country: str) -> pd.Dat
 
     return data_prep
 
+def load_rates(country: str) -> dict:
+    """FX table (currency -> {currency: rate}) used by every conversion in this
+    module. SG tries the local snapshot first, MY goes straight to the URL.
+
+    Kept as a function (not inline in main) so the backfills reuse the exact same
+    load path as the daily pipeline - two sources of rates would be two sources of
+    truth.
+    """
+    if country == "sg":
+        print("Attempting to use local compact_rates.json for SGX...")
+        try:
+            with open('compact_rates.json', 'r') as f:
+                rates = json.load(f)
+            print("...Success! Loaded conversion rates from local compact_rates.json file.")
+            return rates
+        except Exception as e:
+            print(f"...Warning: Could not load local file due to an error ({e}).")
+            print("...Falling back to fetching current rates from the live URL.")
+    else:
+        print("Fetching current conversion rates from URL for KLSE data.")
+    url_currency = 'https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json'
+    response = requests.get(url_currency)
+    rates = response.json()
+    print("...Successfully fetched current rates from URL.")
+    return rates
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Update sg or my data. If no argument is specified, the sg data will be updated.")
@@ -846,24 +930,7 @@ if __name__ == "__main__":
 
     country = "my" if args.malaysia else "sg"
 
-    if country == "sg":
-        print("Attempting to use local compact_rates.json for SGX...")
-        try:
-            with open('compact_rates.json', 'r') as f:
-                data = json.load(f)
-            print("...Success! Loaded conversion rates from local compact_rates.json file.")
-        except Exception as e:
-            print(f"...Warning: Could not load local file due to an error ({e}).")
-            print("...Falling back to fetching current rates from the live URL.")
-            url_currency = 'https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json'
-            response = requests.get(url_currency)
-            data = response.json()
-            print("...Successfully fetched current rates from URL as a fallback.")
-    else:
-        print("Fetching current conversion rates from URL for KLSE data.")
-        url_currency = 'https://raw.githubusercontent.com/supertypeai/sectors_get_conversion_rate/master/conversion_rate.json'
-        response = requests.get(url_currency)
-        data = response.json()
+    data = load_rates(country)
 
     url_supabase = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_KEY")
