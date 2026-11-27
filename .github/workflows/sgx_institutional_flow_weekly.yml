@@ -1,0 +1,66 @@
+name: SGX Institutional Flow Weekly
+
+# Reads SGX's Fund Flow Weekly Tracker workbooks (data-reports?reportType=203)
+# published since the last weekly run and upserts institutional and retail net flows
+# by sector into `sgx_institutional_flow_sector` and by stock into
+# `sgx_institutional_flow`.
+#
+# Safe to re-run: rows are upserted on their natural key, and the newest
+# workbook's figure wins for a week that several workbooks repeat.
+
+on:
+  schedule:
+    # 12:00 UTC = 20:00 SGT on Tuesday. SGX posts the week's file on Monday,
+    # or on Tuesday after a holiday. The 6-day look back covers Wednesday to
+    # Tuesday, so a run that starts a day late still reaches Monday's file
+    - cron: "0 12 * * 2"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "How many days back to scan"
+        required: false
+        default: "6"
+      dry_run:
+        description: "Parse but do not write to Supabase"
+        required: false
+        default: "false"
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r institutional_flow/requirements.txt
+
+      - name: SGX institutional flow
+        run: |
+          python -m institutional_flow.cli run_fund_flow \
+            --days "${{ github.event.inputs.days || 6 }}" \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      # The run's results and rows, for checking a run without its log
+      - name: Upload run output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-institutional-flow-run
+          path: institutional_flow/data/runs/
+          if-no-files-found: ignore
+          retention-days: 14

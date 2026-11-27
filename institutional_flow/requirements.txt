@@ -1,0 +1,4 @@
+# The pipeline reuses the SGX client from future_analyst_report and the
+# Supabase client from periodic_financial, so it installs their set plus openpyxl
+-r ../periodic_financial/requirements.txt
+openpyxl>=3.1.5
